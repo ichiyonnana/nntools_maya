@@ -12,9 +12,10 @@ import re
 import maya.cmds as cmds
 import maya.mel as mel
 import pymel.core as pm
+import pymel.core.nodetypes as nt
 
-from .core import *
-from .command import *
+from . import core as core
+from . import command as nuc
 
 
 def message(s):
@@ -35,7 +36,7 @@ def get_project_root():
 
 def set_project_from_scene():
     """ 現在開いているシーンからプロジェクトを設定する """
-    currentScene = cmds.file(q=True, sn=True)
+    currentScene = cmds.file(q=True, sn=True, l=True)[0]
     newProject = re.sub(r'/scenes/.+$', '', currentScene, 1)
     cmds.workspace(newProject, openWorkspace=True)
     cmds.inViewMessage(smg=newProject, pos="topCenter", bkc="0x00000000", fade=True)
@@ -406,7 +407,7 @@ def shrinkwrap_for_set():
     base_set, target = cmds.ls(selection=True, flatten=True)
 
     vts = cmds.sets(base_set, q=True)
-    base = get_object(vts[0])
+    base = core.get_object(vts[0])
 
     shrinkwrap = cmds.deformer(base, type="shrinkWrap")[0]
     cmds.connectAttr(target + ".worldMesh[0]", shrinkwrap + ".targetGeom")
@@ -445,7 +446,7 @@ target_objects = []
 
 
 def snap_to_closest():
-    selections = get_selection()
+    selections = nuc.get_selection()
     node_type = cmds.nodeType(selections[0])
 
     global target_objects
@@ -461,19 +462,19 @@ def snap_to_closest():
         target_vts = []
 
         for target_object in target_objects:
-            target_vts.extend(to_vtx(target_object))
+            target_vts.extend(nu.to_vtx(target_object))
 
-        target_points = [get_vtx_coord(x) for x in target_vts]
+        target_points = [nu.get_vtx_coord(x) for x in target_vts]
         message(target_objects)
         message(target_vts)
 
-        #選択頂点の移動
-        vts = to_vtx(selections)
+        # 選択頂点の移動
+        vts = nu.to_vtx(selections)
 
         for vtx in vts:
-            point = get_vtx_coord(vtx)
-            target_point = get_nearest_point_from_point(point, target_points)
-            set_vtx_coord(vtx, target_point)
+            point = nu.get_vtx_coord(vtx)
+            target_point = nu.get_nearest_point_from_point(point, target_points)
+            nu.set_vtx_coord(vtx, target_point)
 
         message("move points")
 
@@ -482,14 +483,14 @@ def close_hole_all(obj=None):
     """ 指定したオブジェクトの穴をすべて塞ぐ
     """
     if not obj:
-        obj = get_selection()
+        obj = nuc.get_selection()
 
     cmds.selectMode(component=True)
     cmds.selectType(polymeshEdge=True)
-    cmds.select(to_edge(obj))
+    cmds.select(nu.to_edge(obj))
     mel.eval("ConvertSelectionToEdgePerimeter")
-    edges = get_selection()
-    polyline_list = get_all_polylines(edges)
+    edges = nuc.get_selection()
+    polyline_list = nu.get_all_polylines(edges)
 
     for polyline in polyline_list:
         cmds.select(polyline)
@@ -623,7 +624,7 @@ def merge_in_range(vertices, r, connected=True):
     if connected:
         target = vtx.connectedVertices() + vtx
     else:
-        obj = pm.PyNode(get_object(vtx))
+        obj = pm.PyNode(nuc.get_object(vtx))
         target = obj.vertices()
 
     # マージ対象
@@ -693,5 +694,18 @@ def replace_mesh_as_connection():
     print(src_object)
 
     for dst in dst_objects:
-        if not dst in src_object.outMesh.connections(dst.inMesh):
+        if dst not in src_object.outMesh.connections(dst.inMesh):
             src_object.outMesh.connect(dst.inMesh)
+
+
+def weight_paint_mode_with_selected_joint():
+    """選択したメッシュに対して選択したジョイントがアクティブな状態でウェイトペイントモードに入る"""
+    sel_joints = [x for x in nuc.selected() if isinstance(x, nt.Joint)]
+    sel_meshes = [x for x in nuc.selected() if isinstance(x, nt.Transform)]
+
+    if sel_joints and sel_meshes:
+        pm.select(sel_meshes, replace=True)
+        mel.eval("ArtPaintSkinWeightsToolOptions")
+        mel.eval('artSkinInflListChanging "%s" 1' % sel_joints[0].name())
+        mel.eval("artSkinInflListChanged artAttrSkinPaintCtx")
+
