@@ -14,7 +14,7 @@ import maya.mel as mel
 import pymel.core as pm
 import pymel.core.nodetypes as nt
 
-from . import core as core
+from . import core as nu
 from . import command as nuc
 
 
@@ -407,7 +407,7 @@ def shrinkwrap_for_set():
     base_set, target = cmds.ls(selection=True, flatten=True)
 
     vts = cmds.sets(base_set, q=True)
-    base = core.get_object(vts[0])
+    base = nu.get_object(vts[0])
 
     shrinkwrap = cmds.deformer(base, type="shrinkWrap")[0]
     cmds.connectAttr(target + ".worldMesh[0]", shrinkwrap + ".targetGeom")
@@ -709,3 +709,27 @@ def weight_paint_mode_with_selected_joint():
         mel.eval('artSkinInflListChanging "%s" 1' % sel_joints[0].name())
         mel.eval("artSkinInflListChanged artAttrSkinPaintCtx")
 
+
+def get_isolated_uv_face():
+    isolate_objectset = pm.ls("textureEditorIsolateSelectSet")
+
+    if isolate_objectset:
+        return isolate_objectset[0].members()
+    else:
+        return None
+
+
+def change_uveditor_image(n):
+    uveditor_panel_name = "polyTexturePlacementPanel1"
+
+    iso_faces = get_isolated_uv_face()
+
+    if iso_faces:
+        pm.select(iso_faces)
+        mel.eval("ToggleUVIsolateViewSelected;")
+
+    mel.eval("textureWindowSelectTexture %s %s;" % (n, uveditor_panel_name))
+    mel.eval("uvTbUpdateTextureItems %s;" & uveditor_panel_name)
+
+    if iso_faces:
+        mel.eval("ToggleUVIsolateViewSelected;")
