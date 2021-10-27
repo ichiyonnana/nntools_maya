@@ -18,6 +18,7 @@ import maya.cmds as cmds
 import maya.mel as mel
 import pymel.core as pm
 import pymel.core.nodetypes as nt
+import pymel.core.datatypes as dt
 
 DEBUG = False
 
@@ -404,6 +405,16 @@ def get_uv_coord(uv):
 
 
 def get_connected_vertices(comp):
+    """ [pm/cmds] pymel の getConnectedVertices の代替関数
+    
+    pymel の getConnectedVertices より若干早い
+
+    Args:
+        comp ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
     if type(comp) in [type(""), type(u"")]:
         # comp 自体を取り除く (obj, objShape 対策でインデックスのみ比較)
         return [x for x in to_vtx(to_edge(comp)) if re.search(r"(\[\d+\])", comp).groups()[0] not in x]
@@ -600,16 +611,30 @@ def vertices_path_length(vertices, n=None, space="world"):
     return path
 
 
+def is_string(v):
+    """文字列かどうか調べる
+
+    Python2,3 併用メソッド
+
+    Args:
+        v (any): 型をチェックするオブジェクト
+    """
+    return isinstance(v, (str, type(u"")))
+
+
 def get_object(component, pn=False):
     """ [pm/cmds] component の所属するオブジェクトを取得する
-
-    TODO: 引数の型で pm/cmds 判断して pn オプション廃止する (指定し忘れのクラッシュ事故が多い)
 
     Args:
 
     Returns:
         str or PyNode:
     """
+    if not component:
+        return component
+
+    pn = not is_string(component)
+
     if pn:
         return pynode(pm.polyListComponentConversion(component)[0])
     else:
@@ -619,15 +644,21 @@ def get_object(component, pn=False):
 def to_vtx(components, pn=False):
     """ [pm/cmds] 
     
-    TODO: 引数の型で pm/cmds 判断して pn オプション廃止する (指定し忘れのクラッシュ事故が多い)
-
     Args:
         components ([type]): [description]
         pn (bool, optional): [description]. Defaults to False.
 
     Returns:
-        str or PyNode:
+        list[str or PyNode]:
     """
+    if not components:
+        return components
+
+    if isinstance(components, list):
+        pn = not is_string(components[0])
+    else:
+        pn = not is_string(components)
+
     if pn:
         return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, tv=True), sm=31)))
     else:
@@ -637,15 +668,21 @@ def to_vtx(components, pn=False):
 def to_edge(components, pn=False):
     """ [pm/cmds] 
     
-    TODO: 引数の型で pm/cmds 判断して pn オプション廃止する (指定し忘れのクラッシュ事故が多い)
-
     Args:
         components ([type]): [description]
         pn (bool, optional): [description]. Defaults to False.
 
     Returns:
-        str or PyNode:
+        list[str or PyNode]:
     """
+    if not components:
+        return components
+
+    if isinstance(components, list):
+        pn = not is_string(components[0])
+    else:
+        pn = not is_string(components)
+    
     if pn:
         return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, te=True), sm=32)))
     else:
@@ -655,15 +692,21 @@ def to_edge(components, pn=False):
 def to_face(components, pn=False):
     """ [pm/cmds] 
     
-    TODO: 引数の型で pm/cmds 判断して pn オプション廃止する (指定し忘れのクラッシュ事故が多い)
-
     Args:
         components ([type]): [description]
         pn (bool, optional): [description]. Defaults to False.
 
     Returns:
-        str or PyNode:
+        list[str or PyNode]:
     """
+    if not components:
+        return components
+
+    if isinstance(components, list):
+        pn = not is_string(components[0])
+    else:
+        pn = not is_string(components)
+    
     if pn:
         return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, tf=True), sm=34)))
     else:
@@ -673,15 +716,21 @@ def to_face(components, pn=False):
 def to_uv(components, pn=False):  
     """ [pm/cmds] 
     
-    TODO: 引数の型で pm/cmds 判断して pn オプション廃止する (指定し忘れのクラッシュ事故が多い)
-
     Args:
         components ([type]): [description]
         pn (bool, optional): [description]. Defaults to False.
 
     Returns:
-        str or PyNode:
+        list[str or PyNode]:
     """  
+    if not components:
+        return components
+
+    if isinstance(components, list):
+        pn = not is_string(components[0])
+    else:
+        pn = not is_string(components)
+    
     if pn:
         return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, tuv=True), sm=35)))
     else:
@@ -690,20 +739,194 @@ def to_uv(components, pn=False):
 
 def to_vtxface(components, pn=False):
     """ [pm/cmds] 
-    
-    TODO: 引数の型で pm/cmds 判断して pn オプション廃止する (指定し忘れのクラッシュ事故が多い)
 
     Args:
         components ([type]): [description]
         pn (bool, optional): [description]. Defaults to False.
 
     Returns:
-        str or PyNode:
+        list[str or PyNode]:
     """
+    if not components:
+        return components
+
+    if isinstance(components, list):
+        pn = not is_string(components[0])
+    else:
+        pn = not is_string(components)
+    
     if pn:
         return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, tvf=True), sm=70)))
     else:
         return uniq(cmds.filterExpand(cmds.polyListComponentConversion(components, tvf=True), sm=70))
+
+
+def to_border_vertices(components):
+    """ [pm]
+    """
+    if not components:
+        return components
+
+    if isinstance(components, list):
+        pn = not is_string(components[0])
+    else:
+        pn = not is_string(components)
+
+    border = pm.filterExpand(pm.polyListComponentConversion(components, tv=True, border=True), sm=31)
+
+    if border:
+        if pn:
+            return uniq(pynode(border))
+        else:
+            return uniq(border)
+    else:
+        return []
+
+
+def to_border_edges(components):
+    """ [pm]
+    """
+    if not components:
+        return components
+
+    if isinstance(components, list):
+        pn = not is_string(components[0])
+    else:
+        pn = not is_string(components)
+
+    border = pm.filterExpand(pm.polyListComponentConversion(components, te=True, border=True), sm=32)
+
+    if border:
+        if pn:
+            return uniq(pynode(border))
+        else:
+            return uniq(border)
+    else:
+        return []
+
+
+def to_border_vtxfaces(components):
+    """ [pm]
+    """
+    if not components:
+        return components
+
+    if isinstance(components, list):
+        pn = not is_string(components[0])
+    else:
+        pn = not is_string(components)
+
+    faces = to_face(components)
+    inner_vf = to_vtxface(faces)
+    border_vertices = to_border_vertices(components)
+    double_sided_border_vf = to_vtxface(border_vertices)
+   
+    border = list_intersection(double_sided_border_vf, inner_vf)
+    
+    if border:
+        if pn:
+            return uniq(pynode(border))
+        else:
+            return uniq(border)
+    else:
+        return []
+    
+
+def is_hardedge(edge):
+    """ 引数のエッジがハードエッジなら True を返す
+
+    Args:
+        edge ([MeshEdge]): [description]
+
+    Returns:
+        bool: edge がハードエッジなら True
+    """
+    return "Hard" in pm.polyInfo(edge, edgeToVertex=True)[0]
+
+
+def is_connected_vtxfaces(vf1, vf2):
+    """ 頂点を共有する頂点フェース vf1 から vf2 へハードエッジを挟まずに到達できるか
+
+    計算を途中で切り上げる分 get_connected_vtx_faces より高速｡
+    ただし頂点を共有する全頂点フェースについて接続性を調べるなら get_connected_vtx_faces の方が高速｡
+
+    Args:
+        vf1 (MeshVertexFace): [description]
+        vf2 (MeshVertexFace): [description]
+
+    Returns:
+        bool: 
+
+    """
+    shared_vertex = to_vtx(vf1)[0]
+    internal_vtxfaces = to_vtxface(shared_vertex)
+    internal_edges = to_edge(shared_vertex)
+
+    edge_queue = [e for e in to_edge(to_face(vf1)) if not is_hardedge(e) and e in internal_edges]
+    processed_edges = []
+    processed_vtxfaces = []
+
+    processed_edges.extend([e for e in internal_edges if is_hardedge(e)] + edge_queue)
+
+    i = 0
+    while edge_queue:
+        e = edge_queue.pop(0)
+        print(e)
+        processed_edges.append(e)
+        adjacent_vtxfaces = list_intersection(to_vtxface(e), internal_vtxfaces)
+        processed_vtxfaces.extend(adjacent_vtxfaces)
+        
+        if vf2 in adjacent_vtxfaces:
+            return True
+        
+        next_edges = [ne for ne in to_edge(to_face(e)) if ne in internal_edges and ne != e and not is_hardedge(ne) and ne not in processed_edges]     
+        edge_queue.extend(next_edges)
+
+        i += 1
+        if i > 10:
+            raise
+    
+    return False
+
+
+def get_connected_vtx_faces(vf):
+    """ 指定した頂点フェースと頂点を共有するすべての頂点フェースのうち､ハードエッジを挟まずに到達できるものをすべて返す
+
+    Args:
+        vf (MeshVertexFace): [description]
+
+    Returns:
+        list[MeshVertexFace]: [description]
+    """
+    connected_vtx_faces = []
+    shared_vertex = to_vtx(vf)[0]
+    internal_vtxfaces = to_vtxface(shared_vertex)
+    internal_edges = to_edge(shared_vertex)
+
+    edge_queue = [e for e in to_edge(to_face(vf)) if not is_hardedge(e) and e in internal_edges]
+    processed_edges = []
+    processed_vtxfaces = []
+
+    processed_edges.extend([e for e in internal_edges if is_hardedge(e)] + edge_queue)
+
+    i = 0
+    while edge_queue:
+        e = edge_queue.pop(0)
+        print(e)
+        processed_edges.append(e)
+        adjacent_vtxfaces = list_intersection(to_vtxface(e), internal_vtxfaces)
+        processed_vtxfaces.extend(adjacent_vtxfaces)
+
+        connected_vtx_faces.extend(adjacent_vtxfaces)
+        
+        next_edges = [ne for ne in to_edge(to_face(e)) if ne in internal_edges and ne != e and not is_hardedge(ne) and ne not in processed_edges]     
+        edge_queue.extend(next_edges)
+
+        i += 1
+        if i > 10:
+            raise
+    
+    return uniq(connected_vtx_faces)
 
 
 def type_of_component(comp):
@@ -739,13 +962,16 @@ def flatten(a):
 
 def uniq(a):
     """ 配列の重複要素を取り除く """
-    elemtype = type(a[0])
-    string_types = [type(""), type(u"")]  # Supports python2.x and python3.x
-    if elemtype in string_types:
-        elements_tuple_list = list(set([tuple(x) for x in a]))
-        return ["".join(elements_tuple) for elements_tuple in elements_tuple_list]
+    if a:
+        elemtype = type(a[0])
+        string_types = [type(""), type(u"")]  # Supports python2.x and python3.x
+        if elemtype in string_types:
+            elements_tuple_list = list(set([tuple(x) for x in a]))
+            return ["".join(elements_tuple) for elements_tuple in elements_tuple_list]
+        else:
+            return list(set(a))
     else:
-        return list(set(a))
+        return a
 
 
 def round_vector(v, fraction):
@@ -1092,3 +1318,16 @@ def sorted_vertices_to_edges(vertices):
     
     return sorted_edges
 
+
+def coords_to_vector(coords):
+    """ [pm] フラットなリストとして保存されている複数法線を 3 つずつ区切って Pymel の Vector に変換する
+
+    Args:
+        coords ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    vectors = [dt.Vector(coords[i], coords[i+1], coords[i+2]) for i in range(0, len(coords), 3)]
+
+    return vectors
