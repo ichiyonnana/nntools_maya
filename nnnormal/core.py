@@ -11,8 +11,11 @@ import nnutil.display as nd
 import nnutil.ui as ui
 
 
+default_search_method = 3
+
+
 @nu.undo_chunk
-def transfar_normal(objects=None, source_type=None, space="world", search_method=3):
+def transfar_normal(objects=None, source_type=None, space="world", search_method=default_search_method):
     """ [pm] オブジェクトからオブジェクトへ法線を転送する
 
     引数未指定の場合は選択オブジェクトを対象とする
@@ -168,13 +171,26 @@ def paste_normal(targets=None):
             transfar_normal(objects=[copied_normal_object]+targets, source_type="First")
         else:
             # オブジェクト to コンポーネントの場合は部分転送
-            # TODO: セット経由で部分転送する (転送後に値上書きしてセットは消す)
-            print("not impl")
-            return
+            target_components =[]
+            set_node = pm.sets(targets)
+            
+            pm.transferAttributes([copied_normal_object, set_node],
+                                  transferPositions=0,
+                                  transferNormals=1,
+                                  transferUVs=0,
+                                  transferColors=0,
+                                  sampleSpace=0,
+                                  sourceUvSpace="map1",
+                                  targetUvSpace="map1",
+                                  searchMethod=default_search_method,
+                                  flipUVs=0,
+                                  colorBorders=1
+                                  )
+
+            # TODO: 転送後に法線上書きしてセットと転送ノード消す
 
     elif copied_normal:
         # コピー元がコンポーネントの場合
-
         # ペースト対象コンポーネント
         target_components = []
         # ペースト後にソフトエッジ復帰するエッジのリスト
