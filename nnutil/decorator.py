@@ -1,10 +1,65 @@
 # coding:utf-8
 
-import maya.cmds as cmds
+import datetime
 import functools
 
+import maya.cmds as cmds
 
-# 実際にリピート呼び出される関数情報
+
+DEBUG = False
+
+
+def undo_chunk(function):
+    """ Undo チャンク用デコレーター """
+    @functools.wraps(function)
+    def wrapper(*args, **kwargs):
+        cmds.undoInfo(ock=True)
+        ret = function(*args, **kwargs)
+        cmds.undoInfo(cck=True)
+        return ret
+
+    return wrapper
+
+
+if DEBUG:
+    def timer(function):
+        """時間計測デコレーター"""
+        @functools.wraps(function)
+        def wrapper(*args, **kwargs):
+            start = datetime.datetime.today()
+            ret = function(*args, **kwargs)
+            end = datetime.datetime.today()
+            delta = (end - start)
+            sec = delta.seconds + delta.microseconds/1000000.0
+            print('time(sec): ' + str(sec) + " " + str(function))
+            return ret
+
+        return wrapper
+
+else:
+    def timer(function):
+        """デバッグ無効時の時間計測デコレーター"""
+        @functools.wraps(function)
+        def wrapper(*args, **kwargs):
+            return function(*args, **kwargs)
+
+        return wrapper
+
+
+def no_warning(function):
+    """警告抑止デコレーター"""
+    def wrapper(*args, **kwargs):
+        warning_flag = cmds.scriptEditorInfo(q=True, suppressWarnings=True)
+        info_flag = cmds.scriptEditorInfo(q=True, suppressInfo=True)
+        cmds.scriptEditorInfo(e=True, suppressWarnings=True, suppressInfo=True)
+        ret = function(*args, **kwargs)
+        cmds.scriptEditorInfo(e=True, suppressWarnings=warning_flag, suppressInfo=info_flag)
+        return ret
+
+    return wrapper
+
+
+# リピートデコレーター用関数情報
 _function_to_repeat = None
 _args = None
 _kwargs = None
