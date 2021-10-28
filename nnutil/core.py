@@ -871,7 +871,6 @@ def is_connected_vtxfaces(vf1, vf2):
     i = 0
     while edge_queue:
         e = edge_queue.pop(0)
-        print(e)
         processed_edges.append(e)
         adjacent_vtxfaces = list_intersection(to_vtxface(e), internal_vtxfaces)
         processed_vtxfaces.extend(adjacent_vtxfaces)
@@ -912,7 +911,6 @@ def get_connected_vtx_faces(vf):
     i = 0
     while edge_queue:
         e = edge_queue.pop(0)
-        print(e)
         processed_edges.append(e)
         adjacent_vtxfaces = list_intersection(to_vtxface(e), internal_vtxfaces)
         processed_vtxfaces.extend(adjacent_vtxfaces)
