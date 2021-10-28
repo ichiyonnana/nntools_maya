@@ -21,12 +21,37 @@ bw_double = bw_single*2 + 2
 
 button_width_auto = -1
 button_width1 = 24
+button_width1_5 = int(button_width1*1.5 + 1)
 button_width2 = button_width1*2 + 2
 button_width3 = button_width1*3 + 4
 button_width4 = button_width1*4 + 6
 button_width5 = button_width1*5 + 8
 button_width6 = button_width1*6 + 10
 button_width7 = button_width1*7 + 12
+
+width_auto = -1
+
+width0 = 0
+width0_5 = 12
+width1 = 24
+width1_5 = int(width1*1.5 + 1)
+width2 = width1*2 + 2
+width3 = width1*3 + 4
+width4 = width1*4 + 6
+width5 = width1*5 + 8
+width6 = width1*6 + 10
+width7 = width1*7 + 12
+
+height0 = 0
+height0_5 = 12
+height1 = 24
+height1_5 = int(height1*1.5 + 1)
+height2 = height1*2 + 2
+height3 = height1*3 + 4
+height4 = height1*4 + 6
+height5 = height1*5 + 8
+height6 = height1*6 + 10
+height7 = height1*7 + 12
 
 
 def any_handler(*args):
@@ -38,11 +63,13 @@ def any_handler(*args):
 def get_component_type(component):
     """ [pm] コンポーネントの種類を取得する
 
+    現状は type() を返すだけ｡
+
     Args:
-        component (PyNode): [description]
+        component (PyNode): 種類を調べる UI コンポーネントオブジェクト
 
     Returns:
-        type: [description]
+        type: component の型
     """
     return type(component)
 
@@ -65,6 +92,7 @@ def ui_func(component):
         pm.uitypes.IntSlider: [pm.intSlider, "v"],
         pm.uitypes.FloatSlider: [pm.floatSlider, "v"],
         pm.uitypes.Text: [pm.text, "l"],
+        pm.uitypes.RadioButton: [pm.radioButton, "sl"],
     }
 
     return handle_method[get_component_type(component)]
@@ -87,68 +115,140 @@ def decide_width(word):
     return actual_width
 
 
-def column_layout():
-    return pm.columnLayout()
+def column_layout(*args, **kwargs):
+    return pm.columnLayout(*args, **kwargs)
 
 
-def row_layout(numberOfColumns=16):
-    return pm.rowLayout(numberOfColumns=numberOfColumns)
+def row_layout(numberOfColumns=16, *args, **kwargs):
+    return pm.rowLayout(numberOfColumns=numberOfColumns, *args, **kwargs)
 
 
 def end_layout():
     pm.setParent("..")
 
 
-def header(label):
-    return pm.text(label=label, width=header_width)
+def header(label, *args, **kwargs):
+    return pm.text(label=label, width=header_width, *args, **kwargs)
 
 
-def text(label="", width=button_width_auto):
+def text(label="", width=button_width_auto, *args, **kwargs):
     actual_width = width
 
     if width == button_width_auto:
         actual_width = decide_width(label)
 
-    return pm.text(label=label, width=actual_width)
+    return pm.text(label=label, width=actual_width, *args, **kwargs)
 
 
-def button(label, width=button_width_auto, c=any_handler, dgc=any_handler):
+def button(label, width=button_width_auto, c=any_handler, dgc=any_handler, *args, **kwargs):
     actual_width = width
 
     if width == button_width_auto:
         actual_width = decide_width(label)
 
-    component = pm.button(l=label, c=c, dgc=dgc, width=actual_width)
+    component = pm.button(l=label, c=c, dgc=dgc, width=actual_width, *args, **kwargs)
 
     return component
 
 
-def float_slider(min=0, max=1, value=0, step=0.1, width=bw_double, dc=any_handler, cc=any_handler):
-    component = pm.floatSlider(min=min, max=max, value=value, step=step, width=width, dc=dc, cc=cc)
+def float_slider(min=0, max=1, value=0, step=0.1, width=button_width2, dc=any_handler, cc=any_handler, *args, **kwargs):
+    """[summary]
+
+    Args:
+        min (int, optional): [description]. Defaults to 0.
+        max (int, optional): [description]. Defaults to 1.
+        value (int, optional): [description]. Defaults to 0.
+        step (float, optional): [description]. Defaults to 0.1.
+        width ([type], optional): [description]. Defaults to button_width2.
+        dc (function, optional): スライド操作した際のハンドラー. Defaults to any_handler.
+        cc (function, optional): 値を変更した際のハンドラー. Defaults to any_handler.
+
+    Returns:
+        [type]: [description]
+    """
+    component = pm.floatSlider(min=min, max=max, value=value, step=step, width=width, dc=dc, cc=cc, *args, **kwargs)
 
     return component
 
 
-def int_slider(min=0, max=1, value=0, step=0.1, width=bw_double, dc=any_handler, cc=any_handler):
-    component = pm.intSlider(min=min, max=max, value=value, step=step, width=width, dc=dc, cc=cc)
+def int_slider(min=0, max=1, value=0, step=0.1, width=button_width2, dc=any_handler, cc=any_handler, *args, **kwargs):
+    """[summary]
+
+    Args:
+        min (int, optional): [description]. Defaults to 0.
+        max (int, optional): [description]. Defaults to 1.
+        value (int, optional): [description]. Defaults to 0.
+        step (float, optional): [description]. Defaults to 0.1.
+        width ([type], optional): [description]. Defaults to button_width2.
+        dc (function, optional): スライド操作した際のハンドラー. Defaults to any_handler.
+        cc (function, optional): 値を変更した際のハンドラー. Defaults to any_handler.
+
+    Returns:
+        [type]: [description]
+    """
+    component = pm.intSlider(min=min, max=max, value=value, step=step, width=width, dc=dc, cc=cc, *args, **kwargs)
 
     return component
 
 
-def eb_float(v=0, en=True, dc="", width=bw_double):
-    return pm.floatField(v=v, en=en, dc=dc, width=bw_double)
+def eb_float(v=0, en=True, cc=any_handler, dc=any_handler, width=button_width2, *args, **kwargs):
+    """[summary]
+
+    Args:
+        v (int, optional): [description]. Defaults to 0.
+        en (bool, optional): [description]. Defaults to True.
+        cc (function, optional): 値を変更した際のハンドラー. Defaults to any_handler.
+        dc (function, optional): スライド操作した際のハンドラー. Defaults to any_handler.
+        width ([type], optional): [description]. Defaults to button_width2.
+
+    Returns:
+        [type]: [description]
+    """
+    return pm.floatField(v=v, en=en, cc=cc, dc=dc, width=width, *args, **kwargs)
 
 
-def eb_int(v=0, en=True, dc="", width=bw_double):
-    return pm.intField(v=v, en=en, dc=dc, width=bw_double)
+def eb_int(v=0, en=True, cc=any_handler, dc=any_handler, width=button_width2, *args, **kwargs):
+    """[summary]
+
+    Args:
+        v (int, optional): [description]. Defaults to 0.
+        en (bool, optional): [description]. Defaults to True.
+        cc (function, optional): 値を変更した際のハンドラー. Defaults to any_handler.
+        dc (function, optional): スライド操作した際のハンドラー. Defaults to any_handler.
+        width ([type], optional): [description]. Defaults to button_width2.
+
+    Returns:
+        [type]: [description]
+    """
+    return pm.intField(v=v, en=en, cc=cc, dc=dc, width=width, *args, **kwargs)
 
 
-def separator(width=window_width):
-    return pm.separator(width=window_width)
+def separator(width=window_width, *args, **kwargs):
+    return pm.separator(width=width, *args, **kwargs)
 
 
-def check_box(label="", v=False, cc=any_handler):
-    return pm.checkBox(label=label, v=v, cc=cc)
+def spacer(width=width1, *args, **kwargs):
+    return pm.text(label="", width=width, *args, **kwargs)
+
+
+def spacer_v(height=3, *args, **kwargs):
+    row_layout()
+    comp = pm.text(label="", height=height, *args, **kwargs)
+    end_layout()
+
+    return comp
+
+
+def check_box(label="", v=False, cc=any_handler, *args, **kwargs):
+    return pm.checkBox(label=label, v=v, cc=cc, *args, **kwargs)
+
+
+def radio_collection(*args, **kwargs):
+    return pm.radioCollection(*args, **kwargs)
+
+
+def radio_button(label, width=button_width2, *args, **kwargs):
+    return pm.radioButton(label=label, width=width, *args, **kwargs)
 
 
 def get_value(component):
@@ -196,3 +296,18 @@ def hud_slider():
                       releaseCommand=pm.Callback(myHudSlider, 'release', 'myHudSlider')
                       )
     return id
+
+
+def is_shift():
+    """ Shift キーが押されているときに True """
+    return bool(pm.getModifiers() & 1)
+
+
+def is_ctrl():
+    """ Ctrl キーが押されているときに True """
+    return bool(pm.getModifiers() & 4)
+
+
+def is_alt():
+    """ Alt キーが押されているときに True """
+    return bool(pm.getModifiers() & 8)
