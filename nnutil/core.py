@@ -622,7 +622,7 @@ def is_string(v):
     return isinstance(v, (str, type(u"")))
 
 
-def get_object(component, pn=False):
+def get_object(component, pn=False, transform=False):
     """ [pm/cmds] component の所属するオブジェクトを取得する
 
     Args:
@@ -636,7 +636,11 @@ def get_object(component, pn=False):
     pn = not is_string(component)
 
     if pn:
-        return pynode(pm.polyListComponentConversion(component)[0])
+        obj = pynode(pm.polyListComponentConversion(component)[0])
+        if transform and isinstance(obj, nt.Mesh):
+            return obj.getParent()
+        else:
+            return obj
     else:
         return cmds.polyListComponentConversion(component)[0]
 
@@ -1329,3 +1333,53 @@ def coords_to_vector(coords):
     vectors = [dt.Vector(coords[i], coords[i+1], coords[i+2]) for i in range(0, len(coords), 3)]
 
     return vectors
+
+
+def apply_tweak(target, delete_history=True):
+    """ Tweakノードと pnts アトリビュートをコンポーネント座標に適用する
+
+    Args:
+        target (Mesh or Transform): 適用対象の Mesh 自身か Mesh を子に持つ Transform
+        delete_history (bool): True の場合処理の最後にノンデフォーマーヒストリーを削除する. default to True
+
+    Returns:
+        bool: 成功した場合は True, 失敗した場合は False
+    """
+    current_selection = pm.selected()
+
+    if isinstance(target, nt.Transform):
+        obj = target
+        shape = target.getShape()
+
+    elif isinstance(target, nt.Mesh):
+        obj = target.getParent()
+        shape = target
+
+    else:
+        return False
+
+    # Tweak ノードの適用
+    tweak_nodes = [x for x in shape.connections() if isinstance(x, nt.Tweak)]
+
+    if tweak_nodes:
+        tweak_node = tweak_nodes[0]
+        current_coords = []
+        
+        for i in range(len(obj.verts)):
+            current_coords.append(obj.verts[i].getPosition())
+            
+        pm.delete(tweak_node)
+            
+        for i in range(len(obj.verts)):
+            obj.verts[i].setPosition(current_coords[i])
+
+        for i in range(len(obj.verts)):
+            current_coords.append(obj.verts[i].getPosition())
+        
+    # pnts の適用
+    pm.polyMergeVertex(obj.verts[0])
+
+    if delete_history:
+        pm.bakePartialHistory(obj, ppt=True)
+
+    pm.select(current_selection)

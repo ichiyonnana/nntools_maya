@@ -13,9 +13,7 @@ import pymel.core.datatypes as dt
 import nnutil.core as nu
 import nnutil.display as nd
 import nnutil.ui as ui
-
-
-reload(ui)
+import nnutil.decorator as deco
 
 
 # nnutilへ
@@ -59,7 +57,6 @@ def get_center_point(object):
             max_z = p.z
 
     return dt.Point((max_x+min_x)/2, (max_y+min_y)/2, (max_z+min_z)/2)
-
 
 # nnutilへ
 
@@ -111,9 +108,7 @@ def decide_targets(targets):
         # 頂点の場合は基本的にはそのまま
         # ハードエッジ上の頂点のみ､それぞれの頂点フェースをターゲットにする
         for v in targets:
-            edges = v.connectedEdges()
-
-            if any((nu.is_hardedge(e) for e in edges)):
+            if any((nu.is_hardedge(e) for e in v.connectedEdges())):
                 target_components.extend(nu.to_vtxface(v))
 
             else:
@@ -144,12 +139,11 @@ def offset_normal(targets=None, mode=OM_ADD, values=(0, 0, 0), add_one=True, spa
         None
     """
     # 引数が無効なら選択オブジェクト取得
-    if not targets:
-        targets = pm.selected(flatten=True)
+    targets = pm.selected(flatten=True) if not targets else targets
 
-        if not targets:
-            print("no targets")
-            return
+    if not targets:
+        print("no targets")
+        return
 
     # オフセットに使われるベクトル
     offset_vector = dt.Vector([x if x else 0.0 for x in values])
@@ -221,12 +215,11 @@ def offset_normal(targets=None, mode=OM_ADD, values=(0, 0, 0), add_one=True, spa
 
 def spherize_normal(targets=None, center=None, ratio=1.0):
     # 引数が無効なら選択オブジェクト取得
-    if not targets:
-        targets = pm.selected(flatten=True)
+    targets = pm.selected(flatten=True) if not targets else targets
 
-        if not targets:
-            print("no targets")
-            return
+    if not targets:
+        print("no targets")
+        return
     
     if isinstance(targets[0], nt.Transform):
         for obj in targets:
@@ -271,7 +264,6 @@ def _spherize_normal(targets, center=None, ratio=1.0):
         # 法線上書き
         pm.polyNormalPerVertex(comp, xyz=tuple(new_normal))
 
-
     # ソフトエッジの復帰
     if softedges:
         pm.polySoftEdge(softedges, a=180, ch=1)
@@ -306,12 +298,11 @@ def reverse_normal(targets=None):
 
 def reset_nromal(targets=None):
     # 引数が無効なら選択オブジェクト取得
-    if not targets:
-        targets = pm.selected(flatten=True)
+    targets = pm.selected(flatten=True) if not targets else targets
 
-        if not targets:
-            print("no targets")
-            return
+    if not targets:
+        print("no targets")
+        return
 
     # 編集対象コンポーネントの決定とソフトエッジの保存
     target_components = decide_targets(targets)
@@ -327,14 +318,13 @@ def reset_nromal(targets=None):
     pm.select(targets)
 
 
-def smooth_normal(targets=None, smooth_ratio=0.1):
+def smooth_normal(targets=None, smooth_ratio=0.2, planer_ratio=0.01, outer=False):
     # 引数が無効なら選択オブジェクト取得
-    if not targets:
-        targets = pm.selected(flatten=True)
+    targets = pm.selected(flatten=True) if not targets else targets
 
-        if not targets:
-            print("no targets")
-            return
+    if not targets:
+        print("no targets")
+        return
 
     # 編集対象コンポーネントの決定とソフトエッジの保存
     target_components = decide_targets(targets)
@@ -351,17 +341,29 @@ def smooth_normal(targets=None, smooth_ratio=0.1):
 
     for target in target_components:
         # 隣接コンポーネントの法線取得
-        connected_vertices = nu.list_intersection(nu.get_connected_vertices(nu.to_vtx(target)[0]), inner_vertices)
-        coords = pm.polyNormalPerVertex(connected_vertices, q=True, xyz=True)
-        connected_normals = nu.coords_to_vector(coords)
+        if outer:
+            connected_vertices = nu.get_connected_vertices(nu.to_vtx(target)[0])
+        else:
+            connected_vertices = nu.list_intersection(nu.get_connected_vertices(nu.to_vtx(target)[0]), inner_vertices)
         
-        # 隣接コンポーネント + 平均法線 足す
-        smoothed_normal = sum(connected_normals + [average_normal])
-        smoothed_normal.normalize()
+        if connected_vertices:
+            coords = pm.polyNormalPerVertex(connected_vertices, q=True, xyz=True)
+            connected_normals = nu.coords_to_vector(coords)
+            connected_normal = sum(connected_normals)
+            connected_normal.normalize()
+
+        else:
+            connected_normal = None
 
         # 現在の法線にパーセンテージで加える
         current_normal = nu.coords_to_vector(pm.polyNormalPerVertex(target, q=True, xyz=True))[0]
-        new_normal = smoothed_normal * smooth_ratio + current_normal * (1.0 - smooth_ratio)
+
+        if connected_normal:
+            new_normal = connected_normal * smooth_ratio + current_normal * (1.0 - smooth_ratio)
+        else:
+            new_normal = current_normal
+
+        new_normal = new_normal * (1.0 - planer_ratio) + average_normal * planer_ratio
 
         pm.polyNormalPerVertex(target, xyz=tuple(new_normal))
 
@@ -370,6 +372,86 @@ def smooth_normal(targets=None, smooth_ratio=0.1):
         pm.polySoftEdge(softedges, a=180, ch=1)
         
     pm.select(targets)
+
+
+def cleanup_normal(targets=None, force_locking=False):
+    # 引数が無効なら選択オブジェクト取得
+    targets = pm.selected(flatten=True) if not targets else targets
+
+    if not targets:
+        print("no targets")
+        return
+
+    # 法線状態の保存
+    vtxfaces = nu.to_vtxface(targets)
+    normals = nu.coords_to_vector(pm.polyNormalPerVertex(vtxfaces, q=True, xyz=True))
+    locked = pm.polyNormalPerVertex(vtxfaces, q=True, fn=True)
+    unlocked_vtxfaces = [vtxfaces[i] for i in range(len(locked)) if not locked[i]]
+    harden = []
+    soften = []
+
+    for e in nu.to_edge(targets):
+        if nu.is_hardedge(e):
+            harden.append(e)
+        else:
+            soften.append(e)
+
+    obj = nu.get_object(targets[0], transform=True)
+
+    # ノンデフォーマーヒストリー削除
+    pm.bakePartialHistory(obj, ppt=True)
+
+    # TransferAttribute があれば削除
+    for i in range(10):
+        transfer_attributes_nodes = [x for x in obj.getShape().connections() if isinstance(x, nt.TransferAttributes)]
+        if transfer_attributes_nodes:
+            print("delete: ", transfer_attributes_nodes)
+            pm.delete(transfer_attributes_nodes)
+        else:
+            break
+
+    # アンロック
+    pm.polyNormalPerVertex(vtxfaces, ufn=True)
+
+    # 法線状態の復帰
+    for i in range(len(vtxfaces)):
+        pm.polyNormalPerVertex(vtxfaces[i], xyz=tuple(normals[i]))
+
+    # 非ロック頂点フェースの復帰
+    for vf in unlocked_vtxfaces:
+        pm.polyNormalPerVertex(vf, e=True, ufn=True)
+
+    # ソフトエッジ･ハードエッジ復帰
+    for e in soften:
+        pm.polySoftEdge(e, a=180, ch=1)
+
+    for e in harden:
+        pm.polySoftEdge(e, a=0, ch=1)
+
+    # ノンデフォーマーヒストリー削除
+    pm.bakePartialHistory(obj, ppt=True)
+
+    pm.select(targets)
+
+
+def apply_tweak(targets=None):
+    """ Tweak ノードの内容をシェイプのコンポーネント座標に適用する
+
+    targets がコンポーネントだった場合はそのコンポーネントを持つオブジェクト全体に適用される。
+
+    Args:
+        targets (Mesh or Transform): メッシュ・トランスフォーム・コンポーネント
+    """
+    targets = pm.selected(flatten=True) if not targets else targets
+
+    if not targets:
+        print("no targets")
+        return
+
+    objects = nu.uniq([nu.get_object(x) for x in targets])
+
+    for obj in objects:
+        nu.apply_tweak(obj)
 
 
 class NN_ToolWindow(object):
@@ -492,10 +574,11 @@ class NN_ToolWindow(object):
         
         ui.row_layout()
         ui.button(label="Smooth", width=ui.width3, c=self.onSmooth)
+        ui.button(label="Cleanup", width=ui.width3, c=self.onCleanup)
+        ui.button(label="Apply Tweak", width=ui.width3, c=self.onApplyTweak)
         ui.end_layout()
 
         ui.end_layout()
-
 
     def get_offset_mode(self, *args):
         mode = None
@@ -677,6 +760,12 @@ class NN_ToolWindow(object):
 
     def onSmooth(self, *args):
         smooth_normal()
+
+    def onCleanup(self, *args):
+        cleanup_normal()
+
+    def onApplyTweak(self, *args):
+        apply_tweak()
 
     # スライダー･エディットボックス
     def onChangeEditboxOffsetX(self, *args):
