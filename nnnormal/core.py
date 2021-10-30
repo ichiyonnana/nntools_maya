@@ -173,7 +173,7 @@ def paste_normal(targets=None):
                 transfar_normal(objects=objects, source_type="First")
         else:
             # オブジェクト to コンポーネントの場合は部分転送
-            target_components =[]
+            target_components = []
             set_node = pm.sets(targets)
             
             pm.transferAttributes([copied_normal_object, set_node],
