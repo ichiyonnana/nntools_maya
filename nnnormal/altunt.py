@@ -25,9 +25,12 @@ def get_position(comp, space):
         return nu.to_vtx(comp)[0].getPosition(space=space)
 
 
-def get_center_point(object):
+def get_center_point(targets):
 
-    points = object.getShape().getPoints(space="object")
+    if not targets:
+        raise(Exception())
+    
+    points = [x.getPosition(space="object") for x in nu.to_vtx(targets)]
 
     min_x = points[0].x
     min_y = points[0].y
@@ -67,6 +70,9 @@ OM_OVERWRITE = "overwrite"
 OS_WORLD = "world"
 OS_LOCAL = "local"
 center_locator_name = "altunt_center_loc"
+default_current_ratio = 0.5
+default_smooth_ratio = 0.1
+default_planer_ratio = 0.1
 
 
 def decide_targets(targets):
@@ -122,7 +128,7 @@ def decide_targets(targets):
         print(str(type(targets[0])) + "is not supported.")
         return []
 
-    return target_components
+    return nu.uniq(target_components)
 
 
 def offset_normal(targets=None, mode=OM_ADD, values=(0, 0, 0), add_one=True, space=OS_LOCAL):
@@ -165,7 +171,9 @@ def offset_normal(targets=None, mode=OM_ADD, values=(0, 0, 0), add_one=True, spa
     # オフセット処理
     # 複数コンポーネントで polyNormalPerVertex 呼ぶとクラッシュすることがあるのでループにする
     for comp in target_components:
-        current_normal = nu.coords_to_vector(pm.polyNormalPerVertex(comp, q=True, xyz=True))[0]
+        print(comp)
+        current_normal = sum(nu.coords_to_vector(pm.polyNormalPerVertex(comp, q=True, xyz=True)))
+        current_normal.normalize()
 
         # 最終的に設定される法線
         new_normal = dt.Vector(current_normal)
@@ -250,14 +258,13 @@ def _spherize_normal(targets, center=None, ratio=1.0):
     if center:
         center_point = dt.Point(center)
 
-    else:            
-        object = nu.get_object(targets[0])
-        object = object.getParent() if isinstance(object, nt.Mesh) else object
-        center_point = get_center_point(object)
+    else:
+        center_point = get_center_point(targets)
 
     for comp in target_components:
         # 法線と球状ベクトル取得
-        current_normal = nu.coords_to_vector(pm.polyNormalPerVertex(comp, q=True, xyz=True))[0]
+        current_normal = sum(nu.coords_to_vector(pm.polyNormalPerVertex(comp, q=True, xyz=True)))
+        current_normal.normalize()
         radial_vector = dt.Vector(get_position(comp, space="object") - center_point)
         # 比率で合成して上書き
         new_normal = current_normal * (1.0-ratio) + radial_vector * ratio
@@ -314,11 +321,11 @@ def reset_nromal(targets=None):
     # ソフトエッジの復帰
     if softedges:
         pm.polySoftEdge(softedges, a=180, ch=1)
-        
+
     pm.select(targets)
 
 
-def smooth_normal(targets=None, smooth_ratio=0.2, planer_ratio=0.01, outer=False):
+def smooth_normal(targets=None, current_ratio=default_current_ratio, smooth_ratio=default_smooth_ratio, planer_ratio=default_planer_ratio, outer=True, keep_vtxface=False):
     # 引数が無効なら選択オブジェクト取得
     targets = pm.selected(flatten=True) if not targets else targets
 
@@ -327,7 +334,11 @@ def smooth_normal(targets=None, smooth_ratio=0.2, planer_ratio=0.01, outer=False
         return
 
     # 編集対象コンポーネントの決定とソフトエッジの保存
-    target_components = decide_targets(targets)
+    if keep_vtxface:
+        target_components = decide_targets(targets)
+    else:
+        target_components = nu.to_vtx(targets)
+        
     softedges = [e for e in nu.to_edge(target_components) if not nu.is_hardedge(e)]
 
     # スムース処理
@@ -355,15 +366,15 @@ def smooth_normal(targets=None, smooth_ratio=0.2, planer_ratio=0.01, outer=False
         else:
             connected_normal = None
 
-        # 現在の法線にパーセンテージで加える
-        current_normal = nu.coords_to_vector(pm.polyNormalPerVertex(target, q=True, xyz=True))[0]
+        # 現在の法線の取得
+        current_normal = sum(nu.coords_to_vector(pm.polyNormalPerVertex(target, q=True, xyz=True)))
+        current_normal.normalize()
 
+        # 現在の法線・平均法線・隣接法線を比率で合成
         if connected_normal:
-            new_normal = connected_normal * smooth_ratio + current_normal * (1.0 - smooth_ratio)
+            new_normal = current_normal * current_ratio + (average_normal * planer_ratio + connected_normal * smooth_ratio) * (1.0-current_ratio)
         else:
-            new_normal = current_normal
-
-        new_normal = new_normal * (1.0 - planer_ratio) + average_normal * planer_ratio
+            new_normal = current_normal * current_ratio + (average_normal * planer_ratio) * (1.0-current_ratio)
 
         pm.polyNormalPerVertex(target, xyz=tuple(new_normal))
 
@@ -578,6 +589,24 @@ class NN_ToolWindow(object):
         ui.button(label="Apply Tweak", width=ui.width3, c=self.onApplyTweak)
         ui.end_layout()
 
+        ui.row_layout()
+        ui.text(label="current ratio")
+        self.slider_current_ratio = ui.float_slider(min=0.0, max=1, value=default_current_ratio, width=ui.width6, dc=self.onChangeSmoothRatioC)
+        self.text_smooth_ratioC = ui.text(label=str(default_current_ratio))
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.text(label="smooth ratio")
+        self.slider_smooth_ratio = ui.float_slider(min=0.0, max=0.2, value=default_smooth_ratio, width=ui.width6, dc=self.onChangeSmoothRatioS)
+        self.text_smooth_ratioS = ui.text(label=str(default_smooth_ratio))
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.text(label="planer ratio")
+        self.slider_planer_ratio = ui.float_slider(min=0.0, max=0.2, value=default_planer_ratio, width=ui.width6, dc=self.onChangeSmoothRatioP)
+        self.text_smooth_ratioP = ui.text(label=str(default_planer_ratio))
+        ui.end_layout()
+
         ui.end_layout()
 
     def get_offset_mode(self, *args):
@@ -759,7 +788,10 @@ class NN_ToolWindow(object):
         reset_nromal()
 
     def onSmooth(self, *args):
-        smooth_normal()
+        current_ratio = ui.get_value(self.slider_current_ratio)
+        smooth_ratio = ui.get_value(self.slider_smooth_ratio)
+        planer_ratio = ui.get_value(self.slider_planer_ratio)
+        smooth_normal(current_ratio=current_ratio, smooth_ratio=smooth_ratio, planer_ratio=planer_ratio)
 
     def onCleanup(self, *args):
         cleanup_normal()
@@ -832,6 +864,18 @@ class NN_ToolWindow(object):
     def onChangeSliderSpherizeRatio(self, *args):
         pass
     
+    def onChangeSmoothRatioC(self, *args):
+        v = ui.get_value(self.slider_current_ratio)
+        ui.set_value(self.text_smooth_ratioC, value=str(round(v, 3)))
+
+    def onChangeSmoothRatioS(self, *args):
+        v = ui.get_value(self.slider_smooth_ratio)
+        ui.set_value(self.text_smooth_ratioS, value=str(round(v, 3)))
+
+    def onChangeSmoothRatioP(self, *args):
+        v = ui.get_value(self.slider_planer_ratio)
+        ui.set_value(self.text_smooth_ratioP, value=str(round(v, 3)))
+
 
 def showNNToolWindow():
     NN_ToolWindow().create()
