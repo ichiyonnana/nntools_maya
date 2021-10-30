@@ -168,7 +168,9 @@ def paste_normal(targets=None):
         # コピー元がオブジェクト
         if isinstance(targets[0], nt.Transform) and isinstance(targets[0].getShape(), nt.Mesh):
             # オブジェクト to オブジェクトの場合は転送
-            transfar_normal(objects=[copied_normal_object]+targets, source_type="First")
+            if len(nu.list_diff(targets, [copied_normal_object])) > 0:
+                objects = [copied_normal_object] + nu.list_diff(targets, [copied_normal_object])
+                transfar_normal(objects=objects, source_type="First")
         else:
             # オブジェクト to コンポーネントの場合は部分転送
             target_components =[]

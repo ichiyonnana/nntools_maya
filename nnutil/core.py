@@ -96,6 +96,9 @@ def list_add(l1, l2):
     TODO: *args で可変長 (l1 + l2 + l3 + ...) に対応して
     
     """
+    if not isinstance(l1, list) or not isinstance(l2, list):
+        raise(Exception())
+        
     return l1 + l2
 
 
@@ -106,6 +109,9 @@ def list_diff(l1, l2):
     TODO: *args で可変長 (l1 - l2 - l3 - ... )に対応して
 
     """
+    if not isinstance(l1, list) or not isinstance(l2, list):
+        raise(Exception())
+
     return filter(lambda x: x not in l2, l1)
 
 
@@ -116,6 +122,9 @@ def list_intersection(l1, l2):
     TODO: *args で可変長 (l1 & l2 & l3 & ...) に対応して
     
     """
+    if not isinstance(l1, list) or not isinstance(l2, list):
+        raise(Exception())
+        
     return filter(lambda x: x in l2, l1)
 
 
