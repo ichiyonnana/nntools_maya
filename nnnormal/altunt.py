@@ -401,6 +401,7 @@ def cleanup_normal(targets=None, force_locking=False):
     harden = []
     soften = []
 
+    # ハードエッジ・ソフトエッジの保存
     for e in nu.to_edge(targets):
         if nu.is_hardedge(e):
             harden.append(e)
@@ -429,15 +430,14 @@ def cleanup_normal(targets=None, force_locking=False):
         pm.polyNormalPerVertex(vtxfaces[i], xyz=tuple(normals[i]))
 
     # 非ロック頂点フェースの復帰
-    for vf in unlocked_vtxfaces:
-        pm.polyNormalPerVertex(vf, e=True, ufn=True)
+    pm.polyNormalPerVertex(unlocked_vtxfaces, e=True, ufn=True)
 
     # ソフトエッジ･ハードエッジ復帰
-    for e in soften:
-        pm.polySoftEdge(e, a=180, ch=1)
+    if soften:
+        pm.polySoftEdge(soften, a=180, ch=1)
 
-    for e in harden:
-        pm.polySoftEdge(e, a=0, ch=1)
+    if harden:
+        pm.polySoftEdge(harden, a=0, ch=1)
 
     # ノンデフォーマーヒストリー削除
     pm.bakePartialHistory(obj, ppt=True)

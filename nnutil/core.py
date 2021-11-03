@@ -1372,18 +1372,9 @@ def apply_tweak(target, delete_history=True):
 
     if tweak_nodes:
         tweak_node = tweak_nodes[0]
-        current_coords = []
-        
-        for i in range(len(obj.verts)):
-            current_coords.append(obj.verts[i].getPosition())
-            
+        current_points = shape.getPoints()
         pm.delete(tweak_node)
-            
-        for i in range(len(obj.verts)):
-            obj.verts[i].setPosition(current_coords[i])
-
-        for i in range(len(obj.verts)):
-            current_coords.append(obj.verts[i].getPosition())
+        shape.setPoints(current_points)
         
     # pnts の適用
     pm.polyMergeVertex(obj.verts[0])
