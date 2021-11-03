@@ -733,3 +733,35 @@ def change_uveditor_image(n):
 
     if iso_faces:
         mel.eval("ToggleUVIsolateViewSelected;")
+
+
+def toggle_joint_locator_visibility():
+    active_panel = pm.getPanel(withFocus=True)
+    current_visibility = pm.modelEditor(active_panel, q=True, joints=True)
+    new_visibility = not current_visibility
+    pm.modelEditor(active_panel, e=True, joints=new_visibility)
+    pm.modelEditor(active_panel, e=True, locators=new_visibility)
+    pm.modelEditor(active_panel, e=True, jointXray=1)
+
+
+def toggle_imageplane_visivility():
+    active_panel = pm.getPanel(withFocus=True)
+    current_visibility = pm.modelEditor(active_panel, q=True, imagePlane=True)
+    new_visibility = not current_visibility
+    pm.modelEditor(active_panel, e=True, imagePlane=new_visibility)
+
+
+def isolate_with_imageplanes():
+    active_panel = pm.getPanel(withFocus=True)
+    is_isolated = pm.isolateSelect(active_panel, q=True, state=True)
+
+    if is_isolated:
+        pm.isolateSelect(active_panel, state=0)
+
+    else:
+        current_selection = pm.selected()
+        imageplanes = pm.ls(type="imagePlane")
+        pm.select(imageplanes, add=True)
+        pm.isolateSelect(active_panel, state=1)
+
+        pm.select(current_selection)
