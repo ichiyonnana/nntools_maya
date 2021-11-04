@@ -430,7 +430,8 @@ def cleanup_normal(targets=None, force_locking=False):
         pm.polyNormalPerVertex(vtxfaces[i], xyz=tuple(normals[i]))
 
     # 非ロック頂点フェースの復帰
-    pm.polyNormalPerVertex(unlocked_vtxfaces, e=True, ufn=True)
+    if unlocked_vtxfaces:
+        pm.polyNormalPerVertex(unlocked_vtxfaces, e=True, ufn=True)
 
     # ソフトエッジ･ハードエッジ復帰
     if soften:
