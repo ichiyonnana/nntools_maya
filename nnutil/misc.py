@@ -763,7 +763,7 @@ def isolate_with_imageplanes():
         imageplanes = pm.ls(type="imagePlane")
         pm.select(imageplanes, add=True)
         pm.isolateSelect(active_panel, addSelected=True)
-        pm.editor(active_panel, e=True, mainListConnection="activeList")
+        pm.editor(active_panel, e=True, lockMainConnection=True, mainListConnection="activeList")
         pm.isolateSelect(active_panel, state=1)
 
         pm.select(current_selection)
