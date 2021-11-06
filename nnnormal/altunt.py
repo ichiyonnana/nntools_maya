@@ -384,22 +384,31 @@ def smooth_normal(targets=None, current_ratio=default_current_ratio, smooth_rati
     pm.select(targets)
 
 
-def fix_normals(shape, protect_split_normal=False):    
+def fix_normals(shape, all=False, protect_split_normal=False):    
     if protect_split_normal:
-        vtx = shape.verts[0]
-        softedges = [e for e in vtx.connectedEdges() if not nu.is_hardedge(e)]
+        if all:
+            # TODO: 高速化出来る見込みが出来たら実装する
+            pass
+        else:
+            # TODO: 不完全なので実装し直す
+            vtx = shape.verts[0]
+            softedges = nu.get_all_softedges(shape)
 
-        vtxfaces = nu.to_vtxface(vtx)
-        vf_normals = nu.coords_to_vector(pm.polyNormalPerVertex(vtxfaces, q=True, xyz=True))
+            vtxfaces = nu.to_vtxface(vtx)
+            vf_normals = nu.coords_to_vector(pm.polyNormalPerVertex(vtxfaces, q=True, xyz=True))
 
-        pm.polyAverageNormal(vtx, prenormalize=1, allowZeroNormal=1, postnormalize=0, distance=0)
+            pm.polyAverageNormal(vtx, prenormalize=1, allowZeroNormal=1, postnormalize=0, distance=0)
 
-        pm.polyNormalPerVertex(vtxfaces, e=True, xyz=vf_normals)
+            pm.polyNormalPerVertex(vtxfaces, e=True, xyz=vf_normals)
 
-        if softedges:
-            pm.polySoftEdge(softedges, a=180, ch=1)
+            if softedges:
+                cmds.polySoftEdge(softedges, a=180, ch=1)
     else:
-        pm.polyAverageNormal(shape, prenormalize=1, allowZeroNormal=1, postnormalize=0, distance=0)
+        if all:
+            pm.polyAverageNormal(shape, prenormalize=1, allowZeroNormal=1, postnormalize=0, distance=0)
+        else:
+            vtx = shape.verts[0]
+            pm.polyAverageNormal(vtx, prenormalize=1, allowZeroNormal=1, postnormalize=0, distance=0)
 
     # ノンデフォーマーヒストリー削除
     pm.bakePartialHistory(shape, ppt=True)
@@ -449,8 +458,9 @@ def cleanup_normal(targets=None, force_locking=True):
     skined = any([isinstance(x, nt.SkinCluster) for x in shape.inputs()])
     if not skined:
         pm.bakePartialHistory(obj, ppt=True)
-
-    fix_normals(shape)
+        fix_normals(shape, all=True)
+    else:
+        fix_normals(shape)
 
     pm.select(targets)
 
