@@ -887,6 +887,30 @@ def get_all_hardedges(obj):
     return harden
 
 
+def get_all_softedges(obj):
+    """オブジェクトのすべてのソフトエッジを取得し cmds 形式の文字列のリストとして返す。
+
+    引数は PyNode で戻り値は cmds 文字列なので注意。
+
+    Args:
+        obj (Transform or Mesh): ハードエッジを取得するオブジェクトかメッシュ
+
+    Returns:
+        list[MeshEdge]: [description]
+    """
+    current_selection = cmds.ls(selection=True) 
+
+    harden = []
+    pm.select(obj.edges)
+    pm.polySelectConstraint(mode=3, type=0x8000, smoothness=2)
+    harden = cmds.ls(selection=True, flatten=True)
+    pm.polySelectConstraint(mode=3, type=0x8000, smoothness=0)
+
+    cmds.select(current_selection, replace=True)
+
+    return harden
+
+
 def is_connected_vtxfaces(vf1, vf2):
     """ 頂点を共有する頂点フェース vf1 から vf2 へハードエッジを挟まずに到達できるか
 
