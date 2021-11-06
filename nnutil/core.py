@@ -97,7 +97,9 @@ def list_add(l1, l2):
     
     """
     if not isinstance(l1, list) or not isinstance(l2, list):
-        raise(Exception())
+        print("list_add: The argument is not a list. It will convert automatically, but it may not be the intended result.")
+        l1 = list(l1)
+        l2 = list(l2)
         
     return l1 + l2
 
@@ -110,7 +112,9 @@ def list_diff(l1, l2):
 
     """
     if not isinstance(l1, list) or not isinstance(l2, list):
-        raise(Exception())
+        print("list_diff: The argument is not a list. It will convert automatically, but it may not be the intended result.")
+        l1 = list(l1)
+        l2 = list(l2)
 
     return filter(lambda x: x not in l2, l1)
 
@@ -123,7 +127,9 @@ def list_intersection(l1, l2):
     
     """
     if not isinstance(l1, list) or not isinstance(l2, list):
-        raise(Exception())
+        print("list_intersection: The argument is not a list. It will convert automatically, but it may not be the intended result.")
+        l1 = list(l1)
+        l2 = list(l2)
         
     return filter(lambda x: x in l2, l1)
 
@@ -857,6 +863,30 @@ def is_hardedge(edge):
     return "Hard" in pm.polyInfo(edge, edgeToVertex=True)[0]
 
 
+def get_all_hardedges(obj):
+    """オブジェクトのすべてのハードエッジを取得し cmds 形式の文字列のリストとして返す。
+
+    引数は PyNode で戻り値は cmds 文字列なので注意。
+
+    Args:
+        obj (Transform or Mesh): ハードエッジを取得するオブジェクトかメッシュ
+
+    Returns:
+        list[MeshEdge]: [description]
+    """
+    current_selection = cmds.ls(selection=True) 
+
+    harden = []
+    pm.select(obj.edges)
+    pm.polySelectConstraint(mode=3, type=0x8000, smoothness=1)
+    harden = cmds.ls(selection=True, flatten=True)
+    pm.polySelectConstraint(mode=3, type=0x8000, smoothness=0)
+
+    cmds.select(current_selection, replace=True)
+
+    return harden
+
+
 def is_connected_vtxfaces(vf1, vf2):
     """ 頂点を共有する頂点フェース vf1 から vf2 へハードエッジを挟まずに到達できるか
 
@@ -1105,7 +1135,7 @@ def _get_poly_line_pm(edges, intersections=[]):
             vtx_queue = list_diff(vtx_queue, processed_vts)
 
             # 隣接する未処理エッジの取得
-            adjacent_edges = list_intersection(vtx.connectedEdges(), rest_edges)
+            adjacent_edges = list_intersection(list(vtx.connectedEdges()), rest_edges)
 
             if len(adjacent_edges) > 0:
                 # 隣接エッジがあれば連続エッジに追加
@@ -1270,7 +1300,7 @@ def sort_vertices(vertices):
     """
     def part_vertex_list(vertices, first_vertex):
         """ 部分エッジ集合と開始頂点から再帰的に頂点列を求める """
-        neighbors = first_vertex.connectedVertices()
+        neighbors = list(first_vertex.connectedVertices())
         next_vertices = list_intersection(neighbors, vertices)
 
         if len(next_vertices) == 1:
@@ -1324,7 +1354,7 @@ def sorted_vertices_to_edges(vertices):
     for i in range(len(vertices)-1):
         vertex = vertices[i]
         next_vertex = vertices[i+1]
-        shared_edge = list_intersection(vertex.connectedEdges(), next_vertex.connectedEdges())[0]
+        shared_edge = list_intersection(list(vertex.connectedEdges()), list(next_vertex.connectedEdges()))[0]
         sorted_edges.append(shared_edge)
     
     return sorted_edges

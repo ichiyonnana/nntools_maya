@@ -171,7 +171,6 @@ def offset_normal(targets=None, mode=OM_ADD, values=(0, 0, 0), add_one=True, spa
     # オフセット処理
     # 複数コンポーネントで polyNormalPerVertex 呼ぶとクラッシュすることがあるのでループにする
     for comp in target_components:
-        print(comp)
         current_normal = sum(nu.coords_to_vector(pm.polyNormalPerVertex(comp, q=True, xyz=True)))
         current_normal.normalize()
 
@@ -385,7 +384,28 @@ def smooth_normal(targets=None, current_ratio=default_current_ratio, smooth_rati
     pm.select(targets)
 
 
-def cleanup_normal(targets=None, force_locking=False):
+def fix_normals(shape, protect_split_normal=False):    
+    if protect_split_normal:
+        vtx = shape.verts[0]
+        softedges = [e for e in vtx.connectedEdges() if not nu.is_hardedge(e)]
+
+        vtxfaces = nu.to_vtxface(vtx)
+        vf_normals = nu.coords_to_vector(pm.polyNormalPerVertex(vtxfaces, q=True, xyz=True))
+
+        pm.polyAverageNormal(vtx, prenormalize=1, allowZeroNormal=1, postnormalize=0, distance=0)
+
+        pm.polyNormalPerVertex(vtxfaces, e=True, xyz=vf_normals)
+
+        if softedges:
+            pm.polySoftEdge(softedges, a=180, ch=1)
+    else:
+        pm.polyAverageNormal(shape, prenormalize=1, allowZeroNormal=1, postnormalize=0, distance=0)
+
+    # ノンデフォーマーヒストリー削除
+    pm.bakePartialHistory(shape, ppt=True)
+
+
+def cleanup_normal(targets=None, force_locking=True):
     # 引数が無効なら選択オブジェクト取得
     targets = pm.selected(flatten=True) if not targets else targets
 
@@ -393,55 +413,44 @@ def cleanup_normal(targets=None, force_locking=False):
         print("no targets")
         return
 
-    # 法線状態の保存
-    vtxfaces = nu.to_vtxface(targets)
-    normals = nu.coords_to_vector(pm.polyNormalPerVertex(vtxfaces, q=True, xyz=True))
-    locked = pm.polyNormalPerVertex(vtxfaces, q=True, fn=True)
-    unlocked_vtxfaces = [vtxfaces[i] for i in range(len(locked)) if not locked[i]]
-    harden = []
-    soften = []
-
-    # ハードエッジ・ソフトエッジの保存
-    for e in nu.to_edge(targets):
-        if nu.is_hardedge(e):
-            harden.append(e)
-        else:
-            soften.append(e)
-
     obj = nu.get_object(targets[0], transform=True)
+    shape = obj.getShape()
+
+    # 現在の法線の取得
+    normals = shape.getNormals()
+
+    # 各頂点フェースのロック状態の取得
+    if not force_locking:
+        vtxfaces = nu.to_vtxface(targets)
+        locked = pm.polyNormalPerVertex(vtxfaces, q=True, fn=True)
+        unlocked_vtxfaces = nu.list_diff(vtxfaces, locked)
 
     # ノンデフォーマーヒストリー削除
     pm.bakePartialHistory(obj, ppt=True)
 
     # TransferAttribute があれば削除
     for i in range(10):
-        transfer_attributes_nodes = [x for x in obj.getShape().connections() if isinstance(x, nt.TransferAttributes)]
+        transfer_attributes_nodes = [x for x in obj.getShape().inputs() if isinstance(x, nt.TransferAttributes)]
         if transfer_attributes_nodes:
             print("delete: ", transfer_attributes_nodes)
             pm.delete(transfer_attributes_nodes)
         else:
             break
 
-    # アンロック
-    pm.polyNormalPerVertex(vtxfaces, ufn=True)
+    # 法線の復元
+    shape.setNormals(normals)
 
-    # 法線状態の復帰
-    for i in range(len(vtxfaces)):
-        pm.polyNormalPerVertex(vtxfaces[i], xyz=tuple(normals[i]))
-
-    # 非ロック頂点フェースの復帰
-    if unlocked_vtxfaces:
+    # 各頂点フェースのロック状態の復元
+    if not force_locking and unlocked_vtxfaces:
         pm.polyNormalPerVertex(unlocked_vtxfaces, e=True, ufn=True)
 
-    # ソフトエッジ･ハードエッジ復帰
-    if soften:
-        pm.polySoftEdge(soften, a=180, ch=1)
-
-    if harden:
-        pm.polySoftEdge(harden, a=0, ch=1)
-
     # ノンデフォーマーヒストリー削除
-    pm.bakePartialHistory(obj, ppt=True)
+    # skincluster が接続されている場合はヒストリ削除前に fix_normals する必要があるのでこのタイミングでは削除しない
+    skined = any([isinstance(x, nt.SkinCluster) for x in shape.inputs()])
+    if not skined:
+        pm.bakePartialHistory(obj, ppt=True)
+
+    fix_normals(shape)
 
     pm.select(targets)
 
