@@ -6,9 +6,6 @@ import functools
 import maya.cmds as cmds
 
 
-DEBUG = False
-
-
 def undo_chunk(function):
     """ Undo チャンク用デコレーター """
     @functools.wraps(function)
@@ -21,29 +18,19 @@ def undo_chunk(function):
     return wrapper
 
 
-if DEBUG:
-    def timer(function):
-        """時間計測デコレーター"""
-        @functools.wraps(function)
-        def wrapper(*args, **kwargs):
-            start = datetime.datetime.today()
-            ret = function(*args, **kwargs)
-            end = datetime.datetime.today()
-            delta = (end - start)
-            sec = delta.seconds + delta.microseconds/1000000.0
-            print('time(sec): ' + str(sec) + " " + str(function))
-            return ret
+def timer(function):
+    """時間計測デコレーター"""
+    @functools.wraps(function)
+    def wrapper(*args, **kwargs):
+        start = datetime.datetime.today()
+        ret = function(*args, **kwargs)
+        end = datetime.datetime.today()
+        delta = (end - start)
+        sec = delta.seconds + delta.microseconds/1000000.0
+        print('time(sec): ' + str(sec) + " " + str(function))
+        return ret
 
-        return wrapper
-
-else:
-    def timer(function):
-        """デバッグ無効時の時間計測デコレーター"""
-        @functools.wraps(function)
-        def wrapper(*args, **kwargs):
-            return function(*args, **kwargs)
-
-        return wrapper
+    return wrapper
 
 
 def no_warning(function):
