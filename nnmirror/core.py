@@ -8,6 +8,7 @@ import os
 import sys
 import traceback
 
+import pymel.core as pm
 import maya.cmds as cmds
 import maya.mel as mel
 
@@ -327,14 +328,23 @@ class NN_ToolWindow(object):
         selections = cmds.ls(sl=True, fl=True)
 
         for obj in selections:
-            # ノードタイプの取得
             # meshでなければskip
+            if not hasattr(pm.PyNode(obj), "getShape"):
+                continue
+
             skincluster = mel.eval('findRelatedSkinCluster ' + obj)
+
             # skincluster 無ければskip
-            filename = self.sanitize(obj)
+            if skincluster == "":
+                continue
+            
+            # エクスポートするファイル名
+            filename = ""
 
             if temp_mode:
                 filename = "temp"
+            else:
+                filename = self.sanitize(obj)
 
             currentScene = cmds.file(q=True, sn=True)
             dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
@@ -364,12 +374,21 @@ class NN_ToolWindow(object):
         selections = cmds.ls(sl=True, fl=True)
 
         for obj in selections:
+            # meshでなければskip
+            if not hasattr(pm.PyNode(obj), "getShape"):
+                print("skip " + obj)
+                continue
+
             # スキンクラスター取得
             skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals())
-            filename = self.sanitize(obj) + ".xml"
+                        
+            # インポートするファイル名
+            filename = ""
 
             if temp_mode:
                 filename = "temp.xml"
+            else:
+                filename = self.sanitize(obj) + ".xml"
 
             currentScene = cmds.file(q=True, sn=True)
             dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
