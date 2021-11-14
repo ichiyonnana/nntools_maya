@@ -83,6 +83,24 @@ def decide_targets(targets):
     return nu.uniq(target_components)
 
 
+def decide_source(target):
+    # TODO:
+    pass
+
+
+def sort_components_by_object(components):
+    """ コンポーネントを所属オブジェクト毎にまとめて辞書で返す
+
+    Args:
+        components (list[MeshVertex or MeshEdge or MeshFace or MeshVertexFace]): 振り分けるコンポーネントのリスト
+
+    Returns:
+        dict[Mesh, list[MeshVertex or MeshEdge or MeshFace or MeshVertexFace]]: 所属オブエジェクトをキーとした辞書
+    """
+    # TODO:
+    pass
+
+
 def offset_normal(targets=None, mode=OM_ADD, values=(0, 0, 0), add_one=True, space=OS_LOCAL):
     """法線の各成分に対して指定した値を加算･乗算･上書きする
 
@@ -173,6 +191,13 @@ def offset_normal(targets=None, mode=OM_ADD, values=(0, 0, 0), add_one=True, spa
 
 
 def spherize_normal(targets=None, center=None, ratio=1.0):
+    """法線を球状化する
+
+    Args:
+        targets ([type], optional): [description]. Defaults to None.
+        center ([type], optional): [description]. Defaults to None.
+        ratio (float, optional): [description]. Defaults to 1.0.
+    """
     # 引数が無効なら選択オブジェクト取得
     targets = pm.selected(flatten=True) if not targets else targets
 
@@ -191,6 +216,13 @@ def spherize_normal(targets=None, center=None, ratio=1.0):
 
 
 def _spherize_normal(targets, center=None, ratio=1.0):
+    """法線を球状化する。targets はすべて同じメッシュに所属するコンポーネント、もしくはオブジェクトとして処理する。
+
+    Args:
+        targets ([type]): [description]
+        center ([type], optional): [description]. Defaults to None.
+        ratio (float, optional): [description]. Defaults to 1.0.
+    """
     # 引数が無効なら終了
     if not targets:
         print("no targets")
