@@ -11,7 +11,8 @@ import traceback
 import maya.cmds as cmds
 import maya.mel as mel
 
-import nnutil
+import nnutil as nu
+
 
 def FormatOptionsupported():
     ver = int(cmds.about(version=True))
@@ -19,6 +20,7 @@ def FormatOptionsupported():
         return True
     else:
         return False
+
 
 window_width = 300
 header_width = 50
@@ -29,6 +31,7 @@ color_joint = (0.5, 1.0, 0.75)
 color_select = (0.5, 0.75, 1.0)
 bw_single = 24
 bw_double = bw_single*2 + 2
+
 
 class NN_ToolWindow(object):
 
@@ -51,8 +54,8 @@ class NN_ToolWindow(object):
     def layout(self):
         self.columnLayout = cmds.columnLayout()
 
-        self.rowLayout1 = cmds.rowLayout( numberOfColumns=16 )
-        self.label1 = cmds.text( label='Geo' ,width=header_width)
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
+        self.label1 = cmds.text(label='Geo', width=header_width)
         self.buttonA = cmds.button(l='X+', c=self.onMirrorFaceXPosi, dgc=self.onCutGeoXPosi, bgc=color_x, width=bw_single)
         self.buttonA = cmds.button(l='X-', c=self.onMirrorFaceXNega, dgc=self.onCutGeoXNega, bgc=color_x, width=bw_single)
         self.buttonA = cmds.button(l='Y+', c=self.onMirrorFaceYPosi, dgc=self.onCutGeoYPosi, bgc=color_y, width=bw_single)
@@ -62,8 +65,8 @@ class NN_ToolWindow(object):
         self.buttonA = cmds.button(l='Op', c=self.onMirrorFaceOp)
         cmds.setParent("..")
 
-        self.rowLayout1 = cmds.rowLayout( numberOfColumns=16 )
-        self.label1 = cmds.text( label='Set 0' ,width=header_width)
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
+        self.label1 = cmds.text(label='Set 0', width=header_width)
         self.buttonA = cmds.button(l='X = ', c=self.onSetZeroX, bgc=color_x, width=bw_single)
         self.buttonA = cmds.button(l='Y = ', c=self.onSetZeroY, bgc=color_y, width=bw_single)
         self.buttonA = cmds.button(l='Z = ', c=self.onSetZeroZ, bgc=color_z, width=bw_single)
@@ -71,7 +74,7 @@ class NN_ToolWindow(object):
         cmds.setParent("..")
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
-        self.label1 = cmds.text( label='Flip' ,width=header_width)
+        self.label1 = cmds.text(label='Flip', width=header_width)
         self.buttonA = cmds.button(l='X', c=self.onFlipX, bgc=color_x, width=bw_double)
         self.buttonA = cmds.button(l='Y', c=self.onFlipY, bgc=color_y, width=bw_double)
         self.buttonA = cmds.button(l='Z', c=self.onFlipZ, bgc=color_z, width=bw_double)
@@ -80,7 +83,7 @@ class NN_ToolWindow(object):
         cmds.separator(width=window_width)
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='Weight' ,width=header_width)
+        self.label1 = cmds.text(label='Weight', width=header_width)
         self.buttonA = cmds.button(l='X+', c=self.onMirrorWeightXPosi, bgc=color_x, width=bw_single)
         self.buttonA = cmds.button(l='X-', c=self.onMirrorWeightXNega, bgc=color_x, width=bw_single)
         self.buttonA = cmds.button(l='Y+', c=self.onMirrorWeightYPosi, bgc=color_y, width=bw_single)
@@ -93,7 +96,7 @@ class NN_ToolWindow(object):
         cmds.separator(width=window_width)
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='Joint' ,width=header_width)
+        self.label1 = cmds.text(label='Joint', width=header_width)
         self.buttonA = cmds.button(l='X', c=self.onMirrorJointX, bgc=color_x, width=bw_double)
         self.buttonA = cmds.button(l='Y', c=self.onMirrorJointY, bgc=color_y, width=bw_double)
         self.buttonA = cmds.button(l='Z', c=self.onMirrorJointZ, bgc=color_z, width=bw_double)
@@ -103,7 +106,7 @@ class NN_ToolWindow(object):
         cmds.setParent("..")
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='' ,width=header_width)
+        self.label1 = cmds.text(label='', width=header_width)
         self.buttonA = cmds.button(l='OrientOp', c=self.onOrientJointOp)
         self.buttonA = cmds.button(l='JointTool', c=self.onJointTool, bgc=color_joint, width=bw_double)
         cmds.setParent("..")
@@ -111,13 +114,13 @@ class NN_ToolWindow(object):
         cmds.separator(width=window_width)
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='weight' ,width=header_width)
+        self.label1 = cmds.text(label='weight', width=header_width)
         self.buttonA = cmds.button(l='export', c=self.onExportWeight, dgc=self.onExportWeightOptions)
         self.tempMode = cmds.checkBox(l='temporary', v=False)
         cmds.setParent("..")
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='' ,width=header_width)
+        self.label1 = cmds.text(label='', width=header_width)
         self.buttonA = cmds.button(l='index', c=self.onImportWeightIndex, dgc=self.onImportWeightOptions)
         self.buttonA = cmds.button(l='nearest', c=self.onImportWeightNearest, dgc=self.onImportWeightOptions)
         #self.buttonA = cmds.button(l='barycentric', c=self.onImportWeightBarycentric, dgc=self.onImportWeightOptions)
@@ -128,7 +131,7 @@ class NN_ToolWindow(object):
         cmds.separator(width=window_width)
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='bind' ,width=header_width)
+        self.label1 = cmds.text(label='bind', width=header_width)
         self.buttonA = cmds.button(l='bind Op', c=self.onBindOptions, dgc=self.onBindOptions)
         self.buttonA = cmds.button(l='unbind', c=self.onUnbind, dgc=self.onUnbindOptions)
         self.buttonA = cmds.button(l='unlockTRS', c=self.onUnlockTRS)
@@ -137,7 +140,7 @@ class NN_ToolWindow(object):
         cmds.separator(width=window_width)
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='Anim' ,width=header_width)
+        self.label1 = cmds.text(label='Anim', width=header_width)
         self.buttonA = cmds.button(l='export', c=self.onExportAnim)
         self.buttonA = cmds.button(l='import', c=self.onImportAnim)
         cmds.setParent("..")
@@ -145,7 +148,7 @@ class NN_ToolWindow(object):
         cmds.separator(width=window_width)
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Editor' ,width=header_width)
+        self.label1 = cmds.text(label='Editor', width=header_width)
         self.buttonA = cmds.button(l='SIWE', c=self.onEditorSIWE)
         self.buttonA = cmds.button(l='mSkin', c=self.onEditorMskin)
         self.buttonA = cmds.button(l='copyWeightOp', c=self.onCopyWeightOp)
@@ -154,14 +157,14 @@ class NN_ToolWindow(object):
         cmds.separator(width=window_width)
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='AriTools' ,width=header_width)
+        self.label1 = cmds.text(label='AriTools', width=header_width)
         self.buttonA = cmds.button(l='Symm', c=self.onAriSymmetryChecker)
         self.buttonA = cmds.button(l='Circle', c=self.onAriCircleVertex)
         self.buttonA = cmds.button(l='SelectEdge', c=self.onAriSelectEdgeLoopRing)
         cmds.setParent("..")
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='' ,width=header_width)
+        self.label1 = cmds.text(label='', width=header_width)
         self.buttonA = cmds.button(l='Straighten', c=self.onAriStraightVertex)
         self.buttonA = cmds.button(l='SplitPolygon', c=self.onAriSplitPolygon)
         cmds.setParent("..")
@@ -169,7 +172,7 @@ class NN_ToolWindow(object):
         cmds.separator(width=window_width)
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='NnTools' ,width=header_width)
+        self.label1 = cmds.text(label='NnTools', width=header_width)
         self.buttonA = cmds.button(l='EdgeRing', c=self.onNnEdgeLength)
         self.buttonA = cmds.button(l='Curve', c=self.onNnCurve)
         self.buttonA = cmds.button(l='Straighten', c=self.onNnStraighten)
@@ -178,7 +181,7 @@ class NN_ToolWindow(object):
         cmds.separator(width=window_width)
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Remesh' ,width=header_width)
+        self.label1 = cmds.text(label='Remesh', width=header_width)
         self.buttonA = cmds.button(l='QRemesher', c=self.onQuadRemesher)
         cmds.setParent("..")
 
@@ -205,15 +208,15 @@ class NN_ToolWindow(object):
 
     def onSetZeroX(self, *args):
         v = cmds.floatField(self.coord_value, q=True, v=True)
-        nnutil.set_coord('x', v)
+        nu.set_coord('x', v)
 
     def onSetZeroY(self, *args):
         v = cmds.floatField(self.coord_value, q=True, v=True)
-        nnutil.set_coord('y', v)
+        nu.set_coord('y', v)
 
     def onSetZeroZ(self, *args):
         v = cmds.floatField(self.coord_value, q=True, v=True)
-        nnutil.set_coord('z', v)
+        nu.set_coord('z', v)
 
     def onSetZeroCenter(objects, axis):
         """
@@ -221,19 +224,24 @@ class NN_ToolWindow(object):
         """
         selection = cmds.ls(selection=True, flatten=True)
         for v in selection:
-            x,y,z = cmds.xform(v, q=True, a=True, os=True, t=True)
-            cmds.xform(v, a=True, os=True, t=(0,y,z))
+            x, y, z = cmds.xform(v, q=True, a=True, os=True, t=True)
+            cmds.xform(v, a=True, os=True, t=(0, y, z))
 
     def onCutGeoXPosi(self, *args):
         mel.eval('polyMirrorFace  -cutMesh 1 -axis 0 -axisDirection 1 -mergeMode 0 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1 ;')
+
     def onCutGeoXNega(self, *args):
         mel.eval('polyMirrorFace  -cutMesh 1 -axis 0 -axisDirection 1 -mergeMode 0 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1 ;')
+
     def onCutGeoYPosi(self, *args):
         mel.eval('polyMirrorFace  -cutMesh 1 -axis 1 -axisDirection 1 -mergeMode 0 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1 ;')
+
     def onCutGeoYNega(self, *args):
         mel.eval('polyMirrorFace  -cutMesh 1 -axis 1 -axisDirection 1 -mergeMode 0 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1 ;')
+
     def onCutGeoZPosi(self, *args):
         mel.eval('polyMirrorFace  -cutMesh 1 -axis 2 -axisDirection 1 -mergeMode 0 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1 ;')
+
     def onCutGeoZNega(self, *args):
         mel.eval('polyMirrorFace  -cutMesh 1 -axis 2 -axisDirection 1 -mergeMode 0 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1 ;')
 
@@ -285,7 +293,6 @@ class NN_ToolWindow(object):
     def onMirrorWeightOp(self, *args):
         mel.eval('MirrorSkinWeightsOptions')
 
-
     def onMirrorJointX(self, *args):
         mel.eval('mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace "R_" "L_";')
 
@@ -320,10 +327,10 @@ class NN_ToolWindow(object):
         selections = cmds.ls(sl=True, fl=True)
 
         for obj in selections:
-            #ノードタイプの取得
-            #meshでなければskip
+            # ノードタイプの取得
+            # meshでなければskip
             skincluster = mel.eval('findRelatedSkinCluster ' + obj)
-            #skincluster 無ければskip
+            # skincluster 無ければskip
             filename = self.sanitize(obj)
 
             if temp_mode:
@@ -358,7 +365,7 @@ class NN_ToolWindow(object):
 
         for obj in selections:
             # スキンクラスター取得
-            skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals() )
+            skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals())
             filename = self.sanitize(obj) + ".xml"
 
             if temp_mode:
@@ -370,7 +377,7 @@ class NN_ToolWindow(object):
             # ウェイトファイルがあるオブジェクトだけ処理
             print(dir+filename)
             if self.existWeightFile(dir, filename):
-                #ウェイトファイル直接開いてインフルエンスリスト取得
+                # ウェイトファイル直接開いてインフルエンスリスト取得
                 influence_list = []
                 path = dir + filename
                 with open(path) as f:
@@ -381,10 +388,10 @@ class NN_ToolWindow(object):
                 if len(influence_list) == 0:
                     continue
 
-                #インフルエンス名と一致するジョイントがシーン内に無ければ警告
+                # インフルエンス名と一致するジョイントがシーン内に無ければ警告
                 joints_not_exist = []
                 for joint in influence_list:
-                    if not mel.eval('exists %(joint)s' % locals()) :
+                    if not mel.eval('exists %(joint)s' % locals()):
                         joints_not_exist.append(joint)
 
                 if len(joints_not_exist) != 0:
@@ -392,7 +399,7 @@ class NN_ToolWindow(object):
                     print(joints_not_exist)
 
                 # バインド済なら一度アンバインドする
-                skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals() )
+                skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals())
                 if skincluster != "":
                     mel.eval('gotoBindPose')
                     cmds.skinCluster(obj, e=True, unbind=True)
@@ -409,12 +416,11 @@ class NN_ToolWindow(object):
                     print("bind error: %(obj)s" % locals() )
                     continue
 
-                #インポート
+                # インポート
                 cmd = 'deformerWeights -import -method "%(method)s" -deformer %(skincluster)s -path "%(dir)s" "%(filename)s"' % locals()
                 print(cmd)
                 mel.eval(cmd)
                 mel.eval("skinCluster -e -forceNormalizeWeights %(skincluster)s" % locals() )
-
 
     def onImportWeightIndex(self, *args):
         method = "index"
@@ -461,9 +467,9 @@ class NN_ToolWindow(object):
             mel.eval('CBunlockAttr "%(obj)s.sy"' % locals())
             mel.eval('CBunlockAttr "%(obj)s.sz"' % locals())
 
-
     def onCopyInfuenceList(self, *args):
         pass
+
     def onPastInfluenceList(self, *args):
         influence_list = []
         for joint in influence_list:
@@ -474,7 +480,6 @@ class NN_ToolWindow(object):
                 pass
         pass
 
-
     def onExportAnim(self, *args):
         mel.eval('ExportAnim')
 
@@ -482,12 +487,8 @@ class NN_ToolWindow(object):
         mel.eval('ImportAnim')
 
     def onEditorSIWE(self, *args):
-        try:
-            import SkyTools.rigging.SiWeightEditor
-            SkyTools.rigging.SiWeightEditor.sishelf_shelf()
-        except:
-            import siweighteditor.siweighteditor
-            siweighteditor.siweighteditor.Option()
+        import siweighteditor.siweighteditor
+        siweighteditor.siweighteditor.Option()
 
     def onEditorMskin(self, *args):
         import SkyTools.rigging.mSkin as sw
@@ -532,8 +533,10 @@ class NN_ToolWindow(object):
 def showNNToolWindow():
     NN_ToolWindow().create()
 
+
 def main():
     showNNToolWindow()
+
 
 if __name__ == "__main__":
     main()
