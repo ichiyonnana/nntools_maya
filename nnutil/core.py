@@ -1437,3 +1437,67 @@ def apply_tweak(target, delete_history=True):
         pm.bakePartialHistory(obj, ppt=True)
 
     pm.select(current_selection)
+
+
+def get_position(comp, space):
+    """ コンポーネントから座標を取得する
+
+    Args:
+        comp ([type]): [description]
+        space ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    # TODO: ひととおり型毎の分岐書く
+    if isinstance(comp, pm.MeshVertex):
+        return comp.getPosition(space=space)
+    else:
+        return to_vtx(comp)[0].getPosition(space=space)
+
+
+def get_center_point(targets):
+    """ 指定したコンポーネントのローカル空間でのバウンディングボックスの中心を取得する
+
+    API 等で取得できるバウンディングボックスは親の座標系でのバウンディングボックス。これは子のシェープの座標系でのバウンディングボックス。
+
+    Args:
+        targets ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+
+    if not targets:
+        raise(Exception())
+    
+    points = [x.getPosition(space="object") for x in to_vtx(targets)]
+
+    min_x = points[0].x
+    min_y = points[0].y
+    min_z = points[0].z
+    max_x = points[0].x
+    max_y = points[0].y
+    max_z = points[0].z
+
+    for p in points:
+        
+        if p.x < min_x:
+            min_x = p.x
+
+        if p.x > max_x:
+            max_x = p.x
+
+        if p.y < min_y:
+            min_y = p.y
+
+        if p.y > max_y:
+            max_y = p.y
+
+        if p.z < min_z:
+            min_z = p.z
+
+        if p.z > max_z:
+            max_z = p.z
+
+    return dt.Point((max_x+min_x)/2, (max_y+min_y)/2, (max_z+min_z)/2)

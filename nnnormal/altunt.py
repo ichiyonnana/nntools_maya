@@ -16,54 +16,6 @@ import nnutil.ui as ui
 import nnutil.decorator as deco
 
 
-# nnutilへ
-def get_position(comp, space):
-    # TODO: ひととおり型毎の分岐書く
-    if isinstance(comp, pm.MeshVertex):
-        return comp.getPosition(space=space)
-    else:
-        return nu.to_vtx(comp)[0].getPosition(space=space)
-
-
-def get_center_point(targets):
-
-    if not targets:
-        raise(Exception())
-    
-    points = [x.getPosition(space="object") for x in nu.to_vtx(targets)]
-
-    min_x = points[0].x
-    min_y = points[0].y
-    min_z = points[0].z
-    max_x = points[0].x
-    max_y = points[0].y
-    max_z = points[0].z
-
-    for p in points:
-        
-        if p.x < min_x:
-            min_x = p.x
-
-        if p.x > max_x:
-            max_x = p.x
-
-        if p.y < min_y:
-            min_y = p.y
-
-        if p.y > max_y:
-            max_y = p.y
-
-        if p.z < min_z:
-            min_z = p.z
-
-        if p.z > max_z:
-            max_z = p.z
-
-    return dt.Point((max_x+min_x)/2, (max_y+min_y)/2, (max_z+min_z)/2)
-
-# nnutilへ
-
-
 OM_ADD = "add"
 OM_MUL = "mul"
 OM_OVERWRITE = "overwrite"
@@ -258,13 +210,13 @@ def _spherize_normal(targets, center=None, ratio=1.0):
         center_point = dt.Point(center)
 
     else:
-        center_point = get_center_point(targets)
+        center_point = nu.get_center_point(targets)
 
     for comp in target_components:
         # 法線と球状ベクトル取得
         current_normal = sum(nu.coords_to_vector(pm.polyNormalPerVertex(comp, q=True, xyz=True)))
         current_normal.normalize()
-        radial_vector = dt.Vector(get_position(comp, space="object") - center_point)
+        radial_vector = dt.Vector(nu.get_position(comp, space="object") - center_point)
         # 比率で合成して上書き
         new_normal = current_normal * (1.0-ratio) + radial_vector * ratio
         # 法線上書き
