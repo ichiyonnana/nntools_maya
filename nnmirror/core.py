@@ -9,10 +9,13 @@ import sys
 import traceback
 
 import pymel.core as pm
+import pymel.core.nodetypes as nt
+import pymel.core.datatypes as dt
 import maya.cmds as cmds
 import maya.mel as mel
 
-import nnutil as nu
+import nnutil.core as nu
+import nnutil.misc as nm
 
 
 def FormatOptionsupported():
@@ -110,6 +113,7 @@ class NN_ToolWindow(object):
         self.label1 = cmds.text(label='', width=header_width)
         self.buttonA = cmds.button(l='OrientOp', c=self.onOrientJointOp)
         self.buttonA = cmds.button(l='JointTool', c=self.onJointTool, bgc=color_joint, width=bw_double)
+        self.buttonA = cmds.button(l='SetRadius', c=self.onSetRadius, width=bw_double)
         cmds.setParent("..")
 
         cmds.separator(width=window_width)
@@ -209,15 +213,15 @@ class NN_ToolWindow(object):
 
     def onSetZeroX(self, *args):
         v = cmds.floatField(self.coord_value, q=True, v=True)
-        nu.set_coord('x', v)
+        nm.set_coord('x', v)
 
     def onSetZeroY(self, *args):
         v = cmds.floatField(self.coord_value, q=True, v=True)
-        nu.set_coord('y', v)
+        nm.set_coord('y', v)
 
     def onSetZeroZ(self, *args):
         v = cmds.floatField(self.coord_value, q=True, v=True)
-        nu.set_coord('z', v)
+        nm.set_coord('z', v)
 
     def onSetZeroCenter(objects, axis):
         """
@@ -311,6 +315,9 @@ class NN_ToolWindow(object):
 
     def onJointTool(self, *args):
         mel.eval('JointTool')
+
+    def onSetRadius(self, *args):
+        nm.set_radius_auto()
 
     def sanitize(self, s, *args):
         # ネームスペース削除
@@ -410,7 +417,7 @@ class NN_ToolWindow(object):
                 # インフルエンス名と一致するジョイントがシーン内に無ければ警告
                 joints_not_exist = []
                 for joint in influence_list:
-                    if not mel.eval('exists %(joint)s' % locals()):
+                    if not mel.eval('objExists %(joint)s' % locals()):
                         joints_not_exist.append(joint)
 
                 if len(joints_not_exist) != 0:
@@ -427,9 +434,10 @@ class NN_ToolWindow(object):
                 try:
                     cmds.select(cl=True)
                     cmds.select(obj, add=True)
-                    for joint in influence_list:
+                    for joint in nu.list_diff(influence_list, joints_not_exist):
                         cmds.select(joint, add=True)
                     skincluster = cmds.skinCluster(tsb=True, mi=max_influence)[0]
+                    
                 except:
                     #TODO: バインド失敗時の処理
                     print("bind error: %(obj)s" % locals() )

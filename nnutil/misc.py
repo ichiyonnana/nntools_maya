@@ -11,8 +11,10 @@ import re
 
 import maya.cmds as cmds
 import maya.mel as mel
+
 import pymel.core as pm
 import pymel.core.nodetypes as nt
+import pymel.core.datatypes as dt
 
 from . import core as nu
 from . import command as nuc
@@ -767,3 +769,39 @@ def isolate_with_imageplanes():
         pm.isolateSelect(active_panel, state=1)
 
         pm.select(current_selection)
+
+
+def set_radius_auto(joints=[]):
+    radius_ratio = 0.2
+    min_radius = 0.001
+
+    if not joints:
+        joints = pm.selected(flatten=True, type="joint")
+    
+        if not joints:
+            raise(Exception)
+
+    for j in joints:
+        children = j.getChildren()
+
+        if children:
+            t1 = dt.Point(pm.xform(j, q=True, t=True, ws=True))
+            t2 = dt.Point(pm.xform(children[0], q=True, t=True, ws=True))
+            radius = (t2 - t1).length() * radius_ratio
+            j.setRadius(max(radius, min_radius))
+
+        else:
+            parent = j.getParent()
+            if parent and isinstance(parent, nt.Joint):
+                j.setRadius(parent.getRadius())
+
+            
+def set_radius_constant(joints=[], radius=0.001):
+    if not joints:
+        joints = pm.selected(flatten=True, type="joint")
+    
+        if not joints:
+            raise(Exception)
+
+    for j in joints:
+        j.setRadius(radius)
