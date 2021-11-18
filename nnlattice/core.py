@@ -124,6 +124,54 @@ def add_lattice_menber(lattice=None, targets=None):
     object_set.addMembers(targets)
 
 
+def get_lattice_menber(lattice):
+    """ ラティスのメンバーを取得する
+
+    引数が未指定の場合は選択オブジェクトを使用する
+
+    Args:
+        lattice (Transform or Lattice): 
+        targets (list[Transform or Lattice]): 
+    """
+    lattice_types = [nt.BaseLattice, nt.Lattice]
+
+    # メンバーを選択するラティスのデフォーマーノード
+    ffd = None
+
+    # lattice が Lattice や BaseLattice なら FFD ノードを取得する
+    if type(lattice) in lattice_types:
+        ffd = pm.listConnections(lattice, type="ffd")[0]
+    elif type(lattice) == pm.nodetypes.Transform:
+        ffd = pm.listConnections(lattice.getShape(), type="ffd")[0]
+
+    # メンバーの取得
+    object_set = [x for x in pm.listConnections(ffd) if type(x) == nt.ObjectSet][0]
+    members = [nu.get_object(x) for x in object_set.members()]
+
+    return members
+    
+
+def select_lattice_menber(lattice=None):
+    """ ラティスのメンバーを選択する
+
+    引数が未指定の場合は選択オブジェクトを使用する
+
+    Args:
+        lattice (Transform or Lattice): 
+        targets (list[Transform or Lattice]): 
+    """
+    lattice_types = [nt.BaseLattice, nt.Lattice]
+
+    # 引数が無効な場合は選択オブジェクトを使用する
+    if not lattice:
+        selections = pm.selected(flatten=True)
+        lattice = [x for x in selections if type(x.getShape()) == pm.nodetypes.Lattice][-1]
+
+    # メンバーの取得と選択
+    members = get_lattice_menber(lattice)
+    pm.select(members, replace=True)
+    
+
 def get_selected_lattice_and_points(selected_lattice_points=[]):
     """ ラティスかラティスポイントが選択されている場合に､選択されているラティスとラティスポイントのリストを返す
     選択が無効な場合は None
@@ -237,7 +285,7 @@ def rebuild_lattice(lattice=None, s=2, t=2, u=2):
     pm.delete(ch=True)
 
     # 実行時の選択モードに復帰する
-    if object_mode:    
+    if object_mode:
         # ラティスのトランスフォームノードを選択した状態にする
         pm.selectMode(object=True)
         pm.select(lattice_trs, replace=True)
@@ -255,7 +303,7 @@ def is_surface_indices(s, t, u, div_s, div_t, div_u):
         u (int): 表面にあるかチェックするインデックス
         div_s (int): 分割数
         div_t (int): 分割数
-        div_u (int): 分割数 
+        div_u (int): 分割数
 
     Returns:
         bool: 表面にあれば True を返す
@@ -418,6 +466,57 @@ def select_shrink():
     pm.select(selections, replace=True)
 
 
+def apply_lattice(lattices=[]):
+    """ラティスの変形をコンポーネント座標に適用し、ラティスを削除する
+
+    引数未指定の場合は選択オブジェクト中のラティスを使用する
+
+    Args:
+        lattices (list[Lattice]): 適用するラティス
+    """
+    # 引数が無効なら選択オブジェクトからラティスを取得する
+    if not lattices:
+        lattices = [x for sel in pm.selected(flatten=True) for x in pm.listRelatives(sel, ad=True) if isinstance(x, nt.Lattice)]
+
+        if not lattices:
+            raise(Exception)
+
+    # 削除対象ラティス
+    lattices_to_remove = []
+
+    # シェイプと座標配列の辞書
+    shape_points_table = dict()
+
+    # ラティス毎の処理
+    for lattice in lattices:
+        # メンバーの取得
+        objects = get_lattice_menber(lattice)
+
+        # メンバー毎にシェイプと座標配列を取得する
+        for obj in objects:
+            if hasattr(obj, "getShape"):
+                shape = obj.getShape()
+            elif isinstance(obj, nt.Mesh):
+                shape = obj
+            else:
+                continue
+        
+            points = shape.getPoints()
+            lattices = [x for x in shape.connections() if isinstance(x, nt.Ffd)]
+            lattices_to_remove.extend(lattices)
+            shape_points_table[shape] = points
+    
+    lattices_to_remove = nu.uniq(lattices_to_remove)
+
+    # ラティスの削除
+    for lattice in lattices_to_remove:
+        pm.delete(lattice)
+    
+    # シェイプにラティス削除前の座標を上書き
+    for shape, points in shape_points_table.items():
+        shape.setPoints(points)
+
+
 class NN_ToolWindow(object):
 
     def __init__(self):
@@ -468,6 +567,12 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label="")
         ui.button(label='Add Member', c=self.onAddMember)
+        ui.button(label='Select Member', c=self.onSelectMember)
+        ui.end_layout()
+        ui.row_layout()
+
+        ui.header(label="")
+        ui.button(label='Apply Lattice', c=self.onApplyLattice)
         ui.button(label='Match Lattice', c=self.onMatchLattice)
         ui.end_layout()
 
@@ -487,6 +592,12 @@ class NN_ToolWindow(object):
 
     def onMatchLattice(self, *args):
         match_latice()
+
+    def onSelectMember(self, *args):
+        select_lattice_menber()
+
+    def onApplyLattice(self, *args):
+        apply_lattice()
 
     def onDiv2(self, *args):
         s = ui.get_value(self.rebuild_s)
