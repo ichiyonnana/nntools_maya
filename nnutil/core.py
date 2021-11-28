@@ -1111,6 +1111,26 @@ def uniq(a):
         return a
 
 
+def split_n_pair(a, n):
+    """リストの要素を n 個ずつに区切りリストのリストとして返す
+
+    Args:
+        a (list[any]): 区切られるリスト
+
+    Returns:
+        list[list[any]]: n 個ずつに区切られたリストのリスト
+    """
+    if n == 0:
+        raise(Exception("1以上の"))
+    
+    if len(a) % n != 0:
+        raise(Exception(""))
+
+    ret = [a[i:i+n] for i in range(0, len(a), n)]
+
+    return ret
+
+
 def round_vector(v, fraction):
     """ ベクトルの各要素をそれぞれ round する
     

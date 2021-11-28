@@ -1,8 +1,6 @@
 #! python
 # coding:utf-8
 
-import math
-
 import maya.cmds as cmds
 import pymel.core as pm
 import maya.mel as mel
@@ -12,6 +10,7 @@ import nnutil.ui as ui
 import nnutil.decorator as nd
 
 MSG_NOT_IMPLEMENTED = "未実装"
+
 
 @nd.repeatable
 def OnewayMatchUV(mode):
@@ -458,30 +457,32 @@ def expand_fold_leftup():
     half_expand_fold(False)
 
 
+# フリップ方向
+FD_U = "u"
+FD_V = "v"
+
+
 @nd.repeatable
-def flip_u_in_tile():
+def flip_in_tile(pivot=None, direction=FD_U):
     cmds.ConvertSelectionToUVs()
     uv_comp = cmds.ls(selection=True, flatten=True)[0]
     uv_coord = cmds.polyEditUV(uv_comp, query=True)
     u = uv_coord[0]
     v = uv_coord[1]
-    piv_u = u // 1 + 0.5
-    piv_v = v // 1 + 0.5
-    cmds.SelectUVShell()
-    cmds.polyEditUV(pu=piv_u, pv=piv_v, su=-1, sv=1)
 
+    if not pivot:
+        pivot = (u // 1 + 0.5, v // 1 + 0.5)
 
-@nd.repeatable
-def flip_v_in_tile():
-    cmds.ConvertSelectionToUVs()
-    uv_comp = cmds.ls(selection=True, flatten=True)[0]
-    uv_coord = cmds.polyEditUV(uv_comp, query=True)
-    u = uv_coord[0]
-    v = uv_coord[1]
-    piv_u = u // 1 + 0.5
-    piv_v = v // 1 + 0.5
     cmds.SelectUVShell()
-    cmds.polyEditUV(pu=piv_u, pv=piv_v, su=1, sv=-1)
+
+    if direction == FD_U:
+        cmds.polyEditUV(pu=pivot[0], pv=pivot[1], su=-1, sv=1)
+
+    elif direction == FD_V:
+        cmds.polyEditUV(pu=pivot[0], pv=pivot[1], su=1, sv=-1)
+
+    else:
+        raise(Exception("unknown flip mode"))
 
 
 @nd.repeatable
@@ -497,6 +498,15 @@ def sew_matching_edges():
             print(len(unique_uv))
             if len(unique_uv) == 2:
                 cmds.polyMapSew(edge, ch=1)
+
+
+def get_flip_pivot(ui_pivot_u, ui_pivot_v):
+    uvs = pm.selected(flatten=True)
+    uv_coords = nu.split_n_pair(pm.polyEditUV(uvs, q=True), 2)
+    avg_u = sum([uv_coord[0] for uv_coord in uv_coords]) / len(uv_coords)
+    avg_v = sum([uv_coord[1] for uv_coord in uv_coords]) / len(uv_coords)
+    ui.set_value(ui_pivot_u, avg_u)
+    ui.set_value(ui_pivot_v, avg_v)
 
 
 @nd.repeatable
@@ -699,11 +709,11 @@ class NN_ToolWindow(object):
         # Flip
         ui.row_layout()
         ui.header(label="Flip")
-        ui.button(label='FlipU', c=self.onFlipUinTile, bgc=ui.color_u)
-        ui.button(label='FlipV', c=self.onFlipVinTile, bgc=ui.color_v)
+        ui.button(label='FlipU', c=self.onFlipUinTile, dgc=self.onFlipUinTilePiv, bgc=ui.color_u)
+        ui.button(label='FlipV', c=self.onFlipVinTile, dgc=self.onFlipVinTilePiv, bgc=ui.color_v)
         self.flip_pivot_u = ui.eb_float(width=ui.button_width2)
         self.flip_pivot_v = ui.eb_float(width=ui.button_width2)
-        ui.button(label="get", width=ui.button_width1)
+        ui.button(label="get", width=ui.button_width1, c=self.onGetFlipPivot)
         ui.end_layout()
 
         # Cut & Sew
@@ -1053,11 +1063,27 @@ class NN_ToolWindow(object):
 
     @nd.undo_chunk
     def onFlipUinTile(self, *args):
-        flip_u_in_tile()
+        flip_in_tile(direction=FD_U)
 
     @nd.undo_chunk
     def onFlipVinTile(self, *args):
-        flip_v_in_tile()
+        flip_in_tile(direction=FD_V)
+
+    @nd.undo_chunk
+    def onFlipUinTilePiv(self, *args):
+        pu = ui.get_value(self.flip_pivot_u)
+        pv = ui.get_value(self.flip_pivot_v)
+        flip_in_tile(pivot=(pu, pv), direction=FD_U)
+
+    @nd.undo_chunk
+    def onFlipVinTilePiv(self, *args):
+        pu = ui.get_value(self.flip_pivot_u)
+        pv = ui.get_value(self.flip_pivot_v)
+        flip_in_tile(pivot=(pu, pv), direction=FD_V)
+
+    @nd.undo_chunk
+    def onGetFlipPivot(self, *args):
+        get_flip_pivot(self.flip_pivot_u, self.flip_pivot_v)
 
     @nd.undo_chunk
     def onSewMatchingEdges(self, *args):
