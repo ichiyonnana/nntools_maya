@@ -125,7 +125,7 @@ def half_expand_fold(right_down=True):
         if right_down:
             flip_direction = FD_TO_RIGHT
         else:
-            filp_direction = FD_TO_LEFT
+            flip_direction = FD_TO_LEFT
     else:
         flip_axis = FA_V
         if right_down:
