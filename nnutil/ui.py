@@ -11,6 +11,7 @@ import pymel.core.nodetypes as nt
 
 window_width = 300
 header_width = 50
+color_default = (0.35, 0.35, 0.35)
 color_x = (1.0, 0.5, 0.5)
 color_y = (0.5, 1.0, 0.5)
 color_z = (0.5, 0.5, 1.0)
@@ -100,19 +101,30 @@ def ui_func(component):
     return handle_method[get_component_type(component)]
 
 
-def decide_width(word):
+def decide_width(word, with_icon=False):
     """ 文字列から UI コンポーネントの段階的な幅を計算する
     """
     actual_width = 0
 
-    if len(word) <= 2:
-        actual_width = button_width1
-    elif len(word) <= 8:
-        actual_width = button_width2
-    elif len(word) < 14:
-        actual_width = button_width3
+    if with_icon:
+        if len(word) <= 2:
+            actual_width = button_width2
+        elif len(word) <= 8:
+            actual_width = button_width3
+        elif len(word) < 14:
+            actual_width = button_width4
+        else:
+            actual_width = button_width5
+
     else:
-        actual_width = button_width4
+        if len(word) <= 2:
+            actual_width = button_width1
+        elif len(word) <= 8:
+            actual_width = button_width2
+        elif len(word) < 14:
+            actual_width = button_width3
+        else:
+            actual_width = button_width4
 
     return actual_width
 
@@ -142,13 +154,16 @@ def text(label="", width=button_width_auto, *args, **kwargs):
     return pm.text(label=label, width=actual_width, *args, **kwargs)
 
 
-def button(label, width=button_width_auto, c=any_handler, dgc=any_handler, *args, **kwargs):
+def button(label, icon=None, width=button_width_auto, bgc=color_default, c=any_handler, dgc=any_handler, *args, **kwargs):
     actual_width = width
 
     if width == button_width_auto:
-        actual_width = decide_width(label)
+        actual_width = decide_width(label, with_icon=bool(icon))
 
-    component = pm.button(l=label, c=c, dgc=dgc, width=actual_width, *args, **kwargs)
+    if icon:
+        component = pm.iconTextButton(l=label, image1=icon, style="iconAndTextHorizontal", bgc=bgc, c=c, dgc=dgc, width=actual_width, height=height1, *args, **kwargs)
+    else:
+        component = pm.button(l=label, c=c, dgc=dgc, width=actual_width, height=height1, *args, **kwargs)
 
     return component
 
