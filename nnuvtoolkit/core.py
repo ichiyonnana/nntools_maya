@@ -280,6 +280,7 @@ class NN_ToolWindow(object):
         self.checkerDensity = cmds.intField(v=256, cc=self.onChangeUVCheckerDensity, width=ui.button_width1_5)
         ui.button(label='/2', c=self.onUVCheckerDensityDiv2)
         ui.button(label='x2', c=self.onUVCheckerDensityMul2)
+        ui.button(label="Toggle", c=self.onToggleChecker)
         ui.end_layout()
 
         # Layout
@@ -782,7 +783,7 @@ class NN_ToolWindow(object):
         self.onChangeUVCheckerDensity()
 
     def onToggleChecker(self, *args):
-        checkered = cmds.textureWindow("polyTexturePlacementPanel1", e=True, displayCheckered=True)
+        checkered = cmds.textureWindow("polyTexturePlacementPanel1", q=True, displayCheckered=True)
         cmds.textureWindow("polyTexturePlacementPanel1", e=True, displayCheckered=(not checkered))
 
     def onDrawEdge(self, *args):
