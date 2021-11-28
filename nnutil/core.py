@@ -112,19 +112,19 @@ def list_add(l1, l2):
 
     重複削除はせずただ結合しただけのリストが返る
     TODO: *args で可変長 (l1 + l2 + l3 + ...) に対応して
-    
+
     """
     if not isinstance(l1, list) or not isinstance(l2, list):
         print("list_add: The argument is not a list. It will convert automatically, but it may not be the intended result.")
         l1 = list(l1)
         l2 = list(l2)
-        
+
     return l1 + l2
 
 
 def list_diff(l1, l2):
     """ リスト同士の差集合 (l1 - l2) を返す
-    
+
     list(set() - set()) よりは軽い
     TODO: *args で可変長 (l1 - l2 - l3 - ... )に対応して
 
@@ -139,16 +139,16 @@ def list_diff(l1, l2):
 
 def list_intersection(l1, l2):
     """ リストの積集合 (l1 & l2) を返す
-    
+
     list(set() & set()) よりは軽い
     TODO: *args で可変長 (l1 & l2 & l3 & ...) に対応して
-    
+
     """
     if not isinstance(l1, list) or not isinstance(l2, list):
         print("list_intersection: The argument is not a list. It will convert automatically, but it may not be the intended result.")
         l1 = list(l1)
         l2 = list(l2)
-        
+
     return filter(lambda x: x in l2, l1)
 
 
@@ -234,18 +234,18 @@ def filter_backface_uv_comp(uv_comp_list):
         list[str]: 裏表が反転している UV の cmds コンポーネント文字列
     """
     cmds.SelectUVBackFacingComponents()
-    backface_uvs = list(set(cmds.ls(selection=True, flatten=True)) & set(uv_comp_list) )
+    backface_uvs = list(set(cmds.ls(selection=True, flatten=True)) & set(uv_comp_list))
 
     return backface_uvs
 
 
 def dot(v1, v2):
     """ 三次元ベクトルの内積
-    
+
     Args:
-        v1 (list[float, float]): 
-        v2 (list[float, float]): 
-        
+        v1 (list[float, float]):
+        v2 (list[float, float]):
+
     Returns:
         float:
     """
@@ -258,7 +258,7 @@ def cross(a, b):
     Args:
         a (list[float, float, float]):
         b (list[float, float, float]):
-        
+
     Returns:
         list[float, float, float]:
     """
@@ -267,11 +267,11 @@ def cross(a, b):
 
 def add(v1, v2):
     """ 三次元ベクトルの加算
-    
+
     Args:
         v1 (list[float, float, float]):
         v2 (list[float, float, float]):
-        
+
     Returns:
         list[float, float, float]:
     """
@@ -280,11 +280,11 @@ def add(v1, v2):
 
 def diff(v2, v1):
     """ 三次元ベクトルの減算
-    
+
     Args:
         v1 (list[float, float, float]):
         v2 (list[float, float, float]):
-        
+
     Returns:
         list[float, float, float]:
     """
@@ -293,11 +293,11 @@ def diff(v2, v1):
 
 def mul(v1, f):
     """ 三次元ベクトルと実数の積
-    
+
     Args:
         v1 (list[float, float, float]):
         f (float):
-        
+
     Returns:
         list[float, float, float]:
     """
@@ -306,11 +306,11 @@ def mul(v1, f):
 
 def div(v1, f):
     """ 三次元ベクトルと実数の商
-    
+
     Args:
         v1 (list[float, float, float]):
         f (float):
-        
+
     Returns:
         list[float, float, float]:
     """
@@ -319,11 +319,11 @@ def div(v1, f):
 
 def angle(v1, v2, degrees=False):
     """ 2ベクトル間のなす角
-    
+
     Args:
         v1 (list[float, float, float]):
         v2 (list[float, float, float]):
-        
+
     Returns:
         float:
     """
@@ -356,7 +356,7 @@ def edge_to_vector(edge, normalize=False):
 
 def get_farthest_point_pair(points):
     """ points に含まれる点のうち一番遠い二点を返す
-    
+
     Args:
         points (list[list[float, float, float]]):
 
@@ -378,7 +378,7 @@ def get_farthest_point_pair(points):
 
 def get_nearest_point_from_point(point, target_points):
     """ target_points のうち point に一番近い点の座標を返す
-    
+
     Args:
         point (list[float, float, float]):
         target_points (list[list[float, float, float]]):
@@ -479,13 +479,13 @@ def set_vtx_coord(vtx, point):
 
 def get_uv_coord(uv):
     """ [cmds] maya.cmds のコンポーネント文字列からUV座標を取得
-    
+
     Args:
         uv (str):
-    
+
     Return:
-        list[float, float]: 
-    
+        list[float, float]:
+
     """
     uv_coord = cmds.polyEditUV(uv, query=True)
     return uv_coord
@@ -493,7 +493,7 @@ def get_uv_coord(uv):
 
 def get_connected_vertices(comp):
     """ [pm/cmds] pymel の getConnectedVertices の代替関数
-    
+
     pymel の getConnectedVertices より若干早い
 
     Args:
@@ -505,13 +505,13 @@ def get_connected_vertices(comp):
     if type(comp) in [type(""), type(u"")]:
         # comp 自体を取り除く (obj, objShape 対策でインデックスのみ比較)
         return [x for x in to_vtx(to_edge(comp)) if re.search(r"(\[\d+\])", comp).groups()[0] not in x]
-    
+
     elif type(comp) in [pm.MeshEdge, pm.MeshVertex]:
         return pynode(get_connected_vertices(idstr(comp)))
 
     else:
         raise
-    
+
 
 def get_end_vtx_e(edges):
     """ [cmds] edges に含まれる端の頂点をすべて返す
@@ -541,7 +541,7 @@ def get_end_vtx_v(vts):
 
     Args:
         vts (list[str]): 頂点を表すcmdsコンポーネント文字列のリスト
-    
+
     Returns:
         list[str]: 頂点を表すcmdsコンポーネント文字列のリスト
     """
@@ -553,7 +553,7 @@ def get_end_vtx_v(vts):
 
 def get_most_distant_vts(vts):
     """ [cmds] 引数で渡した頂点集合のうち最も離れた2点を返す
-    
+
     Args:
         vts (list[str]): 頂点を表すcmdsコンポーネント文字列のリスト
 
@@ -582,10 +582,10 @@ def sortVtx(edges, vts):
     Args:
         edges(list[str]): エッジを表すcmdsコンポーネント文字列のリスト
         vts (list[str]): 頂点を表すcmdsコンポーネント文字列のリスト
-    
+
     Returns:
         list[str]: 頂点を表すcmdsコンポーネント文字列のリスト
-    
+
     """
     def partVtxList(partEdges, startVtx):
         """ 部分エッジ集合と開始頂点から再帰的に頂点列を求める """
@@ -651,7 +651,7 @@ def vtxListPath(vts, n=None):
 
 def length_each_vertices(vertices, space="world"):
     """ [pm] 頂点間の距離をリストで返す
-    
+
     戻り値リストの n 番目は vertices[n] と vertices[n+1] の距離
 
     Args:
@@ -659,12 +659,12 @@ def length_each_vertices(vertices, space="world"):
         space (str):
 
     Returns:
-        list[float]: 
-    
+        list[float]:
+
     """
     length_list = []
 
-    for i in range(len(vertices)-1):        
+    for i in range(len(vertices)-1):
         pnt1 = vertices[i].getPosition(space=space)
         pnt2 = vertices[i+1].getPosition(space=space)
         length_list.append((pnt1 - pnt2).length())
@@ -690,7 +690,7 @@ def vertices_path_length(vertices, n=None, space="world"):
 
     path = 0.0
 
-    for i in range(n):        
+    for i in range(n):
         pnt1 = vertices[i].getPosition(space=space)
         pnt2 = vertices[i+1].getPosition(space=space)
         path += (pnt1 - pnt2).length()
@@ -733,8 +733,8 @@ def get_object(component, pn=False, transform=False):
 
 
 def to_vtx(components, pn=False):
-    """ [pm/cmds] 
-    
+    """ [pm/cmds]
+
     Args:
         components ([type]): [description]
         pn (bool, optional): [description]. Defaults to False.
@@ -757,8 +757,8 @@ def to_vtx(components, pn=False):
 
 
 def to_edge(components, pn=False):
-    """ [pm/cmds] 
-    
+    """ [pm/cmds]
+
     Args:
         components ([type]): [description]
         pn (bool, optional): [description]. Defaults to False.
@@ -773,7 +773,7 @@ def to_edge(components, pn=False):
         pn = not is_string(components[0])
     else:
         pn = not is_string(components)
-    
+
     if pn:
         return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, te=True), sm=32)))
     else:
@@ -781,8 +781,8 @@ def to_edge(components, pn=False):
 
 
 def to_face(components, pn=False):
-    """ [pm/cmds] 
-    
+    """ [pm/cmds]
+
     Args:
         components ([type]): [description]
         pn (bool, optional): [description]. Defaults to False.
@@ -797,23 +797,23 @@ def to_face(components, pn=False):
         pn = not is_string(components[0])
     else:
         pn = not is_string(components)
-    
+
     if pn:
         return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, tf=True), sm=34)))
     else:
         return uniq(cmds.filterExpand(cmds.polyListComponentConversion(components, tf=True), sm=34))
 
 
-def to_uv(components, pn=False):  
-    """ [pm/cmds] 
-    
+def to_uv(components, pn=False):
+    """ [pm/cmds]
+
     Args:
         components ([type]): [description]
         pn (bool, optional): [description]. Defaults to False.
 
     Returns:
         list[str or PyNode]:
-    """  
+    """
     if not components:
         return components
 
@@ -821,7 +821,7 @@ def to_uv(components, pn=False):
         pn = not is_string(components[0])
     else:
         pn = not is_string(components)
-    
+
     if pn:
         return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, tuv=True), sm=35)))
     else:
@@ -829,7 +829,7 @@ def to_uv(components, pn=False):
 
 
 def to_vtxface(components, pn=False):
-    """ [pm/cmds] 
+    """ [pm/cmds]
 
     Args:
         components ([type]): [description]
@@ -845,7 +845,7 @@ def to_vtxface(components, pn=False):
         pn = not is_string(components[0])
     else:
         pn = not is_string(components)
-    
+
     if pn:
         return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, tvf=True), sm=70)))
     else:
@@ -911,9 +911,9 @@ def to_border_vtxfaces(components):
     inner_vf = to_vtxface(faces)
     border_vertices = to_border_vertices(components)
     double_sided_border_vf = to_vtxface(border_vertices)
-   
+
     border = list_intersection(double_sided_border_vf, inner_vf)
-    
+
     if border:
         if pn:
             return uniq(pynode(border))
@@ -921,7 +921,7 @@ def to_border_vtxfaces(components):
             return uniq(border)
     else:
         return []
-    
+
 
 def is_hardedge(edge):
     """ 引数のエッジがハードエッジなら True を返す
@@ -946,7 +946,7 @@ def get_all_hardedges(obj):
     Returns:
         list[MeshEdge]: [description]
     """
-    current_selection = cmds.ls(selection=True) 
+    current_selection = cmds.ls(selection=True)
 
     harden = []
     pm.select(obj.edges)
@@ -970,7 +970,7 @@ def get_all_softedges(obj):
     Returns:
         list[MeshEdge]: [description]
     """
-    current_selection = cmds.ls(selection=True) 
+    current_selection = cmds.ls(selection=True)
 
     harden = []
     pm.select(obj.edges)
@@ -994,7 +994,7 @@ def is_connected_vtxfaces(vf1, vf2):
         vf2 (MeshVertexFace): [description]
 
     Returns:
-        bool: 
+        bool:
 
     """
     shared_vertex = to_vtx(vf1)[0]
@@ -1013,17 +1013,17 @@ def is_connected_vtxfaces(vf1, vf2):
         processed_edges.append(e)
         adjacent_vtxfaces = list_intersection(to_vtxface(e), internal_vtxfaces)
         processed_vtxfaces.extend(adjacent_vtxfaces)
-        
+
         if vf2 in adjacent_vtxfaces:
             return True
-        
-        next_edges = [ne for ne in to_edge(to_face(e)) if ne in internal_edges and ne != e and not is_hardedge(ne) and ne not in processed_edges]     
+
+        next_edges = [ne for ne in to_edge(to_face(e)) if ne in internal_edges and ne != e and not is_hardedge(ne) and ne not in processed_edges]
         edge_queue.extend(next_edges)
 
         i += 1
         if i > 10:
             raise
-    
+
     return False
 
 
@@ -1055,14 +1055,14 @@ def get_connected_vtx_faces(vf):
         processed_vtxfaces.extend(adjacent_vtxfaces)
 
         connected_vtx_faces.extend(adjacent_vtxfaces)
-        
-        next_edges = [ne for ne in to_edge(to_face(e)) if ne in internal_edges and ne != e and not is_hardedge(ne) and ne not in processed_edges]     
+
+        next_edges = [ne for ne in to_edge(to_face(e)) if ne in internal_edges and ne != e and not is_hardedge(ne) and ne not in processed_edges]
         edge_queue.extend(next_edges)
 
         i += 1
         if i > 10:
             raise
-    
+
     return uniq(connected_vtx_faces)
 
 
@@ -1073,7 +1073,7 @@ def type_of_component(comp):
 
     Args:
         comp (str):
-    
+
     Returns:
         str or None: "e", "f", "v", None
     """
@@ -1122,7 +1122,7 @@ def split_n_pair(a, n):
     """
     if n == 0:
         raise(Exception("1以上の"))
-    
+
     if len(a) % n != 0:
         raise(Exception(""))
 
@@ -1133,9 +1133,9 @@ def split_n_pair(a, n):
 
 def round_vector(v, fraction):
     """ ベクトルの各要素をそれぞれ round する
-    
+
     Args:
-        v (list[float, float, float]): 
+        v (list[float, float, float]):
 
     Returns:
         list[float, float, float]:
@@ -1149,13 +1149,13 @@ def get_poly_line(edges, intersections=[]):
 
     intersections を指定することで実際には連続しているエッジ同士を分離する事が可能
     edges の型で pm/cmds を判断する｡
-    
+
     Args:
         edges (list[str]):
         intersections (list[str or MeshVertex]): 実際にはトポロジーが連続していても連続していないと見なす点のリスト
 
     Returns:
-        list[str]: 
+        list[str]:
 
     """
     if isinstance(edges[0], pm.MeshEdge):
@@ -1164,7 +1164,7 @@ def get_poly_line(edges, intersections=[]):
     first_edge = edges[0]
     rest_edges = edges[1:]
     processed_edges = [first_edge]
-    processed_vts = []    
+    processed_vts = []
     vtx_queue = []
     polyline = [first_edge]
 
@@ -1206,7 +1206,7 @@ def get_all_polylines(edges):
         edges (list[str]):
 
     Returns:
-        list[list[str]]: 
+        list[list[str]]:
 
     """
     if isinstance(edges[0], pm.MeshEdge):
@@ -1226,7 +1226,7 @@ def get_all_polylines(edges):
 
 def _get_poly_line_pm(edges, intersections=[]):
     """ [pm] edges を連続するエッジのまとまりとしてエッジリストを一つ返す
-    
+
     get_poly_line() から呼ばれる Pymel 版の実装｡基本的には直接呼ばず get_poly_line() を使う｡
     intersections を指定することで実際には連続しているエッジ同士を分離する事が可能
 
@@ -1235,15 +1235,15 @@ def _get_poly_line_pm(edges, intersections=[]):
         intersections (list[MeshVertex]): 複数のエッジの交点と見なす頂点
 
     Returns:
-        list[MeshEdge]: 
+        list[MeshEdge]:
     """
-    first_edge = edges[0]    
+    first_edge = edges[0]
     rest_edges = edges[1:]  # 未処理エッジ
     processed_edges = [first_edge]  # 処理済みエッジ
     processed_vts = []  # 処理済み頂点
     polyline = [first_edge]  # 返値
     vtx_queue = list_diff(get_connected_vertices(first_edge), intersections)
-        
+
     while len(vtx_queue) > 0:
         for vtx in vtx_queue:
             # 処理済み頂点にvtx 追加
@@ -1279,7 +1279,7 @@ def _get_all_polylines_pm(edges):
         edges (list[MeshEdge]):
 
     Returns:
-        list[list[MeshEdge]]: 
+        list[list[MeshEdge]]:
 
     """
     polylines = []
@@ -1345,11 +1345,11 @@ def get_end_vertices_e(edges):
 
     Args:
         edges(list[MeshEdge]): エッジリスト (順不同)
-    
+
     Returns:
         list[MeshVertex]:
     """
-   
+
     return get_end_vertices_v(to_vtx(edges, pn=True))
 
 
@@ -1446,7 +1446,7 @@ def sorted_edges_to_vertices(edges):
     sorted_vertices = []
     first_vertices = list_diff(edges[0].vertices(), edges[1].vertices())[0]
     sorted_vertices.append(first_vertices)
-   
+
     for i in range(len(edges)-1):
         edge = edges[i]
         next_edge = edges[i+1]
@@ -1458,7 +1458,7 @@ def sorted_edges_to_vertices(edges):
 
 def sorted_vertices_to_edges(vertices):
     """ [pm] ソートされた頂点を同じ順序でソートされたエッジに変換する
-    
+
     Args:
         list[MeshVertex]: ソート済頂点リスト
 
@@ -1472,7 +1472,7 @@ def sorted_vertices_to_edges(vertices):
         next_vertex = vertices[i+1]
         shared_edge = list_intersection(list(vertex.connectedEdges()), list(next_vertex.connectedEdges()))[0]
         sorted_edges.append(shared_edge)
-    
+
     return sorted_edges
 
 
@@ -1521,7 +1521,7 @@ def apply_tweak(target, delete_history=True):
         current_points = shape.getPoints()
         pm.delete(tweak_node)
         shape.setPoints(current_points)
-        
+
     # pnts の適用
     pm.polyMergeVertex(obj.verts[0])
 
@@ -1562,7 +1562,7 @@ def get_center_point(targets):
 
     if not targets:
         raise(Exception())
-    
+
     points = [x.getPosition(space="object") for x in to_vtx(targets)]
 
     min_x = points[0].x
@@ -1573,7 +1573,7 @@ def get_center_point(targets):
     max_z = points[0].z
 
     for p in points:
-        
+
         if p.x < min_x:
             min_x = p.x
 
