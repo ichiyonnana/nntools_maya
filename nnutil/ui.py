@@ -163,7 +163,7 @@ def button(label, icon=None, width=button_width_auto, bgc=color_default, c=any_h
     if icon:
         component = pm.iconTextButton(l=label, image1=icon, style="iconAndTextHorizontal", bgc=bgc, c=c, dgc=dgc, width=actual_width, height=height1, *args, **kwargs)
     else:
-        component = pm.button(l=label, c=c, dgc=dgc, width=actual_width, height=height1, *args, **kwargs)
+        component = pm.button(l=label, c=c, dgc=dgc, width=actual_width, height=height1, bgc=bgc, *args, **kwargs)
 
     return component
 
