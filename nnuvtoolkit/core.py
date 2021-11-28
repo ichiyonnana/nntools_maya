@@ -6,249 +6,177 @@ import math
 import maya.cmds as cmds
 import maya.mel as mel
 
-import nnutil as nu
+import nnutil.core as nu
+import nnutil.ui as ui
 
-#from nnenv import *
-window_width = 300
-header_width = 50
-color_x = (1.0, 0.5, 0.5)
-color_y = (0.5, 1.0, 0.5)
-color_z = (0.5, 0.5, 1.0)
-color_u = (1.0, 0.6, 0.7)
-color_v = (0.7, 0.6, 1.0)
-color_joint = (0.5, 1.0, 0.75)
-color_select = (0.5, 0.75, 1.0)
-bw_single = 24
-bw_double = bw_single*2 + 2
-
-def distance(p1, p2):
-    return math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2 + (p2[2]-p1[2])**2)
-
-def distanceUV(p1, p2):
-    return math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
+MSG_NOT_IMPLEMENTED = "未実装"
 
 
 def OnewayMatchUV(mode):
-  def printd(description, message):
-      print(str(description) + ": " + str(message))
+    MM_BACK_TO_FRONT = 0
+    MM_UNPIN_TO_PIN = 1
+    MM_FRONT_TO_BACK = 2
+    MM_PIN_TO_UNPIN = 3
 
-  def distance2(p1, p2):
-      return math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
-
-  def distance3(p1, p2):
-      return math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2 + (p2[2]-p1[2])**2)
-
-  def uvDistance(uv1, uv2):
-    uvCoord1 = cmds.polyEditUV(uv1, query=True)
-    uvCoord2 = cmds.polyEditUV(uv2, query=True)
-    return distance2(uvCoord1, uvCoord2)
-
-
-  def setUV(lhs, rhs):
-    rhs_coord = cmds.polyEditUV(rhs, q=True, relative=False)
-    cmds.polyEditUV(lhs, relative=False, u=rhs_coord[0], v=rhs_coord[1])
-
-  MM_BACK_TO_FRONT = 0
-  MM_UNPIN_TO_PIN = 1
-  MM_FRONT_TO_BACK = 2
-  MM_PIN_TO_UNPIN = 3
-
-  if mode == None:
-    match_mode = MM_BACK_TO_FRONT
-  elif mode == "front":
-    match_mode = MM_BACK_TO_FRONT
-  elif mode == "back":
-    match_mode = MM_FRONT_TO_BACK
-  elif mode == "pin":
-    match_mode = MM_UNPIN_TO_PIN
-  elif mode == "unpin":
-    match_mode = MM_PIN_TO_UNPIN
-  else:
-    printd("unknown match mode", mode)
-    match_mode = MM_BACK_TO_FRONT
-
-
-  # 選択UV
-  selected_uvs = cmds.ls(selection=True, flatten=True)
-
-  # シェル変換したUV
-  cmds.SelectUVShell()
-  uvs = cmds.ls(selection=True, flatten=True)
-
-  #    全バックフェース取得
-  cmds.SelectUVBackFacingComponents()
-  uvs_back = list(set(cmds.ls(selection=True, flatten=True)) & set(uvs) )
-
-  #    全フロントフェース取得
-  cmds.SelectUVFrontFacingComponents()
-  uvs_front = list( set(cmds.ls(selection=True, flatten=True)) & set(uvs) )
-
-  #    選択内で pin 取得
-  uvs_pined = []
-  uvs_unpined = []
-  for uv in uvs:
-    pin_weight = cmds.polyPinUV(uv, q=True, v=True)[0]
-    if pin_weight != 0:
-      uvs_pined.append(uv)
+    if mode is None:
+        match_mode = MM_BACK_TO_FRONT
+    elif mode == "front":
+        match_mode = MM_BACK_TO_FRONT
+    elif mode == "back":
+        match_mode = MM_FRONT_TO_BACK
+    elif mode == "pin":
+        match_mode = MM_UNPIN_TO_PIN
+    elif mode == "unpin":
+        match_mode = MM_PIN_TO_UNPIN
     else:
-      uvs_unpined.append(uv)
+        print("unknown match mode: ", mode)
+        match_mode = MM_BACK_TO_FRONT
 
-  #    積集合で選択UVをソースとターゲットに分ける
-  source_uvs = []
-  target_uvs = []
-  if match_mode == MM_BACK_TO_FRONT:
-    source_uvs = list( set(uvs_front) & set(uvs) )
-    target_uvs = list( set(uvs_back) & set(uvs) )
-  elif match_mode == MM_UNPIN_TO_PIN:
-    source_uvs = list( set(uvs_pined) & set(uvs) )
-    target_uvs = list( set(uvs_unpined) & set(uvs) )
-  elif match_mode == MM_FRONT_TO_BACK:
-    source_uvs = list( set(uvs_back) & set(uvs) )
-    target_uvs = list( set(uvs_front) & set(uvs) )
-  elif match_mode == MM_UNPIN_TO_PIN:
-    source_uvs = list( set(uvs_unpined) & set(uvs) )
-    target_uvs = list( set(uvs_pined) & set(uvs) )
-  else:
-    pass
+    # 選択UV
+    selected_uvs = cmds.ls(selection=True, flatten=True)
 
-  target_uvs = list(set(target_uvs) & set(selected_uvs))
+    # シェル変換したUV
+    cmds.SelectUVShell()
+    uvs = cmds.ls(selection=True, flatten=True)
 
-  #    ターゲット.each
-  for target_uv in target_uvs:
-    nearest_uv = source_uvs[0]
-    for source_uv in source_uvs:
-      if uvDistance(target_uv, source_uv) < uvDistance(target_uv, nearest_uv):
-        nearest_uv = source_uv
-    setUV(target_uv, nearest_uv)
-    # TODO:複数のターゲットが束ねられて閉まったソースのセットを作成or選択状態にする
-
-  cmds.select(clear=True)
-
-def half_expand_fold(right_down=True):
-  """
-  right_down=True で横なら右、縦なら下へ畳む
-  """
-  def printd(description, message):
-      print(str(description) + ": " + str(message))
-
-  def distance2(p1, p2):
-      return math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
-
-  def distance3(p1, p2):
-      return math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2 + (p2[2]-p1[2])**2)
-
-  def getUV(uv_comp):
-    uv_coord = cmds.polyEditUV(uv_comp, query=True)
-    return uv_coord
-
-  def setUV(lhs, rhs):
-    rhs_coord = cmds.polyEditUV(rhs, q=True, relative=False)
-    cmds.polyEditUV(lhs, relative=False, u=rhs_coord[0], v=rhs_coord[1])
-
-  def uvDistance(uv1, uv2):
-    uvCoord1 = getUV(uv1)
-    uvCoord2 = getUV(uv2)
-    return distance2(uvCoord1, uvCoord2)
-
-  def getBackFaceUVcomp(uv_comp_list):
+    # 全バックフェース取得
     cmds.SelectUVBackFacingComponents()
-    backface_uvs = list(set(cmds.ls(selection=True, flatten=True)) & set(uv_comp_list) )
-    return backface_uvs
+    uvs_back = list(set(cmds.ls(selection=True, flatten=True)) & set(uvs))
 
-  def selectUVs(target_uvs):
+    # 全フロントフェース取得
+    cmds.SelectUVFrontFacingComponents()
+    uvs_front = list(set(cmds.ls(selection=True, flatten=True)) & set(uvs))
+
+    # 選択内で pin 取得
+    uvs_pined = []
+    uvs_unpined = []
+    for uv in uvs:
+        pin_weight = cmds.polyPinUV(uv, q=True, v=True)[0]
+        if pin_weight != 0:
+            uvs_pined.append(uv)
+        else:
+            uvs_unpined.append(uv)
+
+    # 積集合で選択UVをソースとターゲットに分ける
+    source_uvs = []
+    target_uvs = []
+    if match_mode == MM_BACK_TO_FRONT:
+        source_uvs = list(set(uvs_front) & set(uvs))
+        target_uvs = list(set(uvs_back) & set(uvs))
+    elif match_mode == MM_UNPIN_TO_PIN:
+        source_uvs = list(set(uvs_pined) & set(uvs))
+        target_uvs = list(set(uvs_unpined) & set(uvs))
+    elif match_mode == MM_FRONT_TO_BACK:
+        source_uvs = list(set(uvs_back) & set(uvs))
+        target_uvs = list(set(uvs_front) & set(uvs))
+    elif match_mode == MM_UNPIN_TO_PIN:
+        source_uvs = list(set(uvs_unpined) & set(uvs))
+        target_uvs = list(set(uvs_pined) & set(uvs))
+    else:
+        pass
+
+    target_uvs = list(set(target_uvs) & set(selected_uvs))
+
+    # ターゲット.each
+    for target_uv in target_uvs:
+        nearest_uv = source_uvs[0]
+        for source_uv in source_uvs:
+            if nu.distance_uv(target_uv, source_uv) < nu.distance_uv(target_uv, nearest_uv):
+                nearest_uv = source_uv
+        nu.copy_uv(target_uv, nearest_uv)
+        # TODO:複数のターゲットが束ねられて閉まったソースのセットを作成or選択状態にする
+
     cmds.select(clear=True)
 
-  # フリップの軸
-  FA_U = 0
-  FA_V = 1
-  flip_axis = FA_U
 
-  # フリップ方向
-  # fold 時のみ使用
-  FD_TO_LEFT = 0
-  FD_TO_RIGHT = 1
-  FD_TO_UP = 2
-  FD_TO_DOWN = 3
-  flip_direction = FD_TO_LEFT
-
-  # 選択UV取得
-  selected_uvs = cmds.ls(selection=True, flatten=True)
-  cmds.SelectUVShell()
-  selected_sehll_uvs = cmds.ls(selection=True, flatten=True)
-
-  if len(selected_uvs) == 0:
-    return
-
-  # フリップ軸の決定
-  u_dist = [cmds.polyEditUV(x, q=True)[0] for x in selected_uvs]
-  u_length = max(u_dist) - min(u_dist)
-  v_dist = [cmds.polyEditUV(x, q=True)[1] for x in selected_uvs]
-  v_length = max(v_dist) - min(v_dist)
-
-  if u_length < v_length:
+def half_expand_fold(right_down=True):
+    """
+    right_down=True で横なら右、縦なら下へ畳む
+    """
+    # フリップの軸
+    FA_U = 0
+    FA_V = 1
     flip_axis = FA_U
-    if right_down:
-      flip_direction = FD_TO_RIGHT
+
+    # フリップ方向
+    # fold 時のみ使用
+    FD_TO_LEFT = 0
+    FD_TO_RIGHT = 1
+    FD_TO_UP = 2
+    FD_TO_DOWN = 3
+    flip_direction = FD_TO_LEFT
+
+    # 選択UV取得
+    selected_uvs = cmds.ls(selection=True, flatten=True)
+    cmds.SelectUVShell()
+    selected_sehll_uvs = cmds.ls(selection=True, flatten=True)
+
+    if len(selected_uvs) == 0:
+        return
+
+    # フリップ軸の決定
+    u_dist = [cmds.polyEditUV(x, q=True)[0] for x in selected_uvs]
+    u_length = max(u_dist) - min(u_dist)
+    v_dist = [cmds.polyEditUV(x, q=True)[1] for x in selected_uvs]
+    v_length = max(v_dist) - min(v_dist)
+
+    if u_length < v_length:
+        flip_axis = FA_U
+        if right_down:
+            flip_direction = FD_TO_RIGHT
+        else:
+            filp_direction = FD_TO_LEFT
     else:
-      filp_direction = FD_TO_LEFT
-  else:
-    flip_axis = FA_V
-    if right_down:
-      flip_direction = FD_TO_DOWN
+        flip_axis = FA_V
+        if right_down:
+            flip_direction = FD_TO_DOWN
+        else:
+            flip_direction = FD_TO_UP
+
+    # 選択UVからピボット決定
+    selected_uv_coord_list = [nu.get_uv_coord(x) for x in selected_uvs]
+    piv_u = sum([x[0] for x in selected_uv_coord_list]) / len(selected_uv_coord_list)
+    piv_v = sum([x[1] for x in selected_uv_coord_list]) / len(selected_uv_coord_list)
+
+    # 裏面の UV 取得
+    # expand 用 (expand の操作対象を "軸の外側UV" にすると四つ折りfoldができるけど折ったきりexpandできなくなる)
+    backface_uvs = nu.filter_backface_uv_comp(selected_sehll_uvs)
+
+    # 編集対象 UV
+    target_uvs = []
+
+    # 編集対象の決定
+    if len(backface_uvs) > 0:
+        # 裏面があれば裏面が編集対象 (expand動作)
+        target_uvs = backface_uvs
     else:
-      flip_direction = FD_TO_UP
+        # 裏面が無ければフリップ外側のUVを編集対象にする (fold動作)
+        # 軸よりもフリップ反対方向の UV 取得
+        if flip_direction == FD_TO_LEFT:
+            target_uvs = [x for x in selected_sehll_uvs if nu.get_uv_coord(x)[0] > piv_u]
+        if flip_direction == FD_TO_RIGHT:
+            target_uvs = [x for x in selected_sehll_uvs if nu.get_uv_coord(x)[0] < piv_u]
+        if flip_direction == FD_TO_UP:
+            target_uvs = [x for x in selected_sehll_uvs if nu.get_uv_coord(x)[1] < piv_v]
+        if flip_direction == FD_TO_DOWN:
+            target_uvs = [x for x in selected_sehll_uvs if nu.get_uv_coord(x)[1] > piv_v]
 
-  # 選択UVからピボット決定
-  selected_uv_coord_list = [getUV(x) for x in selected_uvs]
-  piv_u = sum([x[0] for x in selected_uv_coord_list]) / len(selected_uv_coord_list)
-  piv_v = sum([x[1] for x in selected_uv_coord_list]) / len(selected_uv_coord_list)
+    # スケール値の決定
+    su = 1
+    sv = 1
 
-  # 裏面の UV 取得
-  # expand 用 (expand の操作対象を "軸の外側UV" にすると四つ折りfoldができるけど折ったきりexpandできなくなる)
-  backface_uvs = getBackFaceUVcomp(selected_sehll_uvs)
+    if flip_axis == FA_U:
+        su = -1
+    if flip_axis == FA_V:
+        sv = -1
 
-  # 編集対象 UV
-  target_uvs = []
+    # ピボットを指定して反転処理
+    cmds.polyEditUV(target_uvs, pu=piv_u, pv=piv_v, su=su, sv=sv)
 
-  # 編集対象の決定
-  if len(backface_uvs) > 0:
-    # 裏面があれば裏面が編集対象 (expand動作)
-    target_uvs = backface_uvs
-  else:
-    # 裏面が無ければフリップ外側のUVを編集対象にする (fold動作)
-    # 軸よりもフリップ反対方向の UV 取得
-    if flip_direction == FD_TO_LEFT:
-      target_uvs = [x for x in selected_sehll_uvs if getUV(x)[0] > piv_u]
-    if flip_direction == FD_TO_RIGHT:
-      target_uvs = [x for x in selected_sehll_uvs if getUV(x)[0] < piv_u]
-    if flip_direction == FD_TO_UP:
-      target_uvs = [x for x in selected_sehll_uvs if getUV(x)[1] < piv_v]
-    if flip_direction == FD_TO_DOWN:
-      target_uvs = [x for x in selected_sehll_uvs if getUV(x)[1] > piv_v]
-
-  # スケール値の決定
-  su = 1
-  sv = 1
-
-  if flip_axis == FA_U:
-    su = -1
-  if flip_axis == FA_V:
-    sv = -1
-
-  printd("target_uvs", target_uvs)
-  printd("scale value", [su,sv])
-  printd("pivot", [piv_u,piv_v])
-
-  # ピボットを指定して反転処理
-  cmds.polyEditUV(target_uvs, pu=piv_u, pv=piv_v, su=su, sv=sv)
-
-  cmds.select(clear=True)
-
+    cmds.select(clear=True)
 
 
 class NN_ToolWindow(object):
-    MSG_NOT_IMPLEMENTED = "未実装"
-
     def __init__(self):
         self.window = 'NN_UVToolkit'
         self.title = 'NN_UVToolkit'
@@ -259,8 +187,8 @@ class NN_ToolWindow(object):
             cmds.deleteUI(self.window, window=True)
         self.window = cmds.window(
             self.window,
-            t = self.title,
-            widthHeight = self.size
+            t=self.title,
+            widthHeight=self.size
         )
         self.layout()
         cmds.showWindow()
@@ -268,154 +196,175 @@ class NN_ToolWindow(object):
         self.initialize()
 
     def layout(self):
-        self.columnLayout = cmds.columnLayout()
+        self.columnLayout = ui.column_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='Projection' )
-        cmds.setParent("..")
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.buttonA = cmds.button(l='X', c=self.onPlanerX, bgc=color_x, width=bw_single)
-        self.buttonA = cmds.button(l='Y', c=self.onPlanerY, bgc=color_y, width=bw_single)
-        self.buttonA = cmds.button(l='Z', c=self.onPlanerZ, bgc=color_z, width=bw_single)
-        self.buttonA = cmds.button(l='Camera', c=self.onPlanerCamera)
-        self.buttonA = cmds.button(l='Best', c=self.onPlanerBest)
-        cmds.setParent("..")
+        # Projection
+        ui.row_layout()
+        ui.header(label='Projection')
+        ui.button(label='X', c=self.onPlanerX, bgc=ui.color_x)
+        ui.button(label='Y', c=self.onPlanerY, bgc=ui.color_y)
+        ui.button(label='Z', c=self.onPlanerZ, bgc=ui.color_z)
+        ui.button(label='Camera', c=self.onPlanerCamera)
+        ui.button(label='Best', c=self.onPlanerBest)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='align & snap' )
-        cmds.setParent("..")
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.buttonA = cmds.button(l='Border', c=self.onStraightenBorder)
-        self.buttonA = cmds.button(l='Inner', c=self.onStraightenInner)
-        self.buttonA = cmds.button(l='All', c=self.onStraightenAll)
-        self.buttonA = cmds.button(l='Linear', c=self.onLinearAlign)
-        self.buttonA = cmds.button(l='AriGridding', c=self.onGridding)
-        self.buttonA = cmds.button(l='MatchUV', c=self.onMatchUV, dgc=self.onMatchUVOptions)
-        cmds.setParent("..")
+        # Align & Snap
+        ui.row_layout()
+        ui.header(label='Align & Snap')
+        ui.button(label='Border', c=self.onStraightenBorder)
+        ui.button(label='Inner', c=self.onStraightenInner)
+        ui.button(label='All', c=self.onStraightenAll)
+        ui.button(label='Linear', c=self.onLinearAlign)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='MatchUV' )
-        self.buttonA = cmds.button(l='-Front', c=self.onOnewayMatchUVF, dgc=self.onOnewayMatchUVB)
-        self.buttonA = cmds.button(l='-Pin', c=self.onOnewayMatchUVP, dgc=self.onOnewayMatchUVUp)
-        self.buttonA = cmds.button(l='expand/fold', c=self.onExpandFoldRD, dgc=self.onExpandFoldLU)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='AriGridding', c=self.onGridding)
+        ui.button(label='MatchUV', c=self.onMatchUV, dgc=self.onMatchUVOptions)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.buttonA = cmds.button(l='FlipU', c=self.onFlipUinTile, bgc=color_u, width=bw_double)
-        self.buttonA = cmds.button(l='FlipV', c=self.onFlipVinTile, bgc=color_v, width=bw_double)
-        cmds.setParent("..")
+        # MatchUV
+        ui.row_layout()
+        ui.text(label='MatchUV')
+        ui.button(label='to Front [back]', c=self.onOnewayMatchUVF, dgc=self.onOnewayMatchUVB, width=ui.button_width3)
+        ui.button(label='to Pin [unpin]', c=self.onOnewayMatchUVP, dgc=self.onOnewayMatchUVUp, width=ui.button_width3)
+        ui.button(label='expand/fold', c=self.onExpandFoldRD, dgc=self.onExpandFoldLU)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='Special Sew' )
-        self.buttonA = cmds.button(l='MatchingE', c=self.onSewMatchingEdges, width=bw_double)
-        cmds.setParent("..")
+        # Flip
+        ui.row_layout()
+        ui.header(label="Flip")
+        ui.button(label='FlipU', c=self.onFlipUinTile, bgc=ui.color_u)
+        ui.button(label='FlipV', c=self.onFlipVinTile, bgc=ui.color_v)
+        self.flip_pivot_u = ui.eb_float(width=ui.button_width2)
+        self.flip_pivot_v = ui.eb_float(width=ui.button_width2)
+        ui.button(label="get", width=ui.button_width1)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='optimize' )
-        cmds.setParent("..")
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.buttonA = cmds.button(l='Get', c=self.onGetTexel)
-        self.texel = cmds.floatField(cc=self.onChangeTexel)
-        self.buttonA = cmds.button(l='Set', c=self.onSetTexel)
-        self.buttonA = cmds.button(l='U', c=self.onSetEdgeTexelUMin, dgc=self.onSetEdgeTexelUMax, bgc=color_u, width=bw_single)
-        self.buttonA = cmds.button(l='V', c=self.onSetEdgeTexelVMin, dgc=self.onSetEdgeTexelVMax, bgc=color_v, width=bw_single)
-        self.mapSize = cmds.intField(width=48,  cc=self.onChangeMapSize)
-        self.label1 = cmds.text( label='px' )
-        cmds.setParent("..")
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.buttonA = cmds.button(l='AriUVRatio', c=self.onUVRatio, dgc=self.onUVRatioOptions)
-        self.buttonA = cmds.button(l='UnfoldU', c=self.onUnfoldU, bgc=color_u, width=bw_double)
-        self.buttonA = cmds.button(l='UnfoldV', c=self.onUnfoldV, bgc=color_v, width=bw_double)
-        cmds.setParent("..")
-        
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='CheckerDens:' )
-        self.checkerDensity = cmds.intField(width=48, v=256, cc=self.onChangeUVCheckerDensity)
-        self.buttonA = cmds.button(l='/2', c=self.onUVCheckerDensityDiv2)
-        self.buttonA = cmds.button(l='x2', c=self.onUVCheckerDensityMul2)
-        cmds.setParent("..")
+        # Cut & Sew
+        ui.row_layout()
+        ui.header(label='Cut & Sew')
+        ui.button(label='Cut', c=self.onSewMatchingEdges)
+        ui.button(label='Sew', c=self.onSewMatchingEdges)
+        ui.button(label='Shell', c=self.onSewMatchingEdges)
+        ui.button(label='MatchingE', c=self.onSewMatchingEdges)
+        ui.end_layout()
 
+        # Optimize
+        ui.row_layout()
+        ui.header(label='Optimize')
+        ui.button(label='Get', c=self.onGetTexel)
+        self.texel = cmds.floatField(cc=self.onChangeTexel, width=ui.button_width2)
+        self.mapSize = cmds.intField(cc=self.onChangeMapSize, width=ui.button_width1_5)
+        ui.text(label='px')
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='layout' )
-        cmds.setParent("..")
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.buttonA = cmds.button(l='Orient to Edge', c=self.onOrientEdge)
-        self.buttonA = cmds.button(l='Orient Shells', c=self.onOrientShells)
-        self.buttonA = cmds.button(l='SymArrange', c=self.onSymArrange)
-        cmds.setParent("..")
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        cmds.setParent("..")
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.buttonA = cmds.button(l='SanpStack', c=self.onSnapStack)
-        self.buttonA = cmds.button(l='Stack', c=self.onStack)
-        self.buttonA = cmds.button(l='Unstack', c=self.onUnStack)
-        self.buttonA = cmds.button(l='Normalize', c=self.onNormalize)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='Set', c=self.onSetTexel)
+        ui.button(label='U', c=self.onSetEdgeTexelUMin, dgc=self.onSetEdgeTexelUMax, bgc=ui.color_u)
+        ui.button(label='V', c=self.onSetEdgeTexelVMin, dgc=self.onSetEdgeTexelVMax, bgc=ui.color_v)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='Tools' )
-        cmds.setParent("..")
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.buttonA = cmds.button(l='Lattice', c=self.onUVLatticeTool)
-        self.buttonA = cmds.button(l='Tweak', c=self.onUVTweakTool)
-        self.buttonA = cmds.button(l='Cut', c=self.onUVCutTool)
-        self.buttonA = cmds.button(l='Optimize', c=self.onUVOptimizeTool)
-        self.buttonA = cmds.button(l='Symmetrize [setU]', c=self.onUVSymmetrizeTool, dgc=self.onSetUVSymmetrizeCenter)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='AriUVRatio', c=self.onUVRatio, dgc=self.onUVRatioOptions)
+        ui.button(label='UnfoldU', c=self.onUnfoldU, bgc=ui.color_u)
+        ui.button(label='UnfoldV', c=self.onUnfoldV, bgc=ui.color_v)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='select, convert, filter' )
-        cmds.setParent("..")
+        # Checker
+        ui.row_layout()
+        ui.header(label='Checker')
+        ui.text(label="dense:")
+        self.checkerDensity = cmds.intField(v=256, cc=self.onChangeUVCheckerDensity, width=ui.button_width1_5)
+        ui.button(label='/2', c=self.onUVCheckerDensityDiv2)
+        ui.button(label='x2', c=self.onUVCheckerDensityMul2)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.buttonA = cmds.button(l='cnv to Border', c=self.onConvertToShellBorder)
-        self.buttonA = cmds.button(l='cnv to Inner', c=self.onConvertToShellInner)
-        self.buttonA = cmds.button(l='sel All Borders', c=self.onSelectAllUVBorders)
-        cmds.setParent("..")
+        # Layout
+        ui.row_layout()
+        ui.header(label='Layout')
+        ui.button(label='Orient to Edge', c=self.onOrientEdge)
+        ui.button(label='Orient Shells', c=self.onOrientShells)
+        ui.button(label='SymArrange', c=self.onSymArrange)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.buttonA = cmds.button(l='sel Front', c=self.onSelectFrontface)
-        self.buttonA = cmds.button(l='sel Back', c=self.onSelectBackface)
-        self.buttonA = cmds.button(l='Shortest Tool', c=self.onShortestEdgeTool)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='SanpStack', c=self.onSnapStack)
+        ui.button(label='Stack', c=self.onStack)
+        ui.button(label='Unstack', c=self.onUnStack)
+        ui.button(label='Normalize', c=self.onNormalize)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='Transform' )
-        cmds.setParent("..")
+        # Tools
+        ui.row_layout()
+        ui.header(label='Tools')
+        ui.button(label='Lattice', c=self.onUVLatticeTool)
+        ui.button(label='Tweak', c=self.onUVTweakTool)
+        ui.button(label='Cut', c=self.onUVCutTool)
+        ui.button(label='Optimize', c=self.onUVOptimizeTool)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='Translate', width=header_width )
-        self.translateValue = cmds.floatField(v=0.1)
-        self.buttonA = cmds.button(l=u'←', c=self.onTranslateUDiff, bgc=color_u, width=bw_single)
-        self.buttonA = cmds.button(l=u'→', c=self.onTranslateUAdd, bgc=color_u, width=bw_single)
-        self.buttonA = cmds.button(l=u'↑', c=self.onTranslateVAdd, bgc=color_v, width=bw_single)
-        self.buttonA = cmds.button(l=u'↓', c=self.onTranslateVDiff, bgc=color_v, width=bw_single)
-        cmds.setParent("..")
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='Rotate', width=header_width )
-        self.rotationAngle = cmds.floatField(v=90)
-        self.buttonA = cmds.button(l=u'←', c=self.onRotateLeft, width=bw_single)
-        self.buttonA = cmds.button(l=u'→', c=self.onRotateRight, width=bw_single)
-        cmds.setParent("..")
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='Scale', width=header_width )
-        self.scaleValue = cmds.floatField(v=2)
-        self.buttonA = cmds.button(l='U*', c=self.onOrigScaleUMul, bgc=color_u, width=bw_single)
-        self.buttonA = cmds.button(l='U/', c=self.onOrigScaleUDiv, bgc=color_u, width=bw_single)
-        self.buttonA = cmds.button(l='V*', c=self.onOrigScaleVMul, bgc=color_v, width=bw_single)
-        self.buttonA = cmds.button(l='V/', c=self.onOrigScaleVDiv, bgc=color_v, width=bw_single)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='Symmetrize [setU]', c=self.onUVSymmetrizeTool, dgc=self.onSetUVSymmetrizeCenter)
+        ui.button(label='Shortest Tool', c=self.onShortestEdgeTool)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text( label='' )
-        cmds.setParent("..")
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.buttonA = cmds.button(l='UVEditor', c=self.onUVEditor)
-        self.buttonA = cmds.button(l='UVToolkit', c=self.onUVToolKit)
-        self.buttonA = cmds.button(l='UVSnapShot', c=self.onUVSnapShot)
-        self.buttonA = cmds.button(l='DrawEdge', c=self.onDrawEdge)
-        cmds.setParent("..")
+        # Convert
+        ui.row_layout()
+        ui.header(label='Convert')
+        ui.button(label='to Border', c=self.onConvertToShellBorder)
+        ui.button(label='to Inner', c=self.onConvertToShellInner)
+        ui.end_layout()
+
+        # Select
+        ui.row_layout()
+        ui.header(label='Select')
+        ui.button(label='Frontface', c=self.onSelectFrontface)
+        ui.button(label='Backface', c=self.onSelectBackface)
+        ui.button(label='All Borders', c=self.onSelectAllUVBorders)
+        ui.end_layout()
+
+        # Transform
+        ui.row_layout()
+        ui.header(label='Transform')
+        ui.text(label='Move')
+        self.translateValue = cmds.floatField(v=0.1, width=ui.button_width2)
+        ui.button(label=u'←', c=self.onTranslateUDiff, bgc=ui.color_u)
+        ui.button(label=u'→', c=self.onTranslateUAdd, bgc=ui.color_u)
+        ui.button(label=u'↑', c=self.onTranslateVAdd, bgc=ui.color_v)
+        ui.button(label=u'↓', c=self.onTranslateVDiff, bgc=ui.color_v)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label='')
+        ui.header(label='Rotate')
+        self.rotationAngle = cmds.floatField(v=90, width=ui.button_width2)
+        ui.button(label=u'←', c=self.onRotateLeft)
+        ui.button(label=u'→', c=self.onRotateRight)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label='')
+        ui.header(label='Scale')
+        self.scaleValue = cmds.floatField(v=2, width=ui.button_width2)
+        ui.button(label='U*', c=self.onOrigScaleUMul, bgc=ui.color_u)
+        ui.button(label='U/', c=self.onOrigScaleUDiv, bgc=ui.color_u)
+        ui.button(label='V*', c=self.onOrigScaleVMul, bgc=ui.color_v)
+        ui.button(label='V/', c=self.onOrigScaleVDiv, bgc=ui.color_v)
+        ui.end_layout()
+
+        # Editor
+        ui.row_layout()
+        ui.header(label="Editor")
+        ui.button(label='UVEditor', c=self.onUVEditor)
+        ui.button(label='UVToolkit', c=self.onUVToolKit)
+        ui.button(label='UVSnapShot', c=self.onUVSnapShot)
+        ui.button(label='DrawEdge', c=self.onDrawEdge)
+        ui.end_layout()
 
     def initialize(self):
         # テクセルとマップサイズを UVToolkit から取得
@@ -424,22 +373,26 @@ class NN_ToolWindow(object):
         cmds.floatField(self.texel, e=True, v=uvtkTexel)
         cmds.intField(self.mapSize, e=True, v=uvtkMapSize)
 
-    ### getter/setter
-    ### フォームからの値を取るだけ
+    # getter/setter
+    # フォームからの値を取るだけ
     def getTexel(self):
         return cmds.floatField(self.texel, q=True, v=True)
+
     def getMapSize(self):
         return cmds.intField(self.mapSize, q=True, v=True)
 
     def onTranslateUAdd(self, *args):
         v = cmds.floatField(self.translateValue, q=True, v=True)
         cmds.polyEditUV(pu=0, pv=0, u=v, v=0)
+
     def onTranslateUDiff(self, *args):
         v = cmds.floatField(self.translateValue, q=True, v=True)
         cmds.polyEditUV(pu=0, pv=0, u=-v, v=0)
+
     def onTranslateVAdd(self, *args):
         v = cmds.floatField(self.translateValue, q=True, v=True)
         cmds.polyEditUV(pu=0, pv=0, u=0, v=v)
+
     def onTranslateVDiff(self, *args):
         v = cmds.floatField(self.translateValue, q=True, v=True)
         cmds.polyEditUV(pu=0, pv=0, u=0, v=-v)
@@ -447,16 +400,18 @@ class NN_ToolWindow(object):
     def onOrigScaleUMul(self, *args):
         v = cmds.floatField(self.scaleValue, q=True, v=True)
         cmds.polyEditUV(pu=0, pv=0, su=v, sv=1)
+
     def onOrigScaleVMul(self, *args):
         v = cmds.floatField(self.scaleValue, q=True, v=True)
         cmds.polyEditUV(pu=0, pv=0, su=1, sv=v)
+
     def onOrigScaleUDiv(self, *args):
         v = cmds.floatField(self.scaleValue, q=True, v=True)
         cmds.polyEditUV(pu=0, pv=0, su=1/v, sv=1)
+
     def onOrigScaleVDiv(self, *args):
         v = cmds.floatField(self.scaleValue, q=True, v=True)
         cmds.polyEditUV(pu=0, pv=0, su=1, sv=1/v)
-
 
     def onRotateLeft(self, *args):
         angle = cmds.floatField(self.rotationAngle, q=True, v=True)
@@ -531,10 +486,10 @@ class NN_ToolWindow(object):
             uv2 = cmds.polyEditUV(uvComponents[1], q=True)
             vtxComponent1 = cmds.polyListComponentConversion(uvComponents[0], fuv=True, tv=True)
             vtxComponent2 = cmds.polyListComponentConversion(uvComponents[1], fuv=True, tv=True)
-            p1 = cmds.xform(vtxComponent1, q=True,ws=True,t=True)
-            p2 = cmds.xform(vtxComponent2, q=True,ws=True,t=True)
-            geoLength = distance(p1, p2)
-            uvLength = distanceUV(uv1, uv2)
+            p1 = cmds.xform(vtxComponent1, q=True, ws=True, t=True)
+            p2 = cmds.xform(vtxComponent2, q=True, ws=True, t=True)
+            geoLength = nu.distance(p1, p2)
+            uvLength = nu.distance_uv(uv1, uv2)
             mapSize = self.getMapSize()
             currentTexel = uvLength / geoLength * mapSize
 
@@ -553,11 +508,10 @@ class NN_ToolWindow(object):
         isUVShellSelection = cmds.selectType(q=True, msh=True)
         if isUVShellSelection:
             texel = cmds.floatField(self.texel, q=True, v=True)
-            mapSize = cmds.intField(self.mapSize, q=True, v=True )
+            mapSize = cmds.intField(self.mapSize, q=True, v=True)
             mel.eval("texSetTexelDensity %f %d" % (texel, mapSize))
         else:
             self.setEdgeTexel(mode="uv")
-
 
     def setEdgeTexel(self, mode):
         """
@@ -580,9 +534,9 @@ class NN_ToolWindow(object):
             edges = cmds.filterExpand(cmds.ls(os=True), sm=32)
             for edge in edges:
                 uvComponents = cmds.filterExpand(cmds.polyListComponentConversion(edge, fe=True, tuv=True), sm=35)
-                if len(uvComponents) == 2: # 非UVシーム
+                if len(uvComponents) == 2:  # 非UVシーム
                     targetUVsList.append(uvComponents)
-                elif len(uvComponents) == 4: # UVシーム
+                elif len(uvComponents) == 4:  # UVシーム
                     targetUVsList.append([uvComponents[0], uvComponents[2]])
                     targetUVsList.append([uvComponents[1], uvComponents[3]])
                 else:
@@ -596,19 +550,17 @@ class NN_ToolWindow(object):
         if not isEdgeSelection and not isUVSelection:
             return
 
-        print("targetUVsList")
-        print(targetUVsList)
         for uvPair in targetUVsList:
-            uv1 = cmds.polyEditUV(uvPair[0], q=True) # ペアの 1 つめの UV座標を持つリスト
-            uv2 = cmds.polyEditUV(uvPair[1], q=True) # ペアの 2 つめの UV座標を持つリスト
-            vtxComponent1 = cmds.polyListComponentConversion(uvPair[0], fuv=True, tv=True) # uv1 に対応する ポリゴン頂点のコンポーネント文字列
-            vtxComponent2 = cmds.polyListComponentConversion(uvPair[1], fuv=True, tv=True) # uv2 に対応する ポリゴン頂点のコンポーネント文字列
-            p1 = cmds.xform(vtxComponent1, q=True,ws=True,t=True) # uv1 の XYZ 座標
-            p2 = cmds.xform(vtxComponent2, q=True,ws=True,t=True) # uv2 の XYZ 座標
-            geoLength = distance(p1, p2)
+            uv1 = cmds.polyEditUV(uvPair[0], q=True)  # ペアの 1 つめの UV座標を持つリスト
+            uv2 = cmds.polyEditUV(uvPair[1], q=True)  # ペアの 2 つめの UV座標を持つリスト
+            vtxComponent1 = cmds.polyListComponentConversion(uvPair[0], fuv=True, tv=True)  # uv1 に対応する ポリゴン頂点のコンポーネント文字列
+            vtxComponent2 = cmds.polyListComponentConversion(uvPair[1], fuv=True, tv=True)  # uv2 に対応する ポリゴン頂点のコンポーネント文字列
+            p1 = cmds.xform(vtxComponent1, q=True, ws=True, t=True)  # uv1 の XYZ 座標
+            p2 = cmds.xform(vtxComponent2, q=True, ws=True, t=True)  # uv2 の XYZ 座標
+            geoLength = nu.distance(p1, p2)
             uLength = abs(uv2[0] - uv1[0])
             vLength = abs(uv2[1] - uv1[1])
-            uvLength = distanceUV(uv1, uv2)
+            uvLength = nu.distance_uv(uv1, uv2)
 
             if mode == "u_min":
                 currentTexel = uLength / geoLength * mapSize
@@ -617,6 +569,7 @@ class NN_ToolWindow(object):
                 pivV = 0
                 cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=scale, sv=1)
                 cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=scale, sv=1)
+
             elif mode == "u_max":
                 currentTexel = uLength / geoLength * mapSize
                 scale = targetTexel / currentTexel
@@ -624,6 +577,7 @@ class NN_ToolWindow(object):
                 pivV = 0
                 cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=scale, sv=1)
                 cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=scale, sv=1)
+
             elif mode == "v_min":
                 currentTexel = vLength / geoLength * mapSize
                 scale = targetTexel / currentTexel
@@ -631,13 +585,15 @@ class NN_ToolWindow(object):
                 pivV = min(uv1[1], uv2[1])
                 cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=1, sv=scale)
                 cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=1, sv=scale)
+
             elif mode == "v_max":
                 currentTexel = vLength / geoLength * mapSize
                 scale = targetTexel / currentTexel
                 pivU = 0
-                pivV =  max(uv1[1], uv2[1])
+                pivV = max(uv1[1], uv2[1])
                 cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=1, sv=scale)
                 cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=1, sv=scale)
+
             else:
                 print(self.MSG_NOT_IMPLEMENTED)
                 currentTexel = uvLength / geoLength * mapSize
@@ -647,18 +603,21 @@ class NN_ToolWindow(object):
 
     def onSetEdgeTexelUAuto(self, *args):
         self.setEdgeTexel(mode="u_auto")
+
     def onSetEdgeTexelUMin(self, *args):
         self.setEdgeTexel(mode="u_min")
+
     def onSetEdgeTexelUMax(self, *args):
         self.setEdgeTexel(mode="u_max")
 
     def onSetEdgeTexelVAuto(self, *args):
         self.setEdgeTexel(mode="v_auto")
+
     def onSetEdgeTexelVMin(self, *args):
         self.setEdgeTexel(mode="v_min")
+
     def onSetEdgeTexelVMax(self, *args):
         self.setEdgeTexel(mode="v_max")
-
 
     def onUVRatio(self, *args):
         mel.eval("AriUVRatio")
@@ -680,10 +639,13 @@ class NN_ToolWindow(object):
 
     def onOnewayMatchUVF(self, *args):
         OnewayMatchUV("front")
+
     def onOnewayMatchUVB(self, *args):
         OnewayMatchUV("back")
+
     def onOnewayMatchUVP(self, *args):
         OnewayMatchUV("pin")
+
     def onOnewayMatchUVUp(self, *args):
         OnewayMatchUV("unpin")
 
@@ -715,25 +677,18 @@ class NN_ToolWindow(object):
         cmds.SelectUVShell()
         cmds.polyEditUV(pu=piv_u, pv=piv_v, su=1, sv=-1)
 
-
     def onSewMatchingEdges(self, *args):
-      import nnutil as nu
+        edges = cmds.ls(selection=True, flatten=True)
 
-      def round_vector(v, fraction):
-        v = [round(x, fraction) for x in v]
-        return v
-
-      edges = cmds.ls(selection=True, flatten=True)
-
-      for edge in edges:
-          uvs = nu.to_uv(edge)
-          if len(uvs) > 2:
-              uv_coords = [round_vector(nu.get_uv_coord(x), 4) for x in uvs]
-              print(edge)
-              unique_uv = set([tuple(x) for x in uv_coords])
-              print(len(unique_uv))
-              if len(unique_uv) == 2:
-                  cmds.polyMapSew(edge, ch=1)
+        for edge in edges:
+            uvs = nu.to_uv(edge)
+            if len(uvs) > 2:
+                uv_coords = [nu.round_vector(nu.get_uv_coord(x), 4) for x in uvs]
+                print(edge)
+                unique_uv = set([tuple(x) for x in uv_coords])
+                print(len(unique_uv))
+                if len(unique_uv) == 2:
+                    cmds.polyMapSew(edge, ch=1)
 
     def onOrientEdge(self, *args):
         mel.eval("texOrientEdge")
@@ -797,10 +752,11 @@ class NN_ToolWindow(object):
 
     def onSelectFrontface(self, *args):
         pass
+
     def onSelectBackface(self, *args):
         pass
 
-    ### etc
+    # etc
     def onUVEditor(self, *args):
         mel.eval("TextureViewWindow")
 
@@ -827,19 +783,21 @@ class NN_ToolWindow(object):
 
     def onToggleChecker(self, *args):
         checkered = cmds.textureWindow("polyTexturePlacementPanel1", e=True, displayCheckered=True)
-        cmds.textureWindow("polyTexturePlacementPanel1", e=True, displayCheckered=(not checkerd))
+        cmds.textureWindow("polyTexturePlacementPanel1", e=True, displayCheckered=(not checkered))
 
     def onDrawEdge(self, *args):
-      import draw_image as de
-      import nnutil as nu
+        import draw_image as de
+        import nnutil as nu
 
-      save_dir = nu.get_project_root() + "/images/"
-      filepath = save_dir + "draw_edges.svg"
-      mapSize = cmds.intField(self.mapSize, q=True, v=True)
-      de.draw_edge(filepath=filepath, imagesize=mapSize)
+        save_dir = nu.get_project_root() + "/images/"
+        filepath = save_dir + "draw_edges.svg"
+        mapSize = cmds.intField(self.mapSize, q=True, v=True)
+        de.draw_edge(filepath=filepath, imagesize=mapSize)
+
 
 def showNNToolWindow():
     NN_ToolWindow().create()
+
 
 def main():
     mel.eval("TextureViewWindow")
@@ -847,5 +805,6 @@ def main():
     mel.eval("workspaceControl -e -close UVToolkitDockControl;")
     showNNToolWindow()
 
+
 if __name__ == "__main__":
-  main()
+    main()

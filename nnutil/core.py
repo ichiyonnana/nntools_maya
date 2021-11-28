@@ -23,6 +23,24 @@ import pymel.core.datatypes as dt
 DEBUG = False
 
 
+def get_selection(**kwargs):
+    """ [cmds]
+
+    Returns:
+        [type]: [description]
+    """
+    return cmds.ls(selection=True, flatten=True, **kwargs)
+
+
+def selected(**kwargs):
+    """ [pm] flatten を有効にした pm.selected()
+
+    Returns:
+        [type]: [description]
+    """
+    return pm.selected(flatten=True, **kwargs)
+
+
 def undo_chunk(function):
     """ Undo チャンク用デコレーター """
     @functools.wraps(function)
@@ -142,7 +160,7 @@ def distance(p1, p2):
         p2 (list[float, float, float] or str): 三次元座標のリスト or cmds のコンポーネント文字列
 
     Returns:
-        list[float, float, float]:
+        float:
     """
 
     return math.sqrt(distance_sq(p1, p2))
@@ -156,7 +174,7 @@ def distance_sq(p1, p2):
         p2 (list[float, float, float] or str): 三次元座標のリスト or cmds のコンポーネント文字列
 
     Returns:
-        list[float, float, float]:
+        float:
     """
     if not isinstance(p1, list):
         p1 = point_from_vertex(p1)
@@ -165,6 +183,60 @@ def distance_sq(p1, p2):
         p2 = point_from_vertex(p2)
 
     return (p2[0]-p1[0])**2 + (p2[1]-p1[1])**2 + (p2[2]-p1[2])**2
+
+
+def distance2d(p1, p2):
+    """ [cmds] 二次元座標の距離を返す
+
+    Args:
+        p1 (list[float, float]): 二次元座標のリスト
+        p2 (list[float, float]): 二次元座標のリスト
+
+    Returns:
+        float: 二次元座標の距離
+    """
+    return math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
+
+
+def distance_uv(uv1, uv2):
+    """ [cmds] UV 2 点間の距離を返す
+
+    Args:
+        p1 (list[float, float]): cmds の UV コンポーネント文字列
+        p2 (list[float, float]): cmds の UV コンポーネント文字列
+
+    Returns:
+        float: 二次元座標の距離
+    """
+    uvCoord1 = cmds.polyEditUV(uv1, query=True)
+    uvCoord2 = cmds.polyEditUV(uv2, query=True)
+    return distance2d(uvCoord1, uvCoord2)
+
+
+def copy_uv(dst, src):
+    """ [cmds] UV を設定する
+
+    Args:
+        dst (str): コピー先 UV の cmds コンポーネント文字列
+        src ([type]): コピー元 UV の cmds コンポーネント文字列
+    """
+    src_coord = cmds.polyEditUV(src, q=True, relative=False)
+    cmds.polyEditUV(dst, relative=False, u=src_coord[0], v=src_coord[1])
+
+
+def filter_backface_uv_comp(uv_comp_list):
+    """ [cmds] 指定した UV のうち裏表が反転しているUVシェルを取得する
+
+    Args:
+        uv_comp_list (list[str]): フィルター対象の UV の cmds コンポーネント文字列
+
+    Returns:
+        list[str]: 裏表が反転している UV の cmds コンポーネント文字列
+    """
+    cmds.SelectUVBackFacingComponents()
+    backface_uvs = list(set(cmds.ls(selection=True, flatten=True)) & set(uv_comp_list) )
+
+    return backface_uvs
 
 
 def dot(v1, v2):
