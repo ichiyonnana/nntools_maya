@@ -4,14 +4,16 @@
 import math
 
 import maya.cmds as cmds
+import pymel.core as pm
 import maya.mel as mel
 
 import nnutil.core as nu
 import nnutil.ui as ui
+import nnutil.decorator as nd
 
 MSG_NOT_IMPLEMENTED = "未実装"
 
-
+@nd.repeatable
 def OnewayMatchUV(mode):
     MM_BACK_TO_FRONT = 0
     MM_UNPIN_TO_PIN = 1
@@ -89,6 +91,7 @@ def OnewayMatchUV(mode):
     cmds.select(clear=True)
 
 
+@nd.repeatable
 def half_expand_fold(right_down=True):
     """
     right_down=True で横なら右、縦なら下へ畳む
@@ -176,6 +179,468 @@ def half_expand_fold(right_down=True):
     cmds.select(clear=True)
 
 
+@nd.repeatable
+def translate_uv(pivot, translate):
+    """ 選択中 UV の移動
+
+    Args:
+        pivot ([type]): [description]
+        translate ([type]): [description]
+    """
+    cmds.polyEditUV(pu=pivot[0], pv=pivot[1], u=translate[0], v=translate[1])
+
+
+@nd.repeatable
+def scale_uv(pivot, scale):
+    """ 選択中 UV のスケール
+
+    Args:
+        pivot ([type]): [description]
+        scale ([type]): [description]
+    """
+    cmds.polyEditUV(pu=pivot[0], pv=pivot[1], u=scale[0], v=scale[1])
+
+
+@nd.repeatable
+def rotate_uv(angle):
+    """ 選択中 UV の回転
+
+    Args:
+        pivot ([type]): [description]
+        angle ([type]): [description]
+    """
+    mel.eval("polyRotateUVs %f 1" % angle)
+
+
+@nd.repeatable
+def project_planer_x():
+    mel.eval("polyProjection -type Planar -ibd on -kir -md x")
+
+
+@nd.repeatable
+def project_planer_y():
+    mel.eval("polyProjection -type Planar -ibd on -kir -md y")
+
+
+@nd.repeatable
+def project_planer_z():
+    mel.eval("polyProjection -type Planar -ibd on -kir -md z")
+
+
+@nd.repeatable
+def project_planer_camera():
+    mel.eval("polyProjection -type Planar -ibd on -kir -md camera")
+
+
+@nd.repeatable
+def project_planer_best():
+    mel.eval("polyProjection -type Planar -ibd on -kir -md b;")
+
+
+@nd.repeatable
+def straighten_border():
+    mel.eval("StraightenUVBorder")
+
+
+@nd.repeatable
+def straighten_inner():
+    mel.eval("texStraightenShell")
+
+
+@nd.repeatable
+def straighten_all():
+    mel.eval("UVStraighten")
+
+
+@nd.repeatable
+def linear_align():
+    mel.eval("texLinearAlignUVs")
+
+
+@nd.repeatable
+def ari_gridding():
+    mel.eval("AriUVGridding")
+
+
+@nd.repeatable
+def change_uvtk_texel_value(texel):
+    """ UVToolkit のテクセル値フィールドを設定する"""
+    mel.eval("floatField -e -v %f uvTkTexelDensityField" % texel)
+
+
+@nd.repeatable
+def change_uvtk_map_size(mapsize):
+    """mapSize 変更時に UVToolkit のフィールドを同じ値に変更する"""
+    mel.eval("intField -e -v %d uvTkTexelDensityMapSizeField" % mapsize)
+
+
+@nd.repeatable
+def get_texel(eb_texel, mapsize):
+    """
+    UVシェル、もしくはUVエッジのテクセルを設定
+    shell選択ならMayaの機能を使用し それ以外なら独自のUVエッジに対するテクセル設定モードを使用する
+    """
+    isUVShellSelection = cmds.selectType(q=True, msh=True)
+    isFaceSelection = cmds.selectType(q=True, pf=True)
+    isUVSelection = cmds.selectType(q=True, puv=True)
+
+    if isUVShellSelection or isFaceSelection:
+        # UVToolkit の機能でテクセル取得
+        mel.eval("uvTkDoGetTexelDensity")
+        uvTkTexel = mel.eval("floatField -q -v uvTkTexelDensityField")
+
+        # ダイアログの値更新
+        ui.set_value(eb_texel, uvTkTexel)
+
+    elif isUVSelection:
+        uvComponents = cmds.ls(os=True)
+        uvComponents = cmds.filterExpand(cmds.ls(os=True), sm=35)
+
+        uv1 = cmds.polyEditUV(uvComponents[0], q=True)
+        uv2 = cmds.polyEditUV(uvComponents[1], q=True)
+        vtxComponent1 = cmds.polyListComponentConversion(uvComponents[0], fuv=True, tv=True)
+        vtxComponent2 = cmds.polyListComponentConversion(uvComponents[1], fuv=True, tv=True)
+        p1 = cmds.xform(vtxComponent1, q=True, ws=True, t=True)
+        p2 = cmds.xform(vtxComponent2, q=True, ws=True, t=True)
+        geoLength = nu.distance(p1, p2)
+        uvLength = nu.distance2d(uv1, uv2)
+        currentTexel = uvLength / geoLength * mapsize
+
+        # ダイアログの値を更新
+        ui.set_value(eb_texel, currentTexel)
+        # UVToolkit の値を更新
+        mel.eval("floatField -e -v %f uvTkTexelDensityField" % currentTexel)
+    else:
+        print(MSG_NOT_IMPLEMENTED)
+
+
+@nd.repeatable
+def set_texel(texel, mapsize):
+    """
+    UVシェル、もしくはUVエッジのテクセルを設定
+    shell選択ならMayaの機能を使用し それ以外なら独自のUVエッジに対するテクセル設定モードを使用する
+    """
+    isUVShellSelection = cmds.selectType(q=True, msh=True)
+    if isUVShellSelection:
+        mel.eval("texSetTexelDensity %f %d" % (texel, mapsize))
+    else:
+        set_edge_texel(target_texel=texel, mapsize=mapsize, mode="uv")
+
+
+@nd.repeatable
+def set_edge_texel(target_texel, mapsize, mode):
+    """
+    UVエッジを指定のテクセル密度にする
+    エッジ選択モードならすべてのエッジに
+    UV選択モードなら選択した第一UVと第二UVの距離に
+    """
+    isUVSelection = cmds.selectType(q=True, puv=True)
+    isEdgeSelection = cmds.selectType(q=True, pe=True)
+
+    targetUVsList = []
+    uvComponents = []
+
+    # エッジ選択モードならエッジを構成する 2 頂点の UV をペアとして targetUVsList に追加する
+    if isEdgeSelection:
+        edges = cmds.filterExpand(cmds.ls(os=True), sm=32)
+        for edge in edges:
+            uvComponents = cmds.filterExpand(cmds.polyListComponentConversion(edge, fe=True, tuv=True), sm=35)
+            if len(uvComponents) == 2:  # 非UVシーム
+                targetUVsList.append(uvComponents)
+            elif len(uvComponents) == 4:  # UVシーム
+                targetUVsList.append([uvComponents[0], uvComponents[2]])
+                targetUVsList.append([uvComponents[1], uvComponents[3]])
+            else:
+                pass
+
+    # UV選択モードなら選択UVの先頭 2 要素をペアとして targetUVsList に追加する
+    elif isUVSelection:
+        uvComponents = cmds.filterExpand(cmds.ls(os=True), sm=35)
+        targetUVsList.append(uvComponents)
+
+    if not isEdgeSelection and not isUVSelection:
+        return
+
+    for uvPair in targetUVsList:
+        uv1 = cmds.polyEditUV(uvPair[0], q=True)  # ペアの 1 つめの UV座標を持つリスト
+        uv2 = cmds.polyEditUV(uvPair[1], q=True)  # ペアの 2 つめの UV座標を持つリスト
+        vtxComponent1 = cmds.polyListComponentConversion(uvPair[0], fuv=True, tv=True)  # uv1 に対応する ポリゴン頂点のコンポーネント文字列
+        vtxComponent2 = cmds.polyListComponentConversion(uvPair[1], fuv=True, tv=True)  # uv2 に対応する ポリゴン頂点のコンポーネント文字列
+        p1 = cmds.xform(vtxComponent1, q=True, ws=True, t=True)  # uv1 の XYZ 座標
+        p2 = cmds.xform(vtxComponent2, q=True, ws=True, t=True)  # uv2 の XYZ 座標
+        geoLength = nu.distance(p1, p2)
+        uLength = abs(uv2[0] - uv1[0])
+        vLength = abs(uv2[1] - uv1[1])
+        uvLength = nu.distance2d(uv1, uv2)
+
+        if mode == "u_min":
+            currentTexel = uLength / geoLength * mapsize
+            scale = target_texel / currentTexel
+            pivU = min(uv1[0], uv2[0])
+            pivV = 0
+            cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=scale, sv=1)
+            cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=scale, sv=1)
+
+        elif mode == "u_max":
+            currentTexel = uLength / geoLength * mapsize
+            scale = target_texel / currentTexel
+            pivU = max(uv1[0], uv2[0])
+            pivV = 0
+            cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=scale, sv=1)
+            cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=scale, sv=1)
+
+        elif mode == "v_min":
+            currentTexel = vLength / geoLength * mapsize
+            scale = target_texel / currentTexel
+            pivU = 0
+            pivV = min(uv1[1], uv2[1])
+            cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=1, sv=scale)
+            cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=1, sv=scale)
+
+        elif mode == "v_max":
+            currentTexel = vLength / geoLength * mapsize
+            scale = target_texel / currentTexel
+            pivU = 0
+            pivV = max(uv1[1], uv2[1])
+            cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=1, sv=scale)
+            cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=1, sv=scale)
+
+        else:
+            print(MSG_NOT_IMPLEMENTED)
+            currentTexel = uvLength / geoLength * mapsize
+            scale = target_texel / currentTexel
+            cmds.polyEditUV(uvPair[0], pu=uv1[0], pv=uv1[1], su=scale, sv=scale)
+            cmds.polyEditUV(uvPair[1], pu=uv1[0], pv=uv1[1], su=scale, sv=scale)
+
+
+@nd.repeatable
+def ari_uvratio():
+    mel.eval("AriUVRatio")
+
+
+@nd.repeatable
+def ari_uvratio_options():
+    mel.eval("AriUVRatioOptions")
+
+
+@nd.repeatable
+def unfold_u():
+    mel.eval("unfold -i 5000 -ss 0.001 -gb 0 -gmb 0.5 -pub 0 -ps 0 -oa 2 -us off")
+
+
+@nd.repeatable
+def unfold_v():
+    mel.eval("unfold -i 5000 -ss 0.001 -gb 0 -gmb 0.5 -pub 0 -ps 0 -oa 1 -us off")
+
+
+@nd.repeatable
+def match_uv():
+    mel.eval("texMatchUVs 0.01")
+
+
+@nd.repeatable
+def match_uv_options():
+    mel.eval("MatchUVsOptions")
+
+
+@nd.repeatable
+def match_uv_oneway(mode):
+    OnewayMatchUV(mode=mode)
+
+
+@nd.repeatable
+def expand_fold_rightdown():
+    half_expand_fold(True)
+
+
+@nd.repeatable
+def expand_fold_leftup():
+    half_expand_fold(False)
+
+
+@nd.repeatable
+def flip_u_in_tile():
+    cmds.ConvertSelectionToUVs()
+    uv_comp = cmds.ls(selection=True, flatten=True)[0]
+    uv_coord = cmds.polyEditUV(uv_comp, query=True)
+    u = uv_coord[0]
+    v = uv_coord[1]
+    piv_u = u // 1 + 0.5
+    piv_v = v // 1 + 0.5
+    cmds.SelectUVShell()
+    cmds.polyEditUV(pu=piv_u, pv=piv_v, su=-1, sv=1)
+
+
+@nd.repeatable
+def flip_v_in_tile():
+    cmds.ConvertSelectionToUVs()
+    uv_comp = cmds.ls(selection=True, flatten=True)[0]
+    uv_coord = cmds.polyEditUV(uv_comp, query=True)
+    u = uv_coord[0]
+    v = uv_coord[1]
+    piv_u = u // 1 + 0.5
+    piv_v = v // 1 + 0.5
+    cmds.SelectUVShell()
+    cmds.polyEditUV(pu=piv_u, pv=piv_v, su=1, sv=-1)
+
+
+@nd.repeatable
+def sew_matching_edges():
+    edges = cmds.ls(selection=True, flatten=True)
+
+    for edge in edges:
+        uvs = nu.to_uv(edge)
+        if len(uvs) > 2:
+            uv_coords = [nu.round_vector(nu.get_uv_coord(x), 4) for x in uvs]
+            print(edge)
+            unique_uv = set([tuple(x) for x in uv_coords])
+            print(len(unique_uv))
+            if len(unique_uv) == 2:
+                cmds.polyMapSew(edge, ch=1)
+
+
+@nd.repeatable
+def orient_edge():
+    mel.eval("texOrientEdge")
+
+
+@nd.repeatable
+def orient_shells():
+    mel.eval("texOrientShells")
+
+
+@nd.repeatable
+def symmetry_arrange():
+    pass
+
+
+@nd.repeatable
+def snap_stack():
+    mel.eval("texSnapStackShells")
+
+
+@nd.repeatable
+def stack():
+    mel.eval("texStackShells({})")
+
+
+@nd.repeatable
+def unstack():
+    mel.eval("UVUnstackShells")
+
+
+@nd.repeatable
+def normalize():
+    mel.eval("polyNormalizeUV -normalizeType 1 -preserveAspectRatio on -centerOnTile on -normalizeDirection 0")
+
+
+@nd.repeatable
+def uv_lattice_tool():
+    mel.eval("LatticeUVTool")
+
+
+@nd.repeatable
+def uv_tweak_tool():
+    mel.eval("setToolTo texTweakSuperContext")
+
+
+@nd.repeatable
+def uv_cut_tool():
+    mel.eval("setToolTo texCutUVContext")
+
+
+@nd.repeatable
+def uv_optimize_tool():
+    mel.eval("setToolTo texUnfoldUVContext")
+
+
+@nd.repeatable
+def uv_symmetrize_tool():
+    mel.eval("setToolTo texSymmetrizeUVContext")
+
+
+@nd.repeatable
+def set_uv_symmetrize_center():
+    """ シンメトライズツールの中心座標を設定する
+    """
+    uv = nu.get_selection()[0]
+    uv_coord = nu.get_uv_coord(uv)
+
+    cmds.optionVar(fv=["polySymmetrizeUVAxisOffset", uv_coord[0]])
+    mel.eval("SymmetrizeUVContext -e -ap `optionVar -q polySymmetrizeUVAxisOffset` texSymmetrizeUVContext;")
+
+
+@nd.repeatable
+def convert_to_shell_border():
+    mel.eval("ConvertSelectionToUVs")
+    mel.eval("ConvertSelectionToUVShellBorder")
+
+
+@nd.repeatable
+def convert_to_shell_inner():
+    mel.eval("ConvertSelectionToUVShell")
+    mel.eval("ConvertSelectionToUVs")
+    mel.eval("PolySelectTraverse 2")
+
+
+@nd.repeatable
+def select_all_uv_borders():
+    mel.eval("SelectUVBorderComponents")
+
+
+@nd.repeatable
+def shortest_edge_tool():
+    mel.eval("SelectShortestEdgePathTool")
+
+
+@nd.repeatable
+def select_front_face():
+    pass
+
+
+@nd.repeatable
+def select_backface(self, *args):
+    pass
+
+
+@nd.repeatable
+def display_uveditor():
+    mel.eval("TextureViewWindow")
+
+
+@nd.repeatable
+def display_uvtoolkit():
+    mel.eval("toggleUVToolkit")
+
+
+@nd.repeatable
+def uv_snapshot_options():
+    mel.eval("performUVSnapshot")
+
+
+@nd.repeatable
+def set_checker_density(n):
+    texWinName = cmds.getPanel(sty='polyTexturePlacementPanel')[0]
+    cmds.textureWindow(texWinName, e=True, checkerDensity=n)
+
+
+@nd.repeatable
+def toggle_checker():
+    checkered = cmds.textureWindow("polyTexturePlacementPanel1", q=True, displayCheckered=True)
+    cmds.textureWindow("polyTexturePlacementPanel1", e=True, displayCheckered=(not checkered))
+
+
+@nd.repeatable
+def draw_edge(map_size):
+    import draw_image as de
+    import nnutil as nu
+
+    save_dir = nu.get_project_root() + "/images/"
+    filepath = save_dir + "draw_edges.svg"
+    mapSize = ui.get_value(map_size)
+    de.draw_edge(filepath=filepath, imagesize=mapSize)
+
+
 class NN_ToolWindow(object):
     def __init__(self):
         self.window = 'NN_UVToolkit'
@@ -254,8 +719,8 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='Optimize')
         ui.button(label='Get', c=self.onGetTexel)
-        self.texel = cmds.floatField(cc=self.onChangeTexel, width=ui.button_width2)
-        self.mapSize = cmds.intField(cc=self.onChangeMapSize, width=ui.button_width1_5)
+        self.texel = ui.eb_float(cc=self.onChangeTexel, width=ui.button_width2)
+        self.mapSize = ui.eb_int(cc=self.onChangeMapSize, width=ui.button_width1_5)
         ui.text(label='px')
         ui.end_layout()
 
@@ -277,7 +742,7 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='Checker')
         ui.text(label="dense:")
-        self.checkerDensity = cmds.intField(v=256, cc=self.onChangeUVCheckerDensity, width=ui.button_width1_5)
+        self.checkerDensity = ui.eb_int(v=256, cc=self.onChangeUVCheckerDensity, width=ui.button_width1_5)
         ui.button(label='/2', c=self.onUVCheckerDensityDiv2)
         ui.button(label='x2', c=self.onUVCheckerDensityMul2)
         ui.button(label="Toggle", c=self.onToggleChecker)
@@ -333,7 +798,7 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='Transform')
         ui.text(label='Move')
-        self.translateValue = cmds.floatField(v=0.1, width=ui.button_width2)
+        self.translateValue = ui.eb_float(v=0.1, width=ui.button_width2)
         ui.button(label=u'←', c=self.onTranslateUDiff, bgc=ui.color_u)
         ui.button(label=u'→', c=self.onTranslateUAdd, bgc=ui.color_u)
         ui.button(label=u'↑', c=self.onTranslateVAdd, bgc=ui.color_v)
@@ -343,7 +808,7 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='')
         ui.header(label='Rotate')
-        self.rotationAngle = cmds.floatField(v=90, width=ui.button_width2)
+        self.rotationAngle = ui.eb_float(v=90, width=ui.button_width2)
         ui.button(label=u'←', c=self.onRotateLeft)
         ui.button(label=u'→', c=self.onRotateRight)
         ui.end_layout()
@@ -351,7 +816,7 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='')
         ui.header(label='Scale')
-        self.scaleValue = cmds.floatField(v=2, width=ui.button_width2)
+        self.scaleValue = ui.eb_float(v=2, width=ui.button_width2)
         ui.button(label='U*', c=self.onOrigScaleUMul, bgc=ui.color_u)
         ui.button(label='U/', c=self.onOrigScaleUDiv, bgc=ui.color_u)
         ui.button(label='V*', c=self.onOrigScaleVMul, bgc=ui.color_v)
@@ -371,429 +836,353 @@ class NN_ToolWindow(object):
         # テクセルとマップサイズを UVToolkit から取得
         uvtkTexel = mel.eval("floatField -q -v uvTkTexelDensityField")
         uvtkMapSize = mel.eval("intField -q -v uvTkTexelDensityMapSizeField")
-        cmds.floatField(self.texel, e=True, v=uvtkTexel)
-        cmds.intField(self.mapSize, e=True, v=uvtkMapSize)
+        ui.set_value(self.texel, uvtkTexel)
+        ui.set_value(self.mapSize, uvtkMapSize)
 
-    # getter/setter
-    # フォームからの値を取るだけ
-    def getTexel(self):
-        return cmds.floatField(self.texel, q=True, v=True)
-
-    def getMapSize(self):
-        return cmds.intField(self.mapSize, q=True, v=True)
-
+    # ハンドラ
+    @nd.undo_chunk
     def onTranslateUAdd(self, *args):
-        v = cmds.floatField(self.translateValue, q=True, v=True)
-        cmds.polyEditUV(pu=0, pv=0, u=v, v=0)
+        v = ui.get_value(self.translateValue)
+        translate_uv(pivot=(0, 0), translate=(v, 0))
 
+    @nd.undo_chunk
     def onTranslateUDiff(self, *args):
-        v = cmds.floatField(self.translateValue, q=True, v=True)
-        cmds.polyEditUV(pu=0, pv=0, u=-v, v=0)
+        v = ui.get_value(self.translateValue)
+        translate_uv(pivot=(0, 0), translate=(-v, 0))
 
+    @nd.undo_chunk
     def onTranslateVAdd(self, *args):
-        v = cmds.floatField(self.translateValue, q=True, v=True)
-        cmds.polyEditUV(pu=0, pv=0, u=0, v=v)
+        v = ui.get_value(self.translateValue)
+        translate_uv(pivot=(0, 0), translate=(0, v))
 
+    @nd.undo_chunk
     def onTranslateVDiff(self, *args):
-        v = cmds.floatField(self.translateValue, q=True, v=True)
-        cmds.polyEditUV(pu=0, pv=0, u=0, v=-v)
+        v = ui.get_value(self.translateValue)
+        translate_uv(pivot=(0, 0), translate=(0, -v))
 
+    @nd.undo_chunk
     def onOrigScaleUMul(self, *args):
-        v = cmds.floatField(self.scaleValue, q=True, v=True)
-        cmds.polyEditUV(pu=0, pv=0, su=v, sv=1)
+        v = ui.get_value(self.scaleValue)
+        scale_uv(pivot=(0, 0), scale=(v, 1))
 
+    @nd.undo_chunk
     def onOrigScaleVMul(self, *args):
-        v = cmds.floatField(self.scaleValue, q=True, v=True)
-        cmds.polyEditUV(pu=0, pv=0, su=1, sv=v)
+        v = ui.get_value(self.scaleValue)
+        scale_uv(pivot=(0, 0), scale=(1, v))
 
+    @nd.undo_chunk
     def onOrigScaleUDiv(self, *args):
-        v = cmds.floatField(self.scaleValue, q=True, v=True)
-        cmds.polyEditUV(pu=0, pv=0, su=1/v, sv=1)
+        v = ui.get_value(self.scaleValue)
+        scale_uv(pivot=(0, 0), scale=(1.0/v, 1))
 
+    @nd.undo_chunk
     def onOrigScaleVDiv(self, *args):
-        v = cmds.floatField(self.scaleValue, q=True, v=True)
-        cmds.polyEditUV(pu=0, pv=0, su=1, sv=1/v)
+        v = ui.get_value(self.scaleValue)
+        scale_uv(pivot=(0, 0), scale=(1, 1.0/v))
 
+    @nd.undo_chunk
     def onRotateLeft(self, *args):
-        angle = cmds.floatField(self.rotationAngle, q=True, v=True)
-        mel.eval("polyRotateUVs %f 1" % angle)
+        angle = ui.get_value(self.rotationAngle)
+        rotate_uv(angle=angle)
 
+    @nd.undo_chunk
     def onRotateRight(self, *args):
-        angle = cmds.floatField(self.rotationAngle, q=True, v=True) * -1
-        mel.eval("polyRotateUVs %f 1" % angle)
+        angle = ui.get_value(self.rotationAngle)
+        rotate_uv(angle=-angle)
 
+    @nd.undo_chunk
     def onPlanerX(self, *args):
-        mel.eval("polyProjection -type Planar -ibd on -kir -md x")
+        project_planer_x()
 
+    @nd.undo_chunk
     def onPlanerY(self, *args):
-        mel.eval("polyProjection -type Planar -ibd on -kir -md y")
+        project_planer_y()
 
+    @nd.undo_chunk
     def onPlanerZ(self, *args):
-        mel.eval("polyProjection -type Planar -ibd on -kir -md z")
+        project_planer_z()
 
+    @nd.undo_chunk
     def onPlanerCamera(self, *args):
-        mel.eval("polyProjection -type Planar -ibd on -kir -md camera")
+        project_planer_camera()
 
+    @nd.undo_chunk
     def onPlanerBest(self, *args):
-        mel.eval("polyProjection -type Planar -ibd on -kir -md b;")
+        project_planer_best()
 
+    @nd.undo_chunk
     def onStraightenBorder(self, *args):
-        mel.eval("StraightenUVBorder")
+        straighten_border()
 
+    @nd.undo_chunk
     def onStraightenInner(self, *args):
-        mel.eval("texStraightenShell")
+        straighten_inner()
 
+    @nd.undo_chunk
     def onStraightenAll(self, *args):
-        mel.eval("UVStraighten")
+        straighten_all()
 
+    @nd.undo_chunk
     def onLinearAlign(self, *args):
-        mel.eval("texLinearAlignUVs")
+        linear_align()
 
+    @nd.undo_chunk
     def onGridding(self, *args):
-        mel.eval("AriUVGridding")
+        ari_gridding()
 
+    @nd.undo_chunk
     def onChangeTexel(self, *args):
-        """texel 変更時に UVToolkit のフィールドを同じ値に変更する"""
-        texel = cmds.floatField(self.texel, q=True, v=True)
-        mel.eval("floatField -e -v %f uvTkTexelDensityField" % texel)
+        """ エディットボックスの値変更ハンドラ。texel 変更時に UVToolkit のフィールドを同じ値に変更する"""
+        texel = ui.get_value(self.texel)
+        change_uvtk_texel_value(texel=texel)
 
+    @nd.undo_chunk
     def onChangeMapSize(self, *args):
-        """mapSize 変更時に UVToolkit のフィールドを同じ値に変更する"""
-        mapSize = cmds.intField(self.mapSize, q=True, v=True)
-        mel.eval("intField -e -v %d uvTkTexelDensityMapSizeField" % mapSize)
+        """ エディットボックスの値変更ハンドラ。mapSize 変更時に UVToolkit のフィールドを同じ値に変更する"""
+        mapsize = ui.get_value(self.mapSize)
+        change_uvtk_map_size(mapsize=mapsize)
 
+    @nd.undo_chunk
     def onGetTexel(self, *args):
         """
         UVシェル、もしくはUVエッジのテクセルを設定
         shell選択ならMayaの機能を使用し それ以外なら独自のUVエッジに対するテクセル設定モードを使用する
         """
-        isUVShellSelection = cmds.selectType(q=True, msh=True)
-        isFaceSelection = cmds.selectType(q=True, pf=True)
-        isUVSelection = cmds.selectType(q=True, puv=True)
+        mapsize = ui.get_value(self.mapSize)
+        get_texel(eb_texel=self.texel, mapsize=mapsize)
 
-        if isUVShellSelection or isFaceSelection:
-            # UVToolkit の機能でテクセル取得
-            mel.eval("uvTkDoGetTexelDensity")
-            uvTkTexel = mel.eval("floatField -q -v uvTkTexelDensityField")
-
-            # ダイアログの値更新
-            cmds.floatField(self.texel, e=True, v=uvTkTexel)
-
-        elif isUVSelection:
-            uvComponents = cmds.ls(os=True)
-            uvComponents = cmds.filterExpand(cmds.ls(os=True), sm=35)
-
-            uv1 = cmds.polyEditUV(uvComponents[0], q=True)
-            uv2 = cmds.polyEditUV(uvComponents[1], q=True)
-            vtxComponent1 = cmds.polyListComponentConversion(uvComponents[0], fuv=True, tv=True)
-            vtxComponent2 = cmds.polyListComponentConversion(uvComponents[1], fuv=True, tv=True)
-            p1 = cmds.xform(vtxComponent1, q=True, ws=True, t=True)
-            p2 = cmds.xform(vtxComponent2, q=True, ws=True, t=True)
-            geoLength = nu.distance(p1, p2)
-            uvLength = nu.distance_uv(uv1, uv2)
-            mapSize = self.getMapSize()
-            currentTexel = uvLength / geoLength * mapSize
-
-            # ダイアログの値を更新
-            cmds.floatField(self.texel, e=True, v=currentTexel)
-            # UVToolkit の値を更新
-            mel.eval("floatField -e -v %f uvTkTexelDensityField" % currentTexel)
-        else:
-            print(MSG_NOT_IMPLEMENTED)
-
+    @nd.undo_chunk
     def onSetTexel(self, *args):
         """
         UVシェル、もしくはUVエッジのテクセルを設定
         shell選択ならMayaの機能を使用し それ以外なら独自のUVエッジに対するテクセル設定モードを使用する
         """
-        isUVShellSelection = cmds.selectType(q=True, msh=True)
-        if isUVShellSelection:
-            texel = cmds.floatField(self.texel, q=True, v=True)
-            mapSize = cmds.intField(self.mapSize, q=True, v=True)
-            mel.eval("texSetTexelDensity %f %d" % (texel, mapSize))
-        else:
-            self.setEdgeTexel(mode="uv")
+        texel = ui.get_value(self.texel)
+        mapsize = ui.get_value(self.mapSize)
+        set_texel(texel=texel, mapsize=mapsize)
 
-    def setEdgeTexel(self, mode):
-        """
-        UVエッジを指定のテクセル密度にする
-        エッジ選択モードならすべてのエッジに
-        UV選択モードなら選択した第一UVと第二UVの距離に
-        """
-
-        targetTexel = self.getTexel()
-        mapSize = self.getMapSize()
-
-        isUVSelection = cmds.selectType(q=True, puv=True)
-        isEdgeSelection = cmds.selectType(q=True, pe=True)
-
-        targetUVsList = []
-        uvComponents = []
-
-        # エッジ選択モードならエッジを構成する 2 頂点の UV をペアとして targetUVsList に追加する
-        if isEdgeSelection:
-            edges = cmds.filterExpand(cmds.ls(os=True), sm=32)
-            for edge in edges:
-                uvComponents = cmds.filterExpand(cmds.polyListComponentConversion(edge, fe=True, tuv=True), sm=35)
-                if len(uvComponents) == 2:  # 非UVシーム
-                    targetUVsList.append(uvComponents)
-                elif len(uvComponents) == 4:  # UVシーム
-                    targetUVsList.append([uvComponents[0], uvComponents[2]])
-                    targetUVsList.append([uvComponents[1], uvComponents[3]])
-                else:
-                    pass
-
-        # UV選択モードなら選択UVの先頭 2 要素をペアとして targetUVsList に追加する
-        elif isUVSelection:
-            uvComponents = cmds.filterExpand(cmds.ls(os=True), sm=35)
-            targetUVsList.append(uvComponents)
-
-        if not isEdgeSelection and not isUVSelection:
-            return
-
-        for uvPair in targetUVsList:
-            uv1 = cmds.polyEditUV(uvPair[0], q=True)  # ペアの 1 つめの UV座標を持つリスト
-            uv2 = cmds.polyEditUV(uvPair[1], q=True)  # ペアの 2 つめの UV座標を持つリスト
-            vtxComponent1 = cmds.polyListComponentConversion(uvPair[0], fuv=True, tv=True)  # uv1 に対応する ポリゴン頂点のコンポーネント文字列
-            vtxComponent2 = cmds.polyListComponentConversion(uvPair[1], fuv=True, tv=True)  # uv2 に対応する ポリゴン頂点のコンポーネント文字列
-            p1 = cmds.xform(vtxComponent1, q=True, ws=True, t=True)  # uv1 の XYZ 座標
-            p2 = cmds.xform(vtxComponent2, q=True, ws=True, t=True)  # uv2 の XYZ 座標
-            geoLength = nu.distance(p1, p2)
-            uLength = abs(uv2[0] - uv1[0])
-            vLength = abs(uv2[1] - uv1[1])
-            uvLength = nu.distance_uv(uv1, uv2)
-
-            if mode == "u_min":
-                currentTexel = uLength / geoLength * mapSize
-                scale = targetTexel / currentTexel
-                pivU = min(uv1[0], uv2[0])
-                pivV = 0
-                cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=scale, sv=1)
-                cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=scale, sv=1)
-
-            elif mode == "u_max":
-                currentTexel = uLength / geoLength * mapSize
-                scale = targetTexel / currentTexel
-                pivU = max(uv1[0], uv2[0])
-                pivV = 0
-                cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=scale, sv=1)
-                cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=scale, sv=1)
-
-            elif mode == "v_min":
-                currentTexel = vLength / geoLength * mapSize
-                scale = targetTexel / currentTexel
-                pivU = 0
-                pivV = min(uv1[1], uv2[1])
-                cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=1, sv=scale)
-                cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=1, sv=scale)
-
-            elif mode == "v_max":
-                currentTexel = vLength / geoLength * mapSize
-                scale = targetTexel / currentTexel
-                pivU = 0
-                pivV = max(uv1[1], uv2[1])
-                cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=1, sv=scale)
-                cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=1, sv=scale)
-
-            else:
-                print(self.MSG_NOT_IMPLEMENTED)
-                currentTexel = uvLength / geoLength * mapSize
-                scale = targetTexel / currentTexel
-                cmds.polyEditUV(uvPair[0], pu=uv1[0], pv=uv1[1], su=scale, sv=scale)
-                cmds.polyEditUV(uvPair[1], pu=uv1[0], pv=uv1[1], su=scale, sv=scale)
-
+    @nd.undo_chunk
     def onSetEdgeTexelUAuto(self, *args):
-        self.setEdgeTexel(mode="u_auto")
+        target_texel = ui.get_value(self.texel)
+        mapsize = ui.get_value(self.mapSize)
+        mode = "u_auto"
+        set_edge_texel(target_texel=target_texel, mapsize=mapsize, mode=mode)
 
+    @nd.undo_chunk
     def onSetEdgeTexelUMin(self, *args):
-        self.setEdgeTexel(mode="u_min")
+        target_texel = ui.get_value(self.texel)
+        mapsize = ui.get_value(self.mapSize)
+        mode = "u_min"
+        set_edge_texel(target_texel=target_texel, mapsize=mapsize, mode=mode)
 
+    @nd.undo_chunk
     def onSetEdgeTexelUMax(self, *args):
-        self.setEdgeTexel(mode="u_max")
+        target_texel = ui.get_value(self.texel)
+        mapsize = ui.get_value(self.mapSize)
+        mode = "u_max"
+        set_edge_texel(target_texel=target_texel, mapsize=mapsize, mode=mode)
 
+    @nd.undo_chunk
     def onSetEdgeTexelVAuto(self, *args):
-        self.setEdgeTexel(mode="v_auto")
+        target_texel = ui.get_value(self.texel)
+        mapsize = ui.get_value(self.mapSize)
+        mode = "v_auto"
+        set_edge_texel(target_texel=target_texel, mapsize=mapsize, mode=mode)
 
+    @nd.undo_chunk
     def onSetEdgeTexelVMin(self, *args):
-        self.setEdgeTexel(mode="v_min")
+        target_texel = ui.get_value(self.texel)
+        mapsize = ui.get_value(self.mapSize)
+        mode = "v_min"
+        set_edge_texel(target_texel=target_texel, mapsize=mapsize, mode=mode)
 
+    @nd.undo_chunk
     def onSetEdgeTexelVMax(self, *args):
-        self.setEdgeTexel(mode="v_max")
+        target_texel = ui.get_value(self.texel)
+        mapsize = ui.get_value(self.mapSize)
+        mode = "v_max"
+        set_edge_texel(target_texel=target_texel, mapsize=mapsize, mode=mode)
 
+    @nd.undo_chunk
     def onUVRatio(self, *args):
-        mel.eval("AriUVRatio")
+        ari_uvratio()
 
+    @nd.undo_chunk
     def onUVRatioOptions(self, *args):
-        mel.eval("AriUVRatioOptions")
+        ari_uvratio_options()
 
+    @nd.undo_chunk
     def onUnfoldU(self, *args):
-        mel.eval("unfold -i 5000 -ss 0.001 -gb 0 -gmb 0.5 -pub 0 -ps 0 -oa 2 -us off")
+        unfold_u()
 
+    @nd.undo_chunk
     def onUnfoldV(self, *args):
-        mel.eval("unfold -i 5000 -ss 0.001 -gb 0 -gmb 0.5 -pub 0 -ps 0 -oa 1 -us off")
+        unfold_v()
 
+    @nd.undo_chunk
     def onMatchUV(self, *args):
-        mel.eval("texMatchUVs 0.01")
+        match_uv()
 
+    @nd.undo_chunk
     def onMatchUVOptions(self, *args):
-        mel.eval("MatchUVsOptions")
+        match_uv_options()
 
+    @nd.undo_chunk
     def onOnewayMatchUVF(self, *args):
-        OnewayMatchUV("front")
+        match_uv_oneway(mode="front")
 
+    @nd.undo_chunk
     def onOnewayMatchUVB(self, *args):
-        OnewayMatchUV("back")
+        match_uv_oneway(mode="back")
 
+    @nd.undo_chunk
     def onOnewayMatchUVP(self, *args):
-        OnewayMatchUV("pin")
+        match_uv_oneway(mode="pin")
 
+    @nd.undo_chunk
     def onOnewayMatchUVUp(self, *args):
-        OnewayMatchUV("unpin")
+        match_uv_oneway(mode="unpin")
 
+    @nd.undo_chunk
     def onExpandFoldRD(self, *args):
-        half_expand_fold(True)
+        expand_fold_rightdown()
 
+    @nd.undo_chunk
     def onExpandFoldLU(self, *args):
-        half_expand_fold(False)
+        expand_fold_leftup()
 
+    @nd.undo_chunk
     def onFlipUinTile(self, *args):
-        cmds.ConvertSelectionToUVs()
-        uv_comp = cmds.ls(selection=True, flatten=True)[0]
-        uv_coord = cmds.polyEditUV(uv_comp, query=True)
-        u = uv_coord[0]
-        v = uv_coord[1]
-        piv_u = u // 1 + 0.5
-        piv_v = v // 1 + 0.5
-        cmds.SelectUVShell()
-        cmds.polyEditUV(pu=piv_u, pv=piv_v, su=-1, sv=1)
+        flip_u_in_tile()
 
+    @nd.undo_chunk
     def onFlipVinTile(self, *args):
-        cmds.ConvertSelectionToUVs()
-        uv_comp = cmds.ls(selection=True, flatten=True)[0]
-        uv_coord = cmds.polyEditUV(uv_comp, query=True)
-        u = uv_coord[0]
-        v = uv_coord[1]
-        piv_u = u // 1 + 0.5
-        piv_v = v // 1 + 0.5
-        cmds.SelectUVShell()
-        cmds.polyEditUV(pu=piv_u, pv=piv_v, su=1, sv=-1)
+        flip_v_in_tile()
 
+    @nd.undo_chunk
     def onSewMatchingEdges(self, *args):
-        edges = cmds.ls(selection=True, flatten=True)
+        sew_matching_edges()
 
-        for edge in edges:
-            uvs = nu.to_uv(edge)
-            if len(uvs) > 2:
-                uv_coords = [nu.round_vector(nu.get_uv_coord(x), 4) for x in uvs]
-                print(edge)
-                unique_uv = set([tuple(x) for x in uv_coords])
-                print(len(unique_uv))
-                if len(unique_uv) == 2:
-                    cmds.polyMapSew(edge, ch=1)
-
+    @nd.undo_chunk
     def onOrientEdge(self, *args):
-        mel.eval("texOrientEdge")
+        orient_edge()
 
+    @nd.undo_chunk
     def onOrientShells(self, *args):
-        mel.eval("texOrientShells")
+        orient_shells()
 
+    @nd.undo_chunk
     def onSymArrange(self, *args):
-        pass
+        symmetry_arrange()
 
+    @nd.undo_chunk
     def onSnapStack(self, *args):
-        mel.eval("texSnapStackShells")
+        snap_stack()
 
+    @nd.undo_chunk
     def onStack(self, *args):
-        mel.eval("texStackShells({})")
+        stack()
 
+    @nd.undo_chunk
     def onUnStack(self, *args):
-        mel.eval("UVUnstackShells")
+        unstack()
 
+    @nd.undo_chunk
     def onNormalize(self, *args):
-        mel.eval("polyNormalizeUV -normalizeType 1 -preserveAspectRatio on -centerOnTile on -normalizeDirection 0")
+        normalize()
 
     # Tool
+    @nd.undo_chunk
     def onUVLatticeTool(self, *args):
-        mel.eval("LatticeUVTool")
+        uv_lattice_tool()
 
+    @nd.undo_chunk
     def onUVTweakTool(self, *args):
-        mel.eval("setToolTo texTweakSuperContext")
+        uv_tweak_tool()
 
+    @nd.undo_chunk
     def onUVCutTool(self, *args):
-        mel.eval("setToolTo texCutUVContext")
+        uv_cut_tool()
 
+    @nd.undo_chunk
     def onUVOptimizeTool(self, *args):
-        mel.eval("setToolTo texUnfoldUVContext")
+        uv_optimize_tool()
 
+    @nd.undo_chunk
     def onUVSymmetrizeTool(self, *args):
-        mel.eval("setToolTo texSymmetrizeUVContext")
+        uv_symmetrize_tool()
 
+    @nd.undo_chunk
     def onSetUVSymmetrizeCenter(self, *args):
-        uv = nu.get_selection()[0]
-        uv_coord = nu.get_uv_coord(uv)
-
-        cmds.optionVar(fv=["polySymmetrizeUVAxisOffset", uv_coord[0]])
-        mel.eval("SymmetrizeUVContext -e -ap `optionVar -q polySymmetrizeUVAxisOffset` texSymmetrizeUVContext;")
+        set_uv_symmetrize_center()
 
     # Select & Convert
+    @nd.undo_chunk
     def onConvertToShellBorder(self, *args):
-        mel.eval("ConvertSelectionToUVs")
-        mel.eval("ConvertSelectionToUVShellBorder")
+        convert_to_shell_border()
 
+    @nd.undo_chunk
     def onConvertToShellInner(self, *args):
-        mel.eval("ConvertSelectionToUVShell")
-        mel.eval("ConvertSelectionToUVs")
-        mel.eval("PolySelectTraverse 2")
+        convert_to_shell_inner()
 
+    @nd.undo_chunk
     def onSelectAllUVBorders(self, *args):
-        mel.eval("SelectUVBorderComponents")
+        select_all_uv_borders()
 
+    @nd.undo_chunk
     def onShortestEdgeTool(self, *args):
-        mel.eval("SelectShortestEdgePathTool")
+        shortest_edge_tool()
 
+    @nd.undo_chunk
     def onSelectFrontface(self, *args):
-        pass
+        select_front_face()
 
+    @nd.undo_chunk
     def onSelectBackface(self, *args):
-        pass
+        select_backface()
 
     # etc
+    @nd.undo_chunk
     def onUVEditor(self, *args):
-        mel.eval("TextureViewWindow")
+        display_uveditor()
 
+    @nd.undo_chunk
     def onUVToolKit(self, *args):
-        mel.eval("toggleUVToolkit")
+        display_uvtoolkit()
 
+    @nd.undo_chunk
     def onUVSnapShot(self, *args):
-        mel.eval("performUVSnapshot")
+        uv_snapshot_options()
 
+    @nd.undo_chunk
     def onChangeUVCheckerDensity(self, *args):
-        n = cmds.intField(self.checkerDensity, q=True, v=True) 
-        texWinName = cmds.getPanel(sty='polyTexturePlacementPanel')[0]
-        cmds.textureWindow(texWinName, e=True, checkerDensity=n)
+        """ UVチェッカー密度エディットボックスの変更ハンドラ。UVTookKit の値を同期する
+        """
+        n = ui.get_value(self.checkerDensity)
+        set_checker_density(n=n)
 
+    @nd.undo_chunk
     def onUVCheckerDensityMul2(self, *args):
-        n = cmds.intField(self.checkerDensity, q=True, v=True) 
-        cmds.intField(self.checkerDensity, e=True, v=n*2) 
+        n = ui.get_value(self.checkerDensity) * 2.0
+        set_checker_density(n=n)
+        ui.set_value(self.checkerDensity, n)
         self.onChangeUVCheckerDensity()
 
+    @nd.undo_chunk
     def onUVCheckerDensityDiv2(self, *args):
-        n = cmds.intField(self.checkerDensity, q=True, v=True) 
-        cmds.intField(self.checkerDensity, e=True, v=n/2) 
+        n = ui.get_value(self.checkerDensity) / 2.0
+        set_checker_density(n=n)
+        ui.set_value(self.checkerDensity, n)
         self.onChangeUVCheckerDensity()
 
+    @nd.undo_chunk
     def onToggleChecker(self, *args):
-        checkered = cmds.textureWindow("polyTexturePlacementPanel1", q=True, displayCheckered=True)
-        cmds.textureWindow("polyTexturePlacementPanel1", e=True, displayCheckered=(not checkered))
+        toggle_checker()
 
+    @nd.undo_chunk
     def onDrawEdge(self, *args):
-        import draw_image as de
-        import nnutil as nu
-
-        save_dir = nu.get_project_root() + "/images/"
-        filepath = save_dir + "draw_edges.svg"
-        mapSize = cmds.intField(self.mapSize, q=True, v=True)
-        de.draw_edge(filepath=filepath, imagesize=mapSize)
+        mapsize = ui.get_value(self.mapSize)
+        draw_edge(mapsize=mapsize)
 
 
 def showNNToolWindow():
