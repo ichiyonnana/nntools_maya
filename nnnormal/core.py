@@ -11,6 +11,8 @@ import nnutil.display as nd
 import nnutil.ui as ui
 
 
+# 法線転送に使用するデフォルトの転送方法
+# 0:法線に沿った最近接 3:ポイントに最近接
 default_search_method = 3
 
 
@@ -21,7 +23,9 @@ def transfar_normal(objects=None, source_type=None, space="world", search_method
     引数未指定の場合は選択オブジェクトを対象とする
 
     Args:
-        objects ([type]): [description]
+        objects (list[Transform]): 転送元と転送先のオブジェクトを含むリスト
+        source_type (str): objects のうちどれを転送元とするか。SO_FIRST:最初のオブジェクト SO_LAST:最後のオブジェクト
+        search_method (int): 法線転送に使用する転送方法。0:法線に沿った最近接 3:ポイントに最近接
     """
     SO_FIRST = "First"
     SO_LAST = "Last"
@@ -49,7 +53,7 @@ def transfar_normal(objects=None, source_type=None, space="world", search_method
                                        cancelButton=SO_CANCEL,
                                        dismissString=SO_CANCEL
                                        )
-        
+
         if source_type == SO_CANCEL:
             print("canceled")
             return
@@ -77,8 +81,8 @@ def transfar_normal(objects=None, source_type=None, space="world", search_method
                               )
 
 
-copied_normal_object = None
-copied_normal = None
+copied_normal_object = None  # copy_normal,paste_normal で使用されるコピー元オブジェクト
+copied_normal = None  # copy_normal,paste_normal で使用されるコピーされた法線
 
 
 @nu.undo_chunk
@@ -87,6 +91,9 @@ def copy_normal(targets=None):
 
     引数未指定の場合は選択オブジェクトを対象とする
     オブジェクトの場合は転送ソースにする
+
+    Args:
+        targets(list[Transform or MeshVertex or MeshEdge or MeshFace or MeshVertexFace]): 法線をコピーするオブジェクトかコンポーネント
     """
     global copied_normal_object
     global copied_normal
@@ -113,7 +120,7 @@ def copy_normal(targets=None):
             # フェースの場合は頂点フェース経由でノーマルを平均
             # TODO: 選択範囲内での接するフェース数によみ重み付け (問題なければ無視)
             copy_source = nu.to_vtxface(targets)
-            
+
         elif isinstance(targets[0], pm.MeshEdge):
             # エッジの場合は頂点変換して平均
             copy_source = nu.to_vtx(targets)
@@ -129,7 +136,7 @@ def copy_normal(targets=None):
         else:
             print(str(type(targets[0])) + "is not supported.")
             return
-        
+
         # 法線取得して平均したものをモジュール変数に保持
         coords = pm.polyNormalPerVertex(copy_source, q=True, xyz=True)
         normals = nu.coords_to_vector(coords)
@@ -146,11 +153,14 @@ def copy_normal(targets=None):
             nd.message("zero vector")
             copied_normal_object = None
             copied_normal = None
-  
+
 
 @nu.undo_chunk
 def paste_normal(targets=None):
     """ [pm] 法線のペースト｡オブジェクト選択時はソースにより法線ペーストか転送か切り替える｡
+
+    Args:
+        targets(list[Transform or MeshVertex or MeshEdge or MeshFace or MeshVertexFace]): 法線をペーストするオブジェクトかコンポーネント
     """
     global copied_normal_object
     global copied_normal
@@ -175,7 +185,7 @@ def paste_normal(targets=None):
             # オブジェクト to コンポーネントの場合は部分転送
             target_components = []
             set_node = pm.sets(targets)
-            
+
             pm.transferAttributes([copied_normal_object, set_node],
                                   transferPositions=0,
                                   transferNormals=1,
@@ -202,7 +212,7 @@ def paste_normal(targets=None):
         if isinstance(targets[0], nt.Transform) and isinstance(targets[0].getShape(), nt.Mesh):
             # コピー先がオブジェクト
             target_components = targets
-        
+
         elif isinstance(targets[0], pm.MeshFace):
             # コピー先がフェースの場合
             target_components = nu.to_vtxface(targets)
@@ -293,23 +303,23 @@ class NN_ToolWindow(object):
 
     # イベントハンドラ
     def onTransferNormalFirst(self, *args):
-        # From First で転送
+        """From First で転送"""
         transfar_normal(source_type="First")
 
     def onTransferNormalLast(self, *args):
-        # From Last で転送
+        """From Last で転送"""
         transfar_normal(source_type="Last")
 
     def onTransferNormalPrompt(self, *args):
-        # ユーザーに確認して転送
+        """ユーザーに確認して転送"""
         transfar_normal()
 
     def onCopyNormal(self, *args):
-        # 法線コピー
+        """法線コピー"""
         copy_normal()
 
     def onPasteNormal(self, *args):
-        # 法線ペースト
+        """法線ペースト"""
         paste_normal()
 
 

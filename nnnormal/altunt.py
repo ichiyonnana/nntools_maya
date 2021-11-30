@@ -16,12 +16,17 @@ import nnutil.ui as ui
 import nnutil.decorator as deco
 
 
+# offset_normal で使用するオフセットモード
 OM_ADD = "add"
 OM_MUL = "mul"
 OM_OVERWRITE = "overwrite"
 OS_WORLD = "world"
 OS_LOCAL = "local"
+
+# spherize で使用する中心指定ロケーターのオブジェクト名
 center_locator_name = "altunt_center_loc"
+
+# smooth_normal で使用する法線の合成比率
 default_current_ratio = 0.5
 default_smooth_ratio = 0.1
 default_planer_ratio = 0.1
@@ -42,7 +47,7 @@ def decide_targets(targets):
     if isinstance(targets[0], nt.Transform) and isinstance(targets[0].getShape(), nt.Mesh):
         # オブジェクトの場合は全頂点フェースをターゲットにする
         target_components = nu.to_vtxface(targets)
-    
+
     elif isinstance(targets[0], pm.MeshFace):
         # フェースの場合は基本はフェース内全頂点をターゲットとし､ハードエッジにより外側を除外する
         target_components = nu.to_vtxface(targets)
@@ -110,7 +115,7 @@ def offset_normal(targets=None, mode=OM_ADD, values=(0, 0, 0), add_one=True, spa
         values (tuple(float or None), optional): 編集に使われる値｡None を指定するとその成分は現在の値が維持される｡ Defaults to (0, 0, 0).
         add_one (bool, optinal): 乗算モードで values の値を +1.0 する｡乗算モード以外では無視される｡Defaults to True.
         space (str, optional): 計算する際の座標系. Defaults to OS_LOCAL.
-    
+
     Returns:
         None
     """
@@ -194,7 +199,7 @@ def spherize_normal(targets=None, center=None, ratio=1.0):
     """法線を球状化する
 
     Args:
-        targets ([type], optional): [description]. Defaults to None.
+        targets (list[Transform or MeshVertex or MeshEdge or MeshFace or MeshVertexFace], optional): [description]. Defaults to None.
         center ([type], optional): [description]. Defaults to None.
         ratio (float, optional): [description]. Defaults to 1.0.
     """
@@ -204,7 +209,7 @@ def spherize_normal(targets=None, center=None, ratio=1.0):
     if not targets:
         print("no targets")
         return
-    
+
     if isinstance(targets[0], nt.Transform):
         for obj in targets:
             _spherize_normal(targets=[obj], center=center, ratio=ratio)
@@ -219,9 +224,9 @@ def _spherize_normal(targets, center=None, ratio=1.0):
     """法線を球状化する。targets はすべて同じメッシュに所属するコンポーネント、もしくはオブジェクトとして処理する。
 
     Args:
-        targets ([type]): [description]
-        center ([type], optional): [description]. Defaults to None.
-        ratio (float, optional): [description]. Defaults to 1.0.
+        targets (Transform or MeshVertex or MeshEdge or MeshFace or MeshVertexFace): 球状化対象のコンポーネント
+        center (list[float, float, float], optional): 球状化の中心となるローカル座標. Defaults to None.
+        ratio (float, optional): 現在の法線に球状化した法線を合成する割合. Defaults to 1.0.
     """
     # 引数が無効なら終了
     if not targets:
@@ -260,6 +265,7 @@ def _spherize_normal(targets, center=None, ratio=1.0):
 
 
 def create_center_locator():
+    """球状化の中心として使うロケーターを作成する"""
     # TODO: 実装
     raise(Exception("not impl"))
     pass
@@ -277,16 +283,31 @@ def get_center_position():
 
 
 def normalize_normal(targets=None):
+    """指定したターゲットの法線を正規化する
+
+    Args:
+        targets ([Transform or MeshVertex or MeshEdge or MeshFace or MeshVertexFace], optional): 正規化する対象のオブジェクトかコンポーネント。省略時は選択オブジェクトを使用する. Defaults to None.
+    """
     # TODO: 実装
     raise(Exception("not impl"))
     pass
 
 
 def reverse_normal(targets=None):
+    """指定したターゲットの法線を反転する
+
+    Args:
+        targets ([Transform or MeshVertex or MeshEdge or MeshFace or MeshVertexFace], optional): 反転する対象のオブジェクトかコンポーネント。省略時は選択オブジェクトを使用する. Defaults to None.
+    """   
     offset_normal(targets, mode=OM_MUL, values=(-1, -1, -1), add_one=False)
 
 
 def reset_nromal(targets=None):
+    """指定したターゲットの法線をリセットする。
+
+    Args:
+        targets ([Transform or MeshVertex or MeshEdge or MeshFace or MeshVertexFace], optional): 反転する対象のオブジェクトかコンポーネント。省略時は選択オブジェクトを使用する. Defaults to None.
+    """
     # 引数が無効なら選択オブジェクト取得
     targets = pm.selected(flatten=True) if not targets else targets
 
@@ -309,6 +330,16 @@ def reset_nromal(targets=None):
 
 
 def smooth_normal(targets=None, current_ratio=default_current_ratio, smooth_ratio=default_smooth_ratio, planer_ratio=default_planer_ratio, outer=True, keep_vtxface=False):
+    """指定したターゲットの法線をスムースする。
+
+    Args:
+        targets ([Transform or MeshVertex or MeshEdge or MeshFace or MeshVertexFace], optional): 法線をスムースするオブジェクトかコンポーネント. Defaults to None.
+        current_ratio (float, optional): 現在の法線を合成する比率. Defaults to default_current_ratio.
+        smooth_ratio (float, optional): スムースされた法線を合成する比率. Defaults to default_smooth_ratio.
+        planer_ratio (float, optional): 平均法線を合成する比率. Defaults to default_planer_ratio.
+        outer (bool, optional): ターゲットの隣接コンポーネントを法線計算に含めるかどうか. Defaults to True.
+        keep_vtxface (bool, optional): スムースする際に頂点フェースの法線の分離を維持するかどうか. Defaults to False.
+    """
     # 引数が無効なら選択オブジェクト取得
     targets = pm.selected(flatten=True) if not targets else targets
 
@@ -321,7 +352,7 @@ def smooth_normal(targets=None, current_ratio=default_current_ratio, smooth_rati
         target_components = decide_targets(targets)
     else:
         target_components = nu.to_vtx(targets)
-        
+
     softedges = [e for e in nu.to_edge(target_components) if not nu.is_hardedge(e)]
 
     # スムース処理
@@ -339,7 +370,7 @@ def smooth_normal(targets=None, current_ratio=default_current_ratio, smooth_rati
             connected_vertices = nu.get_connected_vertices(nu.to_vtx(target)[0])
         else:
             connected_vertices = nu.list_intersection(nu.get_connected_vertices(nu.to_vtx(target)[0]), inner_vertices)
-        
+
         if connected_vertices:
             coords = pm.polyNormalPerVertex(connected_vertices, q=True, xyz=True)
             connected_normals = nu.coords_to_vector(coords)
@@ -364,17 +395,26 @@ def smooth_normal(targets=None, current_ratio=default_current_ratio, smooth_rati
     # ソフトエッジの復帰
     if softedges:
         pm.polySoftEdge(softedges, a=180, ch=1)
-        
+
     pm.select(targets)
 
 
-def fix_normals(shape, all=False, protect_split_normal=False):    
+def fix_normals(shape, all=False, protect_split_normal=False):
+    """法線が先祖返りするMayaのふるまい対策。現在の値で法線を固定する
+
+    メッシュ内の頂点の法線を Average すると全体が固定されるのを利用。
+
+    Args:
+        shape (Mesh): 対象メッシュ
+        all (bool, optional): [description]. True の場合は shape 全体で Average を行う Defaults to False.
+        protect_split_normal (bool, optional): 頂点フェースの法線が分離している場合に分離を保持するかどうか. Defaults to False.
+    """
     if protect_split_normal:
         if all:
             # TODO: 高速化出来る見込みが出来たら実装する
             pass
         else:
-            # TODO: 不完全なので実装し直す
+            # TODO: 不完全なので実装し直す。新頂点追加してそこでAVGしてから削除するのが安全かも
             vtx = shape.verts[0]
             softedges = nu.get_all_softedges(shape)
 
@@ -399,6 +439,12 @@ def fix_normals(shape, all=False, protect_split_normal=False):
 
 
 def cleanup_normal(targets=None, force_locking=True):
+    """TransferAttributes により設定されている法線をコンポーネント法線として設定し直し、TransferAttributes を削除する
+
+    Args:
+        targets (Transform or MeshVertex or MeshEdge or MeshFace or MeshVertexFace, optional): クリーンナップ対象のオブジェクトかコンポーネント. Defaults to None.
+        force_locking (bool, optional): もともとアンロック状態だった法線をロックした状態にするかどうか。False はアンロックの復帰処理を行う分遅い. Defaults to True.
+    """
     # 引数が無効なら選択オブジェクト取得
     targets = pm.selected(flatten=True) if not targets else targets
 
@@ -505,7 +551,7 @@ class NN_ToolWindow(object):
         self.radio_mul = ui.radio_button(label="Mul")
         self.radio_overwrite = ui.radio_button(label="Overwrite", width=ui.width3)
         ui.end_layout()
-        
+
         ui.row_layout()
         ui.button(label="X", c=self.onApplyOffsetX)
         self.editbox_offset_x = ui.eb_float(min=-1, max=1, cc=self.onChangeEditboxOffsetX)
@@ -515,7 +561,7 @@ class NN_ToolWindow(object):
         ui.button(label="+0.1", width=ui.button_width1_5, c=self.onOffsetXp01)
         ui.button(label="+0.5", width=ui.button_width1_5, c=self.onOffsetXp05)
         ui.end_layout()
-        
+
         ui.row_layout()
         ui.button(label="Y", c=self.onApplyOffsetY)
         self.editbox_offset_y = ui.eb_float(min=-1, max=1, cc=self.onChangeEditboxOffsetY)
@@ -525,7 +571,7 @@ class NN_ToolWindow(object):
         ui.button(label="+0.1", width=ui.button_width1_5, c=self.onOffsetYp01)
         ui.button(label="+0.5", width=ui.button_width1_5, c=self.onOffsetYp05)
         ui.end_layout()
-        
+
         ui.row_layout()
         ui.button(label="Z", c=self.onApplyOffsetZ)
         self.editbox_offset_z = ui.eb_float(min=-1, max=1, cc=self.onChangeEditboxOffsetZ)
@@ -535,7 +581,7 @@ class NN_ToolWindow(object):
         ui.button(label="+0.1", width=ui.button_width1_5, c=self.onOffsetZp01)
         ui.button(label="+0.5", width=ui.button_width1_5, c=self.onOffsetZp05)
         ui.end_layout()
-        
+
         ui.spacer_v()
 
         ui.row_layout()
@@ -548,12 +594,12 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.separator(height=ui.height1)
         ui.end_layout()
-        
+
         # 球状化
         ui.row_layout()
         ui.text(label="Spherize")
         ui.end_layout()
-        
+
         ui.row_layout()
         ui.text(label="Ratio", width=ui.width1)
         self.editbox_spherize_ratio = ui.eb_float(min=0, max=1, value=1, cc=self.onChangeEditboxSpherizeRatio)
@@ -563,7 +609,7 @@ class NN_ToolWindow(object):
         ui.button(label="0.5 ", width=ui.button_width1_5, c=self.onSpherize050)
         ui.button(label="0.75", width=ui.button_width1_5, c=self.onSpherize075)
         ui.end_layout()
-        
+
         ui.spacer_v()
 
         ui.row_layout()
@@ -580,13 +626,13 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.text(label="EditTool")
         ui.end_layout()
-        
+
         ui.row_layout()
         ui.button(label="Normalize", width=ui.width3, c=self.onNormalize, en=False)
         ui.button(label="Reverse", width=ui.width3, c=self.onReverse)
         ui.button(label="Reset", width=ui.width3, c=self.onResetNormal)
         ui.end_layout()
-        
+
         ui.row_layout()
         ui.button(label="Smooth", width=ui.width3, c=self.onSmooth)
         ui.button(label="Cleanup", width=ui.width3, c=self.onCleanup)
@@ -861,13 +907,13 @@ class NN_ToolWindow(object):
 
         if ui.is_shift():
             v = round(v, 1)
-            
+
         ui.set_value(self.slider_spherize_ratio, value=v)
         ui.set_value(self.editbox_spherize_ratio, value=v)
 
     def onChangeSliderSpherizeRatio(self, *args):
         pass
-    
+
     def onChangeSmoothRatioC(self, *args):
         v = ui.get_value(self.slider_current_ratio)
         ui.set_value(self.text_smooth_ratioC, value=str(round(v, 3)))
