@@ -508,10 +508,16 @@ class NN_ToolWindow(object):
         pass
 
     def onExportAnim(self, *args):
-        mel.eval('ExportAnim')
+        if 2019 <= int(pm.about(version=True)):
+            mel.eval('ExportAnim')
+        else:
+            mel.eval('ExportAnimOptions')
 
     def onImportAnim(self, *args):
-        mel.eval('ImportAnim')
+        if 2019 <= int(pm.about(version=True)):
+            mel.eval('ImportAnim')
+        else:
+            mel.eval('ImportAnimOptions')
 
     def onEditorSIWE(self, *args):
         import siweighteditor.siweighteditor
