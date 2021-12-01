@@ -1,8 +1,5 @@
 #! python
 # coding:utf-8
-
-# ダイアログのテンプレ
-# self.window だけユニークならあとはそのままで良い
 import re
 import os
 import sys
@@ -16,6 +13,7 @@ import maya.mel as mel
 
 import nnutil.core as nu
 import nnutil.misc as nm
+import nnutil.ui as ui
 
 
 def FormatOptionsupported():
@@ -26,23 +24,12 @@ def FormatOptionsupported():
         return False
 
 
-window_width = 300
-header_width = 50
-color_x = (1.0, 0.5, 0.5)
-color_y = (0.5, 1.0, 0.5)
-color_z = (0.5, 0.5, 1.0)
-color_joint = (0.5, 1.0, 0.75)
-color_select = (0.5, 0.75, 1.0)
-bw_single = 24
-bw_double = bw_single*2 + 2
-
-
 class NN_ToolWindow(object):
 
     def __init__(self):
         self.window = 'NN_Mirror'
         self.title = 'NN_Mirror'
-        self.size = (window_width, 95)
+        self.size = (300, 95)
 
     def create(self):
         if cmds.window(self.window, exists=True):
@@ -56,139 +43,139 @@ class NN_ToolWindow(object):
         cmds.showWindow()
 
     def layout(self):
-        self.columnLayout = cmds.columnLayout()
+        ui.column_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
-        self.label1 = cmds.text(label='Geo', width=header_width)
-        self.buttonA = cmds.button(l='X+', c=self.onMirrorFaceXPosi, dgc=self.onCutGeoXPosi, bgc=color_x, width=bw_single)
-        self.buttonA = cmds.button(l='X-', c=self.onMirrorFaceXNega, dgc=self.onCutGeoXNega, bgc=color_x, width=bw_single)
-        self.buttonA = cmds.button(l='Y+', c=self.onMirrorFaceYPosi, dgc=self.onCutGeoYPosi, bgc=color_y, width=bw_single)
-        self.buttonA = cmds.button(l='Y-', c=self.onMirrorFaceYNega, dgc=self.onCutGeoYNega, bgc=color_y, width=bw_single)
-        self.buttonA = cmds.button(l='Z+', c=self.onMirrorFaceZPosi, dgc=self.onCutGeoZPosi, bgc=color_z, width=bw_single)
-        self.buttonA = cmds.button(l='Z-', c=self.onMirrorFaceZNega, dgc=self.onCutGeoZNega, bgc=color_z, width=bw_single)
-        self.buttonA = cmds.button(l='Op', c=self.onMirrorFaceOp)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='Geo')
+        ui.button(label='X+', c=self.onMirrorFaceXPosi, dgc=self.onCutGeoXPosi, bgc=ui.color_x)
+        ui.button(label='X-', c=self.onMirrorFaceXNega, dgc=self.onCutGeoXNega, bgc=ui.color_x)
+        ui.button(label='Y+', c=self.onMirrorFaceYPosi, dgc=self.onCutGeoYPosi, bgc=ui.color_y)
+        ui.button(label='Y-', c=self.onMirrorFaceYNega, dgc=self.onCutGeoYNega, bgc=ui.color_y)
+        ui.button(label='Z+', c=self.onMirrorFaceZPosi, dgc=self.onCutGeoZPosi, bgc=ui.color_z)
+        ui.button(label='Z-', c=self.onMirrorFaceZNega, dgc=self.onCutGeoZNega, bgc=ui.color_z)
+        ui.button(label='Op', c=self.onMirrorFaceOp)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
-        self.label1 = cmds.text(label='Set 0', width=header_width)
-        self.buttonA = cmds.button(l='X = ', c=self.onSetZeroX, bgc=color_x, width=bw_single)
-        self.buttonA = cmds.button(l='Y = ', c=self.onSetZeroY, bgc=color_y, width=bw_single)
-        self.buttonA = cmds.button(l='Z = ', c=self.onSetZeroZ, bgc=color_z, width=bw_single)
-        self.coord_value = cmds.floatField(v=0, width=bw_double)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='Set')        
+        ui.button(label='X = ', c=self.onSetZeroX, bgc=ui.color_x, width=ui.width1)
+        ui.button(label='Y = ', c=self.onSetZeroY, bgc=ui.color_y, width=ui.width1)
+        ui.button(label='Z = ', c=self.onSetZeroZ, bgc=ui.color_z, width=ui.width1)
+        self.coord_value = ui.eb_float(v=0, width=ui.width2)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
-        self.label1 = cmds.text(label='Flip', width=header_width)
-        self.buttonA = cmds.button(l='X', c=self.onFlipX, bgc=color_x, width=bw_double)
-        self.buttonA = cmds.button(l='Y', c=self.onFlipY, bgc=color_y, width=bw_double)
-        self.buttonA = cmds.button(l='Z', c=self.onFlipZ, bgc=color_z, width=bw_double)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='Flip')
+        ui.button(label='X', c=self.onFlipX, bgc=ui.color_x, width=ui.width2)
+        ui.button(label='Y', c=self.onFlipY, bgc=ui.color_y, width=ui.width2)
+        ui.button(label='Z', c=self.onFlipZ, bgc=ui.color_z, width=ui.width2)
+        ui.end_layout()
 
-        cmds.separator(width=window_width)
+        ui.separator()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Weight', width=header_width)
-        self.buttonA = cmds.button(l='X+', c=self.onMirrorWeightXPosi, bgc=color_x, width=bw_single)
-        self.buttonA = cmds.button(l='X-', c=self.onMirrorWeightXNega, bgc=color_x, width=bw_single)
-        self.buttonA = cmds.button(l='Y+', c=self.onMirrorWeightYPosi, bgc=color_y, width=bw_single)
-        self.buttonA = cmds.button(l='Y-', c=self.onMirrorWeightYNega, bgc=color_y, width=bw_single)
-        self.buttonA = cmds.button(l='Z+', c=self.onMirrorWeightZPosi, bgc=color_z, width=bw_single)
-        self.buttonA = cmds.button(l='Z-', c=self.onMirrorWeightZNega, bgc=color_z, width=bw_single)
-        self.buttonA = cmds.button(l='Op', c=self.onMirrorWeightOp)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='Weight')
+        ui.button(label='X+', c=self.onMirrorWeightXPosi, bgc=ui.color_x)
+        ui.button(label='X-', c=self.onMirrorWeightXNega, bgc=ui.color_x)
+        ui.button(label='Y+', c=self.onMirrorWeightYPosi, bgc=ui.color_y)
+        ui.button(label='Y-', c=self.onMirrorWeightYNega, bgc=ui.color_y)
+        ui.button(label='Z+', c=self.onMirrorWeightZPosi, bgc=ui.color_z)
+        ui.button(label='Z-', c=self.onMirrorWeightZNega, bgc=ui.color_z)
+        ui.button(label='Op', c=self.onMirrorWeightOp)
+        ui.end_layout()
 
-        cmds.separator(width=window_width)
+        ui.separator()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Joint', width=header_width)
-        self.buttonA = cmds.button(l='X', c=self.onMirrorJointX, bgc=color_x, width=bw_double)
-        self.buttonA = cmds.button(l='Y', c=self.onMirrorJointY, bgc=color_y, width=bw_double)
-        self.buttonA = cmds.button(l='Z', c=self.onMirrorJointZ, bgc=color_z, width=bw_double)
-        #prefix from
-        #prefix to
-        self.buttonA = cmds.button(l='Op', c=self.onMirrorJointOp)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='Joint')
+        ui.button(label='X', c=self.onMirrorJointX, bgc=ui.color_x, width=ui.width2)
+        ui.button(label='Y', c=self.onMirrorJointY, bgc=ui.color_y, width=ui.width2)
+        ui.button(label='Z', c=self.onMirrorJointZ, bgc=ui.color_z, width=ui.width2)
+        # prefix from
+        # prefix to
+        ui.button(label='Op', c=self.onMirrorJointOp)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='', width=header_width)
-        self.buttonA = cmds.button(l='OrientOp', c=self.onOrientJointOp)
-        self.buttonA = cmds.button(l='JointTool', c=self.onJointTool, bgc=color_joint, width=bw_double)
-        self.buttonA = cmds.button(l='SetRadius', c=self.onSetRadius, width=bw_double)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='OrientOp', c=self.onOrientJointOp)
+        ui.button(label='JointTool', c=self.onJointTool, bgc=ui.color_joint, width=ui.width2)
+        ui.button(label='SetRadius', c=self.onSetRadius, width=ui.width2)
+        ui.end_layout()
 
-        cmds.separator(width=window_width)
+        ui.separator()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='weight', width=header_width)
-        self.buttonA = cmds.button(l='export', c=self.onExportWeight, dgc=self.onExportWeightOptions)
-        self.tempMode = cmds.checkBox(l='temporary', v=False)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='weight')
+        ui.button(label='export', c=self.onExportWeight, dgc=self.onExportWeightOptions)
+        self.tempMode = ui.check_box(label='temporary', v=False)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='', width=header_width)
-        self.buttonA = cmds.button(l='index', c=self.onImportWeightIndex, dgc=self.onImportWeightOptions)
-        self.buttonA = cmds.button(l='nearest', c=self.onImportWeightNearest, dgc=self.onImportWeightOptions)
-        #self.buttonA = cmds.button(l='barycentric', c=self.onImportWeightBarycentric, dgc=self.onImportWeightOptions)
-        self.buttonA = cmds.button(l='bilinear', c=self.onImportWeightBilinear, dgc=self.onImportWeightOptions)
-        self.buttonA = cmds.button(l='over', c=self.onImportWeightOver, dgc=self.onImportWeightOptions)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='index', c=self.onImportWeightIndex, dgc=self.onImportWeightOptions)
+        ui.button(label='nearest', c=self.onImportWeightNearest, dgc=self.onImportWeightOptions)
+        # ui.button(label='barycentric', c=self.onImportWeightBarycentric, dgc=self.onImportWeightOptions)
+        ui.button(label='bilinear', c=self.onImportWeightBilinear, dgc=self.onImportWeightOptions)
+        ui.button(label='over', c=self.onImportWeightOver, dgc=self.onImportWeightOptions)
+        ui.end_layout()
 
-        cmds.separator(width=window_width)
+        ui.separator()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='bind', width=header_width)
-        self.buttonA = cmds.button(l='bind Op', c=self.onBindOptions, dgc=self.onBindOptions)
-        self.buttonA = cmds.button(l='unbind', c=self.onUnbind, dgc=self.onUnbindOptions)
-        self.buttonA = cmds.button(l='unlockTRS', c=self.onUnlockTRS)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='bind')
+        ui.button(label='bind Op', c=self.onBindOptions, dgc=self.onBindOptions)
+        ui.button(label='unbind', c=self.onUnbind, dgc=self.onUnbindOptions)
+        ui.button(label='unlockTRS', c=self.onUnlockTRS)
+        ui.end_layout()
 
-        cmds.separator(width=window_width)
+        ui.separator()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Anim', width=header_width)
-        self.buttonA = cmds.button(l='export', c=self.onExportAnim)
-        self.buttonA = cmds.button(l='import', c=self.onImportAnim)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='Anim')
+        ui.button(label='export', c=self.onExportAnim)
+        ui.button(label='import', c=self.onImportAnim)
+        ui.end_layout()
 
-        cmds.separator(width=window_width)
+        ui.separator()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Editor', width=header_width)
-        self.buttonA = cmds.button(l='SIWE', c=self.onEditorSIWE)
-        self.buttonA = cmds.button(l='mSkin', c=self.onEditorMskin)
-        self.buttonA = cmds.button(l='copyWeightOp', c=self.onCopyWeightOp)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='Editor')
+        ui.button(label='SIWE', c=self.onEditorSIWE)
+        ui.button(label='mSkin', c=self.onEditorMskin)
+        ui.button(label='copyWeightOp', c=self.onCopyWeightOp)
+        ui.end_layout()
 
-        cmds.separator(width=window_width)
+        ui.separator()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='AriTools', width=header_width)
-        self.buttonA = cmds.button(l='Symm', c=self.onAriSymmetryChecker)
-        self.buttonA = cmds.button(l='Circle', c=self.onAriCircleVertex)
-        self.buttonA = cmds.button(l='SelectEdge', c=self.onAriSelectEdgeLoopRing)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='AriTools')
+        ui.button(label='Symm', c=self.onAriSymmetryChecker)
+        ui.button(label='Circle', c=self.onAriCircleVertex)
+        ui.button(label='SelectEdge', c=self.onAriSelectEdgeLoopRing)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='', width=header_width)
-        self.buttonA = cmds.button(l='Straighten', c=self.onAriStraightVertex)
-        self.buttonA = cmds.button(l='SplitPolygon', c=self.onAriSplitPolygon)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='Straighten', c=self.onAriStraightVertex)
+        ui.button(label='SplitPolygon', c=self.onAriSplitPolygon)
+        ui.end_layout()
 
-        cmds.separator(width=window_width)
+        ui.separator()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='NnTools', width=header_width)
-        self.buttonA = cmds.button(l='EdgeRing', c=self.onNnEdgeLength)
-        self.buttonA = cmds.button(l='Curve', c=self.onNnCurve)
-        self.buttonA = cmds.button(l='Straighten', c=self.onNnStraighten)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='NnTools')
+        ui.button(label='EdgeRing', c=self.onNnEdgeLength)
+        ui.button(label='Curve', c=self.onNnCurve)
+        ui.button(label='Straighten', c=self.onNnStraighten)
+        ui.end_layout()
 
-        cmds.separator(width=window_width)
+        ui.separator()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Remesh', width=header_width)
-        self.buttonA = cmds.button(l='QRemesher', c=self.onQuadRemesher)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='Remesh')
+        ui.button(label='QRemesher', c=self.onQuadRemesher)
+        ui.end_layout()
 
     def onMirrorFaceXPosi(self, *args):
         mel.eval('polyMirrorFace  -cutMesh 1 -axis 0 -axisDirection 0 -mergeMode 1 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1;')
@@ -212,15 +199,15 @@ class NN_ToolWindow(object):
         mel.eval('MirrorPolygonGeometryOptions')
 
     def onSetZeroX(self, *args):
-        v = cmds.floatField(self.coord_value, q=True, v=True)
+        v = ui.get_value(self.coord_value)
         nm.set_coord('x', v)
 
     def onSetZeroY(self, *args):
-        v = cmds.floatField(self.coord_value, q=True, v=True)
+        v = ui.get_value(self.coord_value)
         nm.set_coord('y', v)
 
     def onSetZeroZ(self, *args):
-        v = cmds.floatField(self.coord_value, q=True, v=True)
+        v = ui.get_value(self.coord_value)
         nm.set_coord('z', v)
 
     def onSetZeroCenter(objects, axis):
@@ -331,7 +318,7 @@ class NN_ToolWindow(object):
         return os.path.exists(path)
 
     def onExportWeight(self, *args):
-        temp_mode = cmds.checkBox(self.tempMode, q=True, v=True)
+        temp_mode = ui.get_value(self.tempMode)
         selections = cmds.ls(sl=True, fl=True)
 
         for obj in selections:
@@ -377,7 +364,7 @@ class NN_ToolWindow(object):
         mel.eval('ExportDeformerWeights')
 
     def importWeight(self, method, *args):
-        temp_mode = cmds.checkBox(self.tempMode, q=True, v=True)
+        temp_mode = ui.get_value(self.tempMode)
         selections = cmds.ls(sl=True, fl=True)
 
         for obj in selections:
@@ -439,15 +426,15 @@ class NN_ToolWindow(object):
                     skincluster = cmds.skinCluster(tsb=True, mi=max_influence)[0]
                     
                 except:
-                    #TODO: バインド失敗時の処理
-                    print("bind error: %(obj)s" % locals() )
+                    # TODO: バインド失敗時の処理
+                    print("bind error: %(obj)s" % locals())
                     continue
 
                 # インポート
                 cmd = 'deformerWeights -import -method "%(method)s" -deformer %(skincluster)s -path "%(dir)s" "%(filename)s"' % locals()
                 print(cmd)
                 mel.eval(cmd)
-                mel.eval("skinCluster -e -forceNormalizeWeights %(skincluster)s" % locals() )
+                mel.eval("skinCluster -e -forceNormalizeWeights %(skincluster)s" % locals())
 
     def onImportWeightIndex(self, *args):
         method = "index"
@@ -525,8 +512,7 @@ class NN_ToolWindow(object):
 
     def onEditorMskin(self, *args):
         import SkyTools.rigging.mSkin as sw
-        reload(sw)
-        mSkinWindow = sw.show()
+        sw.show()
 
     def onCopyWeightOp(self, *args):
         mel.eval("CopySkinWeightsOptions")
@@ -560,7 +546,7 @@ class NN_ToolWindow(object):
 
     def onQuadRemesher(self, *args):
         import QuadRemesher
-        qr = QuadRemesher.QuadRemesher()
+        QuadRemesher.QuadRemesher()
 
 
 def showNNToolWindow():
