@@ -96,6 +96,7 @@ def ui_func(component):
         pm.uitypes.FloatSlider: [pm.floatSlider, "v"],
         pm.uitypes.Text: [pm.text, "l"],
         pm.uitypes.RadioButton: [pm.radioButton, "sl"],
+        pm.uitypes.TextField: [pm.textField, "text"],
     }
 
     return handle_method[get_component_type(component)]
@@ -141,7 +142,7 @@ def end_layout():
     pm.setParent("..")
 
 
-def header(label, *args, **kwargs):
+def header(label="", *args, **kwargs):
     return pm.text(label=label, width=header_width, *args, **kwargs)
 
 
@@ -238,6 +239,18 @@ def eb_int(v=0, en=True, cc=any_handler, dc=any_handler, width=button_width2, *a
         [type]: [description]
     """
     return pm.intField(v=v, en=en, cc=cc, dc=dc, width=width, *args, **kwargs)
+
+
+def eb_text(text="", en=True, cc=any_handler, width=width2, *args, **kwargs):
+    """[summary]
+
+    Args:
+        text (str, optional): [description]. Defaults to "".
+        en (bool, optional): [description]. Defaults to True.
+        cc ([type], optional): [description]. Defaults to any_handler.
+        width ([type], optional): [description]. Defaults to width2.
+    """
+    return pm.textField(text=text, en=en, cc=cc, width=width, *args, **kwargs)
 
 
 def separator(width=window_width, *args, **kwargs):
