@@ -91,8 +91,12 @@ class NN_ToolWindow(object):
         ui.button(label='X', c=self.onMirrorJointX, bgc=ui.color_x, width=ui.width2)
         ui.button(label='Y', c=self.onMirrorJointY, bgc=ui.color_y, width=ui.width2)
         ui.button(label='Z', c=self.onMirrorJointZ, bgc=ui.color_z, width=ui.width2)
-        # prefix from
-        # prefix to
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header()
+        self.eb_prefix_from = ui.eb_text(text="L_")
+        self.eb_prefix_to = ui.eb_text(text="R_")
         ui.button(label='Op', c=self.onMirrorJointOp)
         ui.end_layout()
 
@@ -286,13 +290,19 @@ class NN_ToolWindow(object):
         mel.eval('MirrorSkinWeightsOptions')
 
     def onMirrorJointX(self, *args):
-        mel.eval('mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace "R_" "L_";')
+        prefix_from = ui.get_value(self.eb_prefix_from)
+        prefix_to = ui.get_value(self.eb_prefix_to)
+        mel.eval('mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace "%s" "%s";' % (prefix_from, prefix_to))
 
     def onMirrorJointY(self, *args):
-        mel.eval('mirrorJoint -mirrorXZ -mirrorBehavior -searchReplace "R_" "L_";')
+        prefix_from = ui.get_value(self.eb_prefix_from)
+        prefix_to = ui.get_value(self.eb_prefix_to)
+        mel.eval('mirrorJoint -mirrorXZ -mirrorBehavior -searchReplace "%s" "%s";' % (prefix_from, prefix_to))
 
     def onMirrorJointZ(self, *args):
-        mel.eval('mirrorJoint -mirrorXY -mirrorBehavior -searchReplace "R_" "L_";')
+        prefix_from = ui.get_value(self.eb_prefix_from)
+        prefix_to = ui.get_value(self.eb_prefix_to)
+        mel.eval('mirrorJoint -mirrorXY -mirrorBehavior -searchReplace "%s" "%s";' % (prefix_from, prefix_to))
 
     def onMirrorJointOp(self, *args):
         mel.eval('MirrorJointOptions')
