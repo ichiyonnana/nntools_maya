@@ -13,15 +13,312 @@ import maya.mel as mel
 
 import nnutil.core as nu
 import nnutil.misc as nm
+import nnutil.display as nd
 import nnutil.ui as ui
 
 
 def FormatOptionsupported():
+    """ウェイトのインポートエクスポートが format オプションに対応している場合 True を返す
+
+    Returns:
+        [type]: [description]
+    """
     ver = int(cmds.about(version=True))
     if ver > 2018:
         return True
     else:
         return False
+
+
+def lock_trs(obj):
+    """指定したオブジェクトのトランスフォームをロックする
+
+    Args:
+        obj (Transform): トランスフォームをロックするトランスフォームノード
+    """
+    obj = nu.pynode(obj)
+    obj.translateX.lock()
+    obj.translateY.lock()
+    obj.translateZ.lock()
+    obj.rotateX.lock()
+    obj.rotateY.lock()
+    obj.rotateZ.lock()
+    obj.scaleX.lock()
+    obj.scaleY.lock()
+    obj.scaleZ.lock()
+
+
+def unlock_trs(obj):
+    """指定したオブジェクトのトランスフォームをアンロックする
+
+    Args:
+        obj (Transform): トランスフォームをアンロックするトランスフォームノード
+    """
+    obj = nu.pynode(obj)
+    obj.translateX.unlock()
+    obj.translateY.unlock()
+    obj.translateZ.unlock()
+    obj.rotateX.unlock()
+    obj.rotateY.unlock()
+    obj.rotateZ.unlock()
+    obj.scaleX.unlock()
+    obj.scaleY.unlock()
+    obj.scaleZ.unlock()
+
+
+def get_basename(s):
+    """ネームスペースとパスを取り除いたオブジェクト自身の名前を取得する
+
+    Args:
+        s (str): ネームスペースやパスを含んでいる可能性のあるオブジェクト名
+
+    Returns:
+        str: ネームスペースとパスを取り除いたオブジェクト自身の名前
+    """
+    # ネームスペース削除
+    sanitize_name = re.sub(r'^.*\:', "", s, 1)
+    # パス形式なら | より前を捨てる
+    sanitize_name = re.sub(r'^.*\|', "", sanitize_name, 1)
+    return sanitize_name
+
+
+def exist_file(dir, filename):
+    """ファイルが存在する場合は True を返す
+
+    Args:
+        dir (str): 存在するか調べるパス
+        filename (str): 存在するか調べるファイル名
+
+    Returns:
+        bool: ファイルが存在する場合は True, 存在しない場合は False
+    """
+    path = dir + filename
+
+    return os.path.exists(path)
+
+
+def export_weight(objects=None, temp_mode=False, filename=None):
+    """ウェイトをXMLでエクスポートする
+
+    Args:
+        objects (Transform or Mesh, optional): 対象のオブジェクト。省略時は選択オブジェクトを使用する. Defaults to None.
+        temp_mode (bool, optional): True の場合オブジェクト名にかかわらず同一のファイル名を使用する. Defaults to False.
+        filename (str, optional): ウェイトを書き出す際のファイル名。省略時はオブジェクト名。temp_mode よりも優先される. Defaults to None.
+    """
+    current_selections = pm.selected()
+
+    if not objects:
+        objects = pm.selected(flatten=True)
+
+        if not objects:
+            raise(Exception("no targets"))
+
+    name_specified = bool(filename)
+
+    for obj in objects:
+        # meshでなければskip
+        if not hasattr(pm.PyNode(obj), "getShape") and not isinstance(obj, nt.Mesh):
+            continue
+
+        skincluster = mel.eval('findRelatedSkinCluster ' + obj)
+
+        # skincluster 無ければskip
+        if skincluster == "":
+            continue
+
+        # エクスポートするファイル名
+        if not name_specified:
+            if temp_mode:
+                filename = "temp"
+            else:
+                filename = get_basename(obj.name())
+
+        currentScene = cmds.file(q=True, sn=True)
+        dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
+
+        try:
+            os.mkdir(dir)
+        except:
+            pass
+
+        if FormatOptionsupported():
+            cmd = 'deformerWeights -export -vc -deformer "%(skincluster)s" -format "XML" -path "%(dir)s" "%(filename)s.xml"' % locals()
+        else:
+            cmd = 'deformerWeights -export -vc -deformer %(skincluster)s -path "%(dir)s" "%(filename)s.xml"' % locals()
+
+        try:
+            mel.eval(cmd)
+        except:
+            print("Unable to export weights: " + obj)
+            # エクスポートできないノードのスキップ
+            pass
+
+    pm.select(current_selections, replace=True)
+
+
+# バインドメソッド
+BM_INDEX = "index"
+BM_NEAREST = "nearest"
+BM_BARYCENTRIC = "barycentric"
+BM_BILINEAR = "bilinear"
+BM_OVER = "over"
+
+
+def import_weight(objects=None, method=BM_BILINEAR, temp_mode=False, filename=None):
+    """ウェイトをXMLからインポートする
+
+    Args:
+        objects (Transform or Mesh, optional): 対象のオブジェクト。省略時は選択オブジェクトを使用する. Defaults to None.
+        method (str, optional): バインドメソッド. Defaults to BM_BILINEAR.
+        temp_mode (bool, optional): True の場合オブジェクト名にかかわらず同一のファイル名を使用する. Defaults to False.
+        filename (str, optional): ウェイトを読み込む際のファイル名。省略時はオブジェクト名。temp_mode よりも優先される. Defaults to None.
+    """
+    current_selections = pm.selected()
+
+    if not objects:
+        objects = pm.selected(flatten=True)
+
+        if not objects:
+            raise(Exception("no targets"))
+
+    elif not isinstance(objects, list):
+        raise(Exception())
+
+    name_specified = bool(filename)
+
+    for obj in objects:
+        # meshでなければskip
+        if not hasattr(pm.PyNode(obj), "getShape") and not isinstance(obj, nt.Mesh):
+            print("skip " + obj)
+            continue
+
+        # スキンクラスター取得
+        skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals())
+
+        # インポートするファイル名の決定
+        if not name_specified:
+            if temp_mode:
+                filename = "temp.xml"
+            else:
+                filename = get_basename(obj.name()) + ".xml"
+
+        elif ".xml" not in filename:
+            filename = filename + ".xml"
+
+        currentScene = cmds.file(q=True, sn=True)
+        dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
+
+        # ウェイトファイルがあるオブジェクトだけ処理
+        print(dir+filename)
+        if exist_file(dir, filename):
+            # ウェイトファイル直接開いてインフルエンスリスト取得
+            influence_list = []
+            path = dir + filename
+            with open(path) as f:
+                xml = f.read()
+                influence_list = re.findall(r'source="(.+?)"', xml)
+                max_influence = 4
+
+            if len(influence_list) == 0:
+                continue
+
+            # インフルエンス名と一致するジョイントがシーン内に無ければ警告
+            joints_not_exist = []
+            for joint in influence_list:
+                if not mel.eval('objExists %(joint)s' % locals()):
+                    joints_not_exist.append(joint)
+
+            if len(joints_not_exist) != 0:
+                print("The following joints do not exist in the scene:")
+                print(joints_not_exist)
+
+            # バインド済なら一度アンバインドする
+            skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals())
+            if skincluster != "":
+                mel.eval('gotoBindPose')
+                pm.skinCluster(obj, e=True, unbind=True)
+
+            # ウェイトファイルに保存されていたインフルエンスだけで改めてバインドする
+            try:
+                pm.select(cl=True)
+                pm.select(obj, add=True)
+                for joint in nu.list_diff(influence_list, joints_not_exist):
+                    pm.select(joint, add=True)
+                skincluster = pm.skinCluster(tsb=True, mi=max_influence)
+
+            except:
+                print("bind error: " + obj.name())
+
+            # インポート
+            cmd = 'deformerWeights -import -method "%(method)s" -deformer %(skincluster)s -path "%(dir)s" "%(filename)s"' % locals()
+            print(cmd)
+            mel.eval(cmd)
+            mel.eval("skinCluster -e -forceNormalizeWeights %s" % skincluster)
+
+    pm.select(current_selections, replace=True)
+
+
+def combine_skined_mesh(objects=None):
+    """指定したオブジェクトをウェイトを維持して結合する。
+    
+    バインド済みのメッシュとそうでないメッシュが混在していた場合はすべてバインド済みにした上で結合する。
+
+    Args:
+        objects (list[Mesh or Transform], optional): 結合対象のオブジェクト. Defaults to None.
+    """
+    if not objects:
+        objects = pm.selected(flatten=True)
+
+        if not objects:
+            raise(Exception())
+
+    elif not isinstance(objects, list):
+        raise(Exception())
+
+    all_meshes = []
+
+    for obj in objects:
+        meshes = [x for x in pm.listRelatives(obj, allDescendents=True, noIntermediate=True) if isinstance(x, nt.Mesh)]
+        all_meshes.extend(meshes)
+
+    skined_meshes = []
+
+    for mesh in all_meshes:
+        if [x for x in mesh.connections() if isinstance(x, nt.SkinCluster)]:
+            skined_meshes.append(mesh)
+
+    name = objects[-1].name()
+    parent = objects[-1].getParent()
+
+    if len(all_meshes) == len(skined_meshes):
+        # すべてのメッシュがスキンクラスターを持っていれば polyUniteSkinned で結合する
+        object, node = pm.polyUniteSkinned(all_meshes, ch=1, mergeUVSets=1, objectPivot=True)
+        unlock_trs(object)
+        pm.parent(object, parent)
+        lock_trs(object)
+        pm.bakePartialHistory(object, ppt=True)
+        nu.pynode(object).rename(name)
+
+    elif skined_meshes:
+        # スキンクラスターを持っているメッシュと持っていないメッシュが混在している場合は
+        # 先に適当なメッシュのウェイトをコピーしてから polyUniteSkinned で結合する
+        static_meshes = nu.list_diff(all_meshes, skined_meshes)
+        weight_file_name = "combine_skined_mesh_temp"
+        export_weight([skined_meshes[0]], filename=weight_file_name)
+
+        import_weight(static_meshes, filename=weight_file_name)
+
+        object, node = pm.polyUniteSkinned(all_meshes, ch=1, mergeUVSets=1, objectPivot=True)
+        pm.parent(object, parent)
+        pm.bakePartialHistory(object, ppt=True)
+        nu.pynode(object).rename(name)
+
+    else:
+        # すべてが静的なメッシュなら polyUnite で結合する
+        object, node = pm.polyUnite(all_meshes, ch=1, mergeUVSets=1, objectPivot=True)
+        pm.parent(object, parent)
+        pm.bakePartialHistory(object, ppt=True)
+        nu.pynode(object).rename(name)
 
 
 class NN_ToolWindow(object):
@@ -57,7 +354,7 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
         ui.row_layout()
-        ui.header(label='Set')        
+        ui.header(label='Set')
         ui.button(label='X = ', c=self.onSetZeroX, bgc=ui.color_x, width=ui.width1)
         ui.button(label='Y = ', c=self.onSetZeroY, bgc=ui.color_y, width=ui.width1)
         ui.button(label='Z = ', c=self.onSetZeroZ, bgc=ui.color_z, width=ui.width1)
@@ -130,7 +427,15 @@ class NN_ToolWindow(object):
         ui.header(label='bind')
         ui.button(label='bind Op', c=self.onBindOptions, dgc=self.onBindOptions)
         ui.button(label='unbind', c=self.onUnbind, dgc=self.onUnbindOptions)
-        ui.button(label='unlockTRS', c=self.onUnlockTRS)
+        ui.button(label='unlockTRS [lock]', c=self.onUnlockTRS, dgc=self.onLockTRS)
+        ui.end_layout()
+
+        ui.separator()
+
+        ui.row_layout()
+        ui.header(label='combine')
+        ui.button(label='combine', c=self.onCombine)
+        ui.button(label='combine Op', c=self.onCombineOptions)
         ui.end_layout()
 
         ui.separator()
@@ -316,155 +621,37 @@ class NN_ToolWindow(object):
     def onSetRadius(self, *args):
         nm.set_radius_auto()
 
-    def sanitize(self, s, *args):
-        # ネームスペース削除
-        sanitize_name = re.sub(r'^.*\:', "", s, 1)
-        # パス形式なら | より前を捨てる
-        sanitize_name = re.sub(r'^.*\|', "", sanitize_name, 1)
-        return sanitize_name
-
-    def existWeightFile(self, dir, filename):
-        path = dir + filename
-        return os.path.exists(path)
-
     def onExportWeight(self, *args):
         temp_mode = ui.get_value(self.tempMode)
-        selections = cmds.ls(sl=True, fl=True)
-
-        for obj in selections:
-            # meshでなければskip
-            if not hasattr(pm.PyNode(obj), "getShape"):
-                continue
-
-            skincluster = mel.eval('findRelatedSkinCluster ' + obj)
-
-            # skincluster 無ければskip
-            if skincluster == "":
-                continue
-            
-            # エクスポートするファイル名
-            filename = ""
-
-            if temp_mode:
-                filename = "temp"
-            else:
-                filename = self.sanitize(obj)
-
-            currentScene = cmds.file(q=True, sn=True)
-            dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
-
-            try:
-                os.mkdir(dir)
-            except:
-                pass
-
-            if FormatOptionsupported():
-                cmd = 'deformerWeights -export -vc -deformer "%(skincluster)s" -format "XML" -path "%(dir)s" "%(filename)s.xml"' % locals()
-            else:
-                cmd = 'deformerWeights -export -vc -deformer %(skincluster)s -path "%(dir)s" "%(filename)s.xml"' % locals()
-
-            try:
-                mel.eval(cmd)
-            except:
-                print("Unable to export weights: " + obj)
-                # エクスポートできないノードのスキップ
-                pass
+        export_weight(temp_mode=temp_mode)
 
     def onExportWeightOptions(self, *args):
         mel.eval('ExportDeformerWeights')
 
-    def importWeight(self, method, *args):
-        temp_mode = ui.get_value(self.tempMode)
-        selections = cmds.ls(sl=True, fl=True)
-
-        for obj in selections:
-            # meshでなければskip
-            if not hasattr(pm.PyNode(obj), "getShape"):
-                print("skip " + obj)
-                continue
-
-            # スキンクラスター取得
-            skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals())
-                        
-            # インポートするファイル名
-            filename = ""
-
-            if temp_mode:
-                filename = "temp.xml"
-            else:
-                filename = self.sanitize(obj) + ".xml"
-
-            currentScene = cmds.file(q=True, sn=True)
-            dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
-
-            # ウェイトファイルがあるオブジェクトだけ処理
-            print(dir+filename)
-            if self.existWeightFile(dir, filename):
-                # ウェイトファイル直接開いてインフルエンスリスト取得
-                influence_list = []
-                path = dir + filename
-                with open(path) as f:
-                    xml = f.read()
-                    influence_list = re.findall(r'source="(.+?)"', xml)
-                    max_influence = 4
-
-                if len(influence_list) == 0:
-                    continue
-
-                # インフルエンス名と一致するジョイントがシーン内に無ければ警告
-                joints_not_exist = []
-                for joint in influence_list:
-                    if not mel.eval('objExists %(joint)s' % locals()):
-                        joints_not_exist.append(joint)
-
-                if len(joints_not_exist) != 0:
-                    print("The following joints do not exist in the scene:")
-                    print(joints_not_exist)
-
-                # バインド済なら一度アンバインドする
-                skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals())
-                if skincluster != "":
-                    mel.eval('gotoBindPose')
-                    cmds.skinCluster(obj, e=True, unbind=True)
-
-                # ウェイトファイルに保存されていたインフルエンスだけで改めてバインドする
-                try:
-                    cmds.select(cl=True)
-                    cmds.select(obj, add=True)
-                    for joint in nu.list_diff(influence_list, joints_not_exist):
-                        cmds.select(joint, add=True)
-                    skincluster = cmds.skinCluster(tsb=True, mi=max_influence)[0]
-                    
-                except:
-                    # TODO: バインド失敗時の処理
-                    print("bind error: %(obj)s" % locals())
-                    continue
-
-                # インポート
-                cmd = 'deformerWeights -import -method "%(method)s" -deformer %(skincluster)s -path "%(dir)s" "%(filename)s"' % locals()
-                print(cmd)
-                mel.eval(cmd)
-                mel.eval("skinCluster -e -forceNormalizeWeights %(skincluster)s" % locals())
-
     def onImportWeightIndex(self, *args):
-        method = "index"
-        self.importWeight(method)
+        temp_mode = ui.get_value(self.tempMode)
+        method = BM_INDEX
+        import_weight(temp_mode=temp_mode, method=method)
 
     def onImportWeightNearest(self, *args):
-        method = "nearest"
-        self.importWeight(method)
+        temp_mode = ui.get_value(self.tempMode)
+        method = BM_NEAREST
+        import_weight(temp_mode=temp_mode, method=method)
 
     def onImportWeightBarycentric(self, *args):
-        method = "barycentric"
-        self.importWeight(method)
+        temp_mode = ui.get_value(self.tempMode)
+        method = BM_BARYCENTRIC
+        import_weight(temp_mode=temp_mode, method=method)
 
     def onImportWeightBilinear(self, *args):
-        method = "bilinear"
-        self.importWeight(method)
+        temp_mode = ui.get_value(self.tempMode)
+        method = BM_BILINEAR
+        import_weight(temp_mode=temp_mode, method=method)
 
     def onImportWeightOver(self, *args):
-        method = "over"
-        self.importWeight(method)
+        temp_mode = ui.get_value(self.tempMode)
+        method = BM_OVER
+        import_weight(temp_mode=temp_mode, method=method)
 
     def onImportWeightOptions(self, *args):
         mel.eval('ImportDeformerWeights')
@@ -479,22 +666,23 @@ class NN_ToolWindow(object):
         mel.eval('DetachSkinOptions')
 
     def onUnlockTRS(self, *args):
-        selections = cmds.ls(selection=True, flatten=True)
-        for obj in selections:
-            mel.eval('CBunlockAttr "%(obj)s.tx"' % locals())
-            mel.eval('CBunlockAttr "%(obj)s.ty"' % locals())
-            mel.eval('CBunlockAttr "%(obj)s.tz"' % locals())
-            mel.eval('CBunlockAttr "%(obj)s.rx"' % locals())
-            mel.eval('CBunlockAttr "%(obj)s.ry"' % locals())
-            mel.eval('CBunlockAttr "%(obj)s.rz"' % locals())
-            mel.eval('CBunlockAttr "%(obj)s.sx"' % locals())
-            mel.eval('CBunlockAttr "%(obj)s.sy"' % locals())
-            mel.eval('CBunlockAttr "%(obj)s.sz"' % locals())
+        for obj in pm.selected(flatten=True):
+            unlock_trs(obj)
+
+    def onLockTRS(self, *args):
+        for obj in pm.selected(flatten=True):
+            lock_trs(obj)
+
+    def onCombine(self, *args):
+        combine_skined_mesh()
+
+    def onCombineOptions(self, *args):
+        mel.eval("CombinePolygonsOptions")
 
     def onCopyInfuenceList(self, *args):
         pass
 
-    def onPastInfluenceList(self, *args):
+    def onPasteInfluenceList(self, *args):
         influence_list = []
         for joint in influence_list:
             try:
