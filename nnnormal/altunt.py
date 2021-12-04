@@ -399,43 +399,39 @@ def smooth_normal(targets=None, current_ratio=default_current_ratio, smooth_rati
     pm.select(targets)
 
 
-def fix_normals(shape, all=False, protect_split_normal=False):
+def fix_normals(shape, normals=None):
     """法線が先祖返りするMayaのふるまい対策。現在の値で法線を固定する
 
-    メッシュ内の頂点の法線を Average すると全体が固定されるのを利用。
+    バインド済みメッシュは Orig の法線の上書き、未バインドのメッシュはメッシュ内の頂点の法線を Average すると
+    全体が固定されるのを利用。
+    setNormals 後に getNormals するとハードエッジ上の法線の値が変な値を返すので事前に取得してある法線リストがある場合は
+    normals に渡しておく。normals 未設定の場合は内部で取得するが方向がおかしくなる場合あり。
 
     Args:
         shape (Mesh): 対象メッシュ
-        all (bool, optional): [description]. True の場合は shape 全体で Average を行う Defaults to False.
-        protect_split_normal (bool, optional): 頂点フェースの法線が分離している場合に分離を保持するかどうか. Defaults to False.
+        normals (list[FloatVector]): 処理後に上書きする getNormals で取得した法線のリスト
     """
-    if protect_split_normal:
-        if all:
-            # TODO: 高速化出来る見込みが出来たら実装する
-            pass
-        else:
-            # TODO: 不完全なので実装し直す。新頂点追加してそこでAVGしてから削除するのが安全かも
-            vtx = shape.verts[0]
-            softedges = nu.get_all_softedges(shape)
+    skined = any([isinstance(x, nt.SkinCluster) for x in shape.inputs()])
 
-            vtxfaces = nu.to_vtxface(vtx)
-            vf_normals = nu.coords_to_vector(pm.polyNormalPerVertex(vtxfaces, q=True, xyz=True))
+    # 現在の法線を保持
+    if not normals:
+        normals = shape.getNormals()
 
-            pm.polyAverageNormal(vtx, prenormalize=1, allowZeroNormal=1, postnormalize=0, distance=0)
-
-            pm.polyNormalPerVertex(vtxfaces, e=True, xyz=vf_normals)
-
-            if softedges:
-                cmds.polySoftEdge(softedges, a=180, ch=1)
-    else:
-        if all:
-            pm.polyAverageNormal(shape, prenormalize=1, allowZeroNormal=1, postnormalize=0, distance=0)
+    # 1 回だと固定されない場合があるので同じ処理を複数回行う
+    # TODO: 原因特定できたら修正 or 詳細明記する
+    for i in range(2):
+        if skined:
+            orig_shape = [x for x in pm.listRelatives(shape.getParent(), shapes=True, noIntermediate=False) if x.intermediateObject.get()][0]
+            orig_shape.setNormals(normals)
+        
         else:
             vtx = shape.verts[0]
             pm.polyAverageNormal(vtx, prenormalize=1, allowZeroNormal=1, postnormalize=0, distance=0)
 
-    # ノンデフォーマーヒストリー削除
-    pm.bakePartialHistory(shape, ppt=True)
+            shape.setNormals(normals)
+
+        # ノンデフォーマーヒストリー削除
+        pm.bakePartialHistory(shape, ppt=True)
 
 
 def cleanup_normal(targets=None, force_locking=True):
@@ -483,14 +479,8 @@ def cleanup_normal(targets=None, force_locking=True):
     if not force_locking and unlocked_vtxfaces:
         pm.polyNormalPerVertex(unlocked_vtxfaces, e=True, ufn=True)
 
-    # ノンデフォーマーヒストリー削除
-    # skincluster が接続されている場合はヒストリ削除前に fix_normals する必要があるのでこのタイミングでは削除しない
-    skined = any([isinstance(x, nt.SkinCluster) for x in shape.inputs()])
-    if not skined:
-        pm.bakePartialHistory(obj, ppt=True)
-        fix_normals(shape, all=True)
-    else:
-        fix_normals(shape)
+    # 法線の固定 (先祖返り防止処理)
+    fix_normals(shape, normals=normals)
 
     pm.select(targets)
 
