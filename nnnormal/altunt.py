@@ -235,9 +235,8 @@ def _spherize_normal(targets, center=None, ratio=1.0):
         print("no targets")
         return
 
-    # 編集対象コンポーネントの決定とソフトエッジの保存
+    # 編集対象コンポーネントの決定
     target_components = decide_targets(targets)
-    softedges = [e for e in nu.to_edge(target_components) if not nu.is_hardedge(e)]
 
     # 球状化処理
 
@@ -254,22 +253,26 @@ def _spherize_normal(targets, center=None, ratio=1.0):
     # 法線のキャッシュ
     shape = target_components[0].node()
     nc = normal_cache.NormalCache(shape)
+    points = shape.getPoints(space="object")
 
-    for comp in target_components:
+    current_normals = nc.get_vertexface_normals(target_components)
+    new_normals = [None] * len(current_normals)
+
+    for i, comp in enumerate(target_components):
         # 法線と球状ベクトル取得
-        current_normal = nc.get_vertexface_normal(comp)
-        current_normal.normalize()
-        radial_vector = dt.Vector(nu.get_position(comp, space="object") - center_point)
-        # 比率で合成して上書き
-        new_normal = current_normal * (1.0-ratio) + radial_vector * ratio
-        new_normal.normalize()
-        # 法線上書き
-        nc.set_vertexface_normal(comp, new_normal)
+        current_normal = current_normals[i]
 
-    # ソフトエッジの復帰
-    if softedges:
-        pm.polySoftEdge(softedges, a=180, ch=1)
-
+        # 頂点フェースの所属する頂点のインデックス
+        vi = comp.indices()[0][0]
+        
+        radial_vector = points[vi] - center_point
+        radial_vector.normalize()
+        
+        # 比率で合成
+        new_normals[i] = current_normal * (1.0-ratio) + radial_vector * ratio
+    
+    # シェイプの法線を上書き
+    nc.set_vertexface_normals(target_components, new_normals)
     nc.update_normals()
 
 

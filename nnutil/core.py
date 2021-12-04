@@ -20,6 +20,7 @@ import pymel.core as pm
 import pymel.core.nodetypes as nt
 import pymel.core.datatypes as dt
 
+
 DEBUG = False
 
 
@@ -726,10 +727,25 @@ def get_object(component, pn=False, transform=False):
     pn = not is_string(component)
 
     if pn:
-        if transform:
-            return component.node().getParent()
+        if isinstance(component, nt.Transform):
+            if transform:
+                return component
+            else:
+                return component.getShape()
+
+        elif isinstance(component, nt.Mesh):
+            if transform:
+                return component.getParent()
+            else:
+                return component
+        elif isinstance(component, (pm.MeshVertex, pm.MeshEdge, pm.MeshFace, pm.MeshVertexFace)):
+            if transform:
+                return component.node().getParent()
+            else:
+                return component.node()
         else:
-            return component.node()
+            raise(Exception("%s is not supported" % str(type(component))))
+
     else:
         return cmds.polyListComponentConversion(component)[0]
 
