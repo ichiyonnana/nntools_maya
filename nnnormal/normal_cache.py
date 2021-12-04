@@ -36,8 +36,7 @@ class NormalCache():
         """
         v_index = vertex_face.indices()[0][0]
         f_index = vertex_face.indices()[0][1]
-        shape = vertex_face.node()
-        vf_index = list(shape.f[f_index].getVertices()).index(v_index)
+        vf_index = list(self.shape.f[f_index].getVertices()).index(v_index)
 
         return self.normals[f_index][vf_index]
 
@@ -75,8 +74,7 @@ class NormalCache():
         """
         v_index = vertex_face.indices()[0][0]
         f_index = vertex_face.indices()[0][1]
-        shape = vertex_face.node()
-        vf_index = list(shape.f[f_index].getVertices()).index(v_index)
+        vf_index = list(self.shape.f[f_index].getVertices()).index(v_index)
 
         self.normals[f_index][vf_index] = normal
 
