@@ -1,4 +1,5 @@
 # coding:utf-8
+import nnutil.decorator as deco
 
 
 class NormalCache():
@@ -102,6 +103,7 @@ class NormalCache():
         for i in len(vertex_faces):
             self._set_vertexface_normal(vertex_faces[i], normals[i])
 
+    @deco.timer
     def update_normals(self):
         """クラス内部で変更した法線を元のシェイプに反映する
         """

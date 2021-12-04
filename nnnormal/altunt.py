@@ -15,6 +15,8 @@ import nnutil.display as nd
 import nnutil.ui as ui
 import nnutil.decorator as deco
 
+from . import normal_cache
+
 
 # offset_normal で使用するオフセットモード
 OM_ADD = "add"
@@ -249,20 +251,26 @@ def _spherize_normal(targets, center=None, ratio=1.0):
     else:
         center_point = nu.get_center_point(targets)
 
+    # 法線のキャッシュ
+    shape = target_components[0].node()
+    nc = normal_cache.NormalCache(shape)
+
     for comp in target_components:
         # 法線と球状ベクトル取得
-        current_normal = sum(nu.coords_to_vector(pm.polyNormalPerVertex(comp, q=True, xyz=True)))
+        current_normal = nc.get_vertexface_normal(comp)
         current_normal.normalize()
         radial_vector = dt.Vector(nu.get_position(comp, space="object") - center_point)
         # 比率で合成して上書き
         new_normal = current_normal * (1.0-ratio) + radial_vector * ratio
         new_normal.normalize()
         # 法線上書き
-        pm.polyNormalPerVertex(comp, xyz=tuple(new_normal))
+        nc.set_vertexface_normal(comp, new_normal)
 
     # ソフトエッジの復帰
     if softedges:
         pm.polySoftEdge(softedges, a=180, ch=1)
+
+    nc.update_normals()
 
 
 def create_center_locator():
