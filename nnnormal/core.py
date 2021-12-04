@@ -9,6 +9,7 @@ import pymel.core.datatypes as dt
 import nnutil.core as nu
 import nnutil.display as nd
 import nnutil.ui as ui
+import nnutil.decorator as deco
 
 
 # 法線転送に使用するデフォルトの転送方法
@@ -16,7 +17,6 @@ import nnutil.ui as ui
 default_search_method = 3
 
 
-@nu.undo_chunk
 def transfar_normal(objects=None, source_type=None, space="world", search_method=default_search_method):
     """ [pm] オブジェクトからオブジェクトへ法線を転送する
 
@@ -85,7 +85,6 @@ copied_normal_object = None  # copy_normal,paste_normal で使用されるコピ
 copied_normal = None  # copy_normal,paste_normal で使用されるコピーされた法線
 
 
-@nu.undo_chunk
 def copy_normal(targets=None):
     """ [pm] 法線のコピー｡複数ある場合は平均
 
@@ -155,7 +154,6 @@ def copy_normal(targets=None):
             copied_normal = None
 
 
-@nu.undo_chunk
 def paste_normal(targets=None):
     """ [pm] 法線のペースト｡オブジェクト選択時はソースにより法線ペーストか転送か切り替える｡
 
@@ -302,22 +300,27 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
     # イベントハンドラ
+    @deco.undo_chunk
     def onTransferNormalFirst(self, *args):
         """From First で転送"""
         transfar_normal(source_type="First")
 
+    @deco.undo_chunk
     def onTransferNormalLast(self, *args):
         """From Last で転送"""
         transfar_normal(source_type="Last")
 
+    @deco.undo_chunk
     def onTransferNormalPrompt(self, *args):
         """ユーザーに確認して転送"""
         transfar_normal()
 
+    @deco.undo_chunk
     def onCopyNormal(self, *args):
         """法線コピー"""
         copy_normal()
 
+    @deco.undo_chunk
     def onPasteNormal(self, *args):
         """法線ペースト"""
         paste_normal()
