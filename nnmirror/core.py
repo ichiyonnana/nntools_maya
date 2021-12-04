@@ -466,7 +466,6 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='')
-        ui.button(label='Straighten', c=self.onAriStraightVertex)
         ui.button(label='SplitPolygon', c=self.onAriSplitPolygon)
         ui.end_layout()
 
