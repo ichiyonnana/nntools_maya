@@ -684,79 +684,93 @@ class NN_ToolWindow(object):
         return space
 
     # イベントハンドラ
+    
     # ボタン
+    @deco.undo_chunk
     def onOffsetXn05(self, *args):
         mode = self.get_offset_mode()
         x = -0.5
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(x, None, None), space=space)
 
+    @deco.undo_chunk
     def onOffsetXn01(self, *args):
         mode = self.get_offset_mode()
         x = -0.1
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(x, None, None), space=space)
 
+    @deco.undo_chunk
     def onOffsetXp01(self, *args):
         mode = self.get_offset_mode()
         x = 0.1
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(x, None, None), space=space)
 
+    @deco.undo_chunk
     def onOffsetXp05(self, *args):
         mode = self.get_offset_mode()
         x = 0.5
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(x, None, None), space=space)
 
+    @deco.undo_chunk
     def onOffsetYn05(self, *args):
         mode = self.get_offset_mode()
         y = -0.5
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(None, y, None), space=space)
 
+    @deco.undo_chunk
     def onOffsetYn01(self, *args):
         mode = self.get_offset_mode()
         y = -0.1
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(None, y, None), space=space)
 
+    @deco.undo_chunk
     def onOffsetYp01(self, *args):
         mode = self.get_offset_mode()
         y = 0.1
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(None, y, None), space=space)
 
+    @deco.undo_chunk
     def onOffsetYp05(self, *args):
         mode = self.get_offset_mode()
         y = 0.5
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(None, y, None), space=space)
 
+    @deco.undo_chunk
     def onOffsetZn05(self, *args):
         mode = self.get_offset_mode()
         z = -0.5
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(None, None, z), space=space)
 
+    @deco.undo_chunk
     def onOffsetZn01(self, *args):
         mode = self.get_offset_mode()
         z = -0.1
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(None, None, z), space=space)
 
+    @deco.undo_chunk
     def onOffsetZp01(self, *args):
         mode = self.get_offset_mode()
         z = 0.1
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(None, None, z), space=space)
 
+    @deco.undo_chunk
     def onOffsetZp05(self, *args):
         mode = self.get_offset_mode()
         z = 0.5
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(None, None, z), space=space)
 
+    @deco.undo_chunk
     def onResetOffsetValue(self, *args):
         ui.set_value(self.editbox_offset_x, value=0)
         ui.set_value(self.editbox_offset_y, value=0)
@@ -766,92 +780,112 @@ class NN_ToolWindow(object):
         ui.set_value(self.slider_offset_y, value=0)
         ui.set_value(self.slider_offset_z, value=0)
 
+    @deco.undo_chunk
     def onApplyOffsetX(self, *args):
         mode = self.get_offset_mode()
         x, y, z = self.get_offset_values()
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(x, None, None), space=space)
 
+    @deco.undo_chunk
     def onApplyOffsetY(self, *args):
         mode = self.get_offset_mode()
         x, y, z = self.get_offset_values()
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(None, y, None), space=space)
 
+    @deco.undo_chunk
     def onApplyOffsetZ(self, *args):
         mode = self.get_offset_mode()
         x, y, z = self.get_offset_values()
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(None, None, z), space=space)
 
+    @deco.undo_chunk
     def onApplyOffset(self, *args):
         mode = self.get_offset_mode()
         x, y, z = self.get_offset_values()
         space = self.get_offset_space()
         offset_normal(mode=mode, values=(x, y, z), space=space)
 
+    @deco.undo_chunk
     def onSpherize010(self, *args):
         ratio = 0.1
         center_position = get_center_position()
         spherize_normal(center=center_position, ratio=ratio)
 
+    @deco.undo_chunk
     def onSpherize025(self, *args):
         ratio = 0.25
         center_position = get_center_position()
         spherize_normal(center=center_position, ratio=ratio)
 
+    @deco.undo_chunk
     def onSpherize050(self, *args):
         ratio = 0.5
         center_position = get_center_position()
         spherize_normal(center=center_position, ratio=ratio)
 
+    @deco.undo_chunk
     def onSpherize075(self, *args):
         ratio = 0.75
         center_position = get_center_position()
         spherize_normal(center=center_position, ratio=ratio)
 
+    @deco.undo_chunk
     def onCreateCenter(self, *args):
         create_center_locator()
 
+    @deco.undo_chunk
     def onApplySpherize(self, *args):
         ratio = ui.get_value(self.editbox_spherize_ratio)
         center_position = get_center_position()
         spherize_normal(center=center_position, ratio=ratio)
 
+    @deco.undo_chunk
     def onNormalize(self, *args):
         normalize_normal()
 
+    @deco.undo_chunk
     def onReverse(self, *args):
         reverse_normal()
 
+    @deco.undo_chunk
     def onResetNormal(self, *args):
         reset_nromal()
 
+    @deco.undo_chunk
     def onSmooth(self, *args):
         current_ratio = ui.get_value(self.slider_current_ratio)
         smooth_ratio = ui.get_value(self.slider_smooth_ratio)
         planer_ratio = ui.get_value(self.slider_planer_ratio)
         smooth_normal(current_ratio=current_ratio, smooth_ratio=smooth_ratio, planer_ratio=planer_ratio)
 
+    @deco.undo_chunk
     def onCleanup(self, *args):
         cleanup_normal()
 
+    @deco.undo_chunk
     def onApplyTweak(self, *args):
         apply_tweak()
 
     # スライダー･エディットボックス
+    @deco.undo_chunk
     def onChangeEditboxOffsetX(self, *args):
         v = ui.get_value(self.editbox_offset_x)
         ui.set_value(self.slider_offset_x, value=v)
 
+    @deco.undo_chunk
     def onChangeEditboxOffsetY(self, *args):
         v = ui.get_value(self.editbox_offset_y)
         ui.set_value(self.slider_offset_y, value=v)
 
+    @deco.undo_chunk
     def onChangeEditboxOffsetZ(self, *args):
         v = ui.get_value(self.editbox_offset_z)
         ui.set_value(self.slider_offset_z, value=v)
 
+    @deco.undo_chunk
     def onUpdateSliderOffsetX(self, *args):
         v = ui.get_value(self.slider_offset_x)
 
@@ -861,6 +895,7 @@ class NN_ToolWindow(object):
         ui.set_value(self.slider_offset_x, value=v)
         ui.set_value(self.editbox_offset_x, value=v)
 
+    @deco.undo_chunk
     def onUpdateSliderOffsetY(self, *args):
         v = ui.get_value(self.slider_offset_y)
 
@@ -870,6 +905,7 @@ class NN_ToolWindow(object):
         ui.set_value(self.slider_offset_y, value=v)
         ui.set_value(self.editbox_offset_y, value=v)
 
+    @deco.undo_chunk
     def onUpdateSliderOffsetZ(self, *args):
         v = ui.get_value(self.slider_offset_z)
 
@@ -879,19 +915,24 @@ class NN_ToolWindow(object):
         ui.set_value(self.slider_offset_z, value=v)
         ui.set_value(self.editbox_offset_z, value=v)
 
+    @deco.undo_chunk
     def onChangeSliderOffsetX(self, *args):
         pass
 
+    @deco.undo_chunk
     def onChangeSliderOffsetY(self, *args):
         pass
 
+    @deco.undo_chunk
     def onChangeSliderOffsetZ(self, *args):
         pass
 
+    @deco.undo_chunk
     def onChangeEditboxSpherizeRatio(self, *args):
         v = ui.get_value(self.editbox_spherize_ratio)
         ui.set_value(self.slider_spherize_ratio, value=v)
 
+    @deco.undo_chunk
     def onUpdateSliderSpherizeRatio(self, *args):
         v = ui.get_value(self.slider_spherize_ratio)
 
@@ -901,17 +942,21 @@ class NN_ToolWindow(object):
         ui.set_value(self.slider_spherize_ratio, value=v)
         ui.set_value(self.editbox_spherize_ratio, value=v)
 
+    @deco.undo_chunk
     def onChangeSliderSpherizeRatio(self, *args):
         pass
 
+    @deco.undo_chunk
     def onChangeSmoothRatioC(self, *args):
         v = ui.get_value(self.slider_current_ratio)
         ui.set_value(self.text_smooth_ratioC, value=str(round(v, 3)))
 
+    @deco.undo_chunk
     def onChangeSmoothRatioS(self, *args):
         v = ui.get_value(self.slider_smooth_ratio)
         ui.set_value(self.text_smooth_ratioS, value=str(round(v, 3)))
 
+    @deco.undo_chunk
     def onChangeSmoothRatioP(self, *args):
         v = ui.get_value(self.slider_planer_ratio)
         ui.set_value(self.text_smooth_ratioP, value=str(round(v, 3)))
