@@ -256,6 +256,7 @@ def _spherize_normal(targets, center=None, ratio=1.0):
         radial_vector = dt.Vector(nu.get_position(comp, space="object") - center_point)
         # 比率で合成して上書き
         new_normal = current_normal * (1.0-ratio) + radial_vector * ratio
+        new_normal.normalize()
         # 法線上書き
         pm.polyNormalPerVertex(comp, xyz=tuple(new_normal))
 
