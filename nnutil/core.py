@@ -713,9 +713,12 @@ def get_object(component, pn=False, transform=False):
     """ [pm/cmds] component の所属するオブジェクトを取得する
 
     Args:
+        component (Mesh, MeshVertex, MeshEdge, MeshFace, MeshVertexFace or str): 所属オブジェクトを取得するコンポーネント
+        pn (bool): 現在は使用されていません
+        transform (bool): True の場合 Mesh の親の Transform を返し、False の場合Mesh オブジェクトを返す
 
     Returns:
-        str or PyNode:
+        str or PyNode: component の所属オブジェクト。component の型により str か PyNode を返す
     """
     if not component:
         return component
@@ -723,11 +726,10 @@ def get_object(component, pn=False, transform=False):
     pn = not is_string(component)
 
     if pn:
-        obj = pynode(pm.polyListComponentConversion(component)[0])
-        if transform and isinstance(obj, nt.Mesh):
-            return obj.getParent()
+        if transform:
+            return component.node().getParent()
         else:
-            return obj
+            return component.node()
     else:
         return cmds.polyListComponentConversion(component)[0]
 
