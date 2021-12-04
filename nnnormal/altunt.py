@@ -320,7 +320,7 @@ def reset_nromal(targets=None):
     target_components = decide_targets(targets)
     softedges = [e for e in nu.to_edge(target_components) if not nu.is_hardedge(e)]
 
-    # スムース処理
+    # アンロック処理
     pm.polyNormalPerVertex(target_components, ufn=True)
 
     # ソフトエッジの復帰
