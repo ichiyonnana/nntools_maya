@@ -700,15 +700,18 @@ def replace_mesh_as_connection():
             src_object.outMesh.connect(dst.inMesh)
 
 
-def weight_paint_mode_with_selected_joint():
+def weight_paint_mode_with_selected_joint(joint=None, meshes=None):
     """選択したメッシュに対して選択したジョイントがアクティブな状態でウェイトペイントモードに入る"""
-    sel_joints = [x for x in nuc.selected() if isinstance(x, nt.Joint)]
-    sel_meshes = [x for x in nuc.selected() if isinstance(x, nt.Transform)]
+    if not joint:
+        joint = [x for x in nuc.selected() if isinstance(x, nt.Joint)][0]
+    
+    if not meshes:
+        meshes = [x for x in nuc.selected() if isinstance(x, nt.Transform)]
 
-    if sel_joints and sel_meshes:
-        pm.select(sel_meshes, replace=True)
+    if joint and meshes:
+        pm.select(meshes, replace=True)
         mel.eval("ArtPaintSkinWeightsToolOptions")
-        mel.eval('artSkinInflListChanging "%s" 1' % sel_joints[0].name())
+        mel.eval('artSkinInflListChanging "%s" 1' % joint.name())
         mel.eval("artSkinInflListChanged artAttrSkinPaintCtx")
 
 
