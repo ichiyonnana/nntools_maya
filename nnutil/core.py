@@ -20,6 +20,8 @@ import pymel.core as pm
 import pymel.core.nodetypes as nt
 import pymel.core.datatypes as dt
 
+import maya.api.OpenMaya as om
+
 
 DEBUG = False
 
@@ -1536,9 +1538,9 @@ def apply_tweak(target, delete_history=True):
 
     if tweak_nodes:
         tweak_node = tweak_nodes[0]
-        current_points = shape.getPoints()
+        current_points = get_points(shape)
         pm.delete(tweak_node)
-        shape.setPoints(current_points)
+        set_points(shape, current_points)
 
     # pnts の適用
     pm.polyMergeVertex(obj.verts[0])
@@ -1611,3 +1613,39 @@ def get_center_point(targets):
             max_z = p.z
 
     return dt.Point((max_x+min_x)/2, (max_y+min_y)/2, (max_z+min_z)/2)
+
+
+def get_normals(shape):
+    sel = om.MSelectionList()
+    sel.add(shape.name())
+    dag = sel.getDagPath(0)
+    fn_mesh = om.MFnMesh(dag)
+
+    return fn_mesh.getNormals()
+
+
+def set_normals(shape, normals):
+    sel = om.MSelectionList()
+    sel.add(shape.name())
+    dag = sel.getDagPath(0)
+    fn_mesh = om.MFnMesh(dag)
+
+    fn_mesh.setNormals(normals)
+
+
+def get_points(shape, space=om.MSpace.kObject):
+    sel = om.MSelectionList()
+    sel.add(shape.name())
+    dag = sel.getDagPath(0)
+    fn_mesh = om.MFnMesh(dag)
+
+    return fn_mesh.getPoints(space=space)
+
+
+def set_points(shape, points, space=om.MSpace.kObject):
+    sel = om.MSelectionList()
+    sel.add(shape.name())
+    dag = sel.getDagPath(0)
+    fn_mesh = om.MFnMesh(dag)
+
+    fn_mesh.setPoints(points, space=space)
