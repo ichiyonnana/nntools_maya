@@ -6,6 +6,7 @@ import maya.cmds as cmds
 import maya.mel as mel
 
 import nnutil.core as nu
+import nnutil.decorator as deco
 
 
 def get_skincluster(target):
@@ -68,7 +69,7 @@ def _linearize_weight(target, end_vts_weights, end_vts_points):
     vts = conv_to_vtx(target)
 
     # スキンクラスター取得
-    sc = get_skincluster(nu.get_object(target))
+    sc = get_skincluster(nu.get_object(vts[0]))
 
     # 各頂点に対して、代表頂点を結ぶ直線上の最も近い点を求め
     # その点の位置で代表頂点のウェイトを内分した値を設定する
@@ -105,6 +106,7 @@ def _linearize_weight(target, end_vts_weights, end_vts_points):
         cmds.skinPercent(sc, vtx, transformValue=weight_list)
 
 
+@deco.repeatable
 def linearize_weight_with_farthest_points():
     """
     選択頂点のウェイトを距離でリニアにする
@@ -128,6 +130,7 @@ specified_end_vts_weights = []
 specified_end_vts_points = []
 
 
+@deco.repeatable
 def set_end_point_with_selection():
     """
     選択コンポーネントの平均値を代表点に設定する
@@ -137,6 +140,7 @@ def set_end_point_with_selection():
     set_end_point_with_vts(vts)
 
 
+@deco.repeatable
 def set_multi_end_points_with_selection():
     """
     複数ある選択コンポーネントで複数代表点を設定する
@@ -148,6 +152,7 @@ def set_multi_end_points_with_selection():
         set_end_point_with_vts([vtx])
 
 
+@deco.repeatable
 def set_end_point_with_vts(vts):
     """
     選択コンポーネントを代表点にする
@@ -183,6 +188,7 @@ def set_end_point_with_vts(vts):
     specified_end_vts_points = [avg_vtc_point, specified_end_vts_points[0]]
 
 
+@deco.repeatable
 def linearize_weight_with_specified_points():
     """
     選択頂点のウェイトを距離でリニアにする
@@ -205,6 +211,7 @@ def linearize_weight_with_specified_points():
 proxy_vts = []
 
 
+@deco.repeatable
 def set_proxy_vts(vts):
     proxy_vts = vts
 
@@ -353,35 +360,45 @@ class NN_ToolWindow(object):
         cmds.button(l='avg', c=self.on_average)
         cmds.setParent("..")
 
+    @deco.undo_chunk
     def on_set_end_point(self, *args):
         set_end_point_with_selection()
 
+    @deco.undo_chunk
     def on_set_multi_end_point(self, *args):
         set_multi_end_points_with_selection()
 
+    @deco.undo_chunk
     def on_set_proxy_point(self, *args):
         selection = cmds.ls(selection=True, flatten=True)
         vts = conv_to_vtx(selection)
         set_proxy_vts(vts)
 
+    @deco.undo_chunk
     def on_linearize_farthest(self, *args):
         linearize_weight_with_farthest_points()
 
+    @deco.undo_chunk
     def on_linearize_specified(self, *args):
         linearize_weight_with_specified_points()
 
+    @deco.undo_chunk
     def on_copy_proxy(self, *args):
         copy_from_proxy_vts()
 
+    @deco.undo_chunk
     def on_copy(self, *args):
         copy_weight()
 
+    @deco.undo_chunk
     def on_paste_possible(self, *args):
         paste_weight_as_possible()
 
+    @deco.undo_chunk
     def on_paste_force(self, *args):
         paste_weight_force()
 
+    @deco.undo_chunk
     def on_average(self, *args):
         copy_weight()
         paste_weight_as_possible()
