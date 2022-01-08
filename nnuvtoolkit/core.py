@@ -719,10 +719,10 @@ class NN_ToolWindow(object):
         # Cut & Sew
         ui.row_layout()
         ui.header(label='Cut & Sew')
-        ui.button(label='Cut', c=self.onSewMatchingEdges)
-        ui.button(label='Sew', c=self.onSewMatchingEdges)
-        ui.button(label='Shell', c=self.onSewMatchingEdges)
-        ui.button(label='MatchingE', c=self.onSewMatchingEdges)
+        ui.button(label='Cut', c=self.onCut)
+        ui.button(label='Sew', c=self.onSew)
+        ui.button(label='Shell', c=self.onCreateShell)
+        ui.button(label='Merge', c=self.onMerge)
         ui.end_layout()
 
         # Optimize
@@ -1088,6 +1088,22 @@ class NN_ToolWindow(object):
     @nd.undo_chunk
     def onSewMatchingEdges(self, *args):
         sew_matching_edges()
+
+    @nd.undo_chunk
+    def onCut(self, *args):
+        pm.polyMapCut()
+
+    @nd.undo_chunk
+    def onSew(self, *args):
+        pm.polyMapSew()
+
+    @nd.undo_chunk
+    def onCreateShell(self, *args):
+        mel.eval("CreateUVShellAlongBorder")
+
+    @nd.undo_chunk
+    def onMerge(self, *args):
+        pm.polyMergeUV(d=0.0001)
 
     @nd.undo_chunk
     def onOrientEdge(self, *args):
