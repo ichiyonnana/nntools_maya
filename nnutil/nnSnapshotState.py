@@ -20,6 +20,12 @@ class NnSnapshotState(om.MPxCommand):
     def __init__(self):
         om.MPxCommand.__init__(self)
 
+        self.targets = []
+        self.to_store_normals = False
+        self.to_store_positions = False
+        self.to_store_colors = False
+        self.to_store_smooths = False
+
     def doIt(self, args):
         """実行時の処理"""
         # 引数の解析
@@ -61,10 +67,17 @@ class NnSnapshotState(om.MPxCommand):
             self.targets.append(argsList.asString(0))
 
         # スナップショットに含めるデータ
-        self.to_store_normals = argData.isFlagSet('-n')
-        self.to_store_positions = argData.isFlagSet('-p')
-        self.to_store_colors = argData.isFlagSet('-c')
-        self.to_store_smooths = argData.isFlagSet('-sm')
+        if argData.isFlagSet('-n'):
+            self.to_store_normals = argData.flagArgumentBool('-n', 0)
+
+        if argData.isFlagSet('-p'):
+            self.to_store_positions = argData.flagArgumentBool('-p', 0)
+
+        if argData.isFlagSet('-c'):
+            self.to_store_colors = argData.flagArgumentBool('-c', 0)
+
+        if argData.isFlagSet('-sm'):
+            self.to_store_smooths = argData.flagArgumentBool('-sm', 0)
 
     def redoIt(self):
         """Redo時の処理"""
