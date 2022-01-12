@@ -1616,6 +1616,7 @@ def get_center_point(targets):
 
 
 def get_normals(shape):
+    """[pm] APIを使用した法線取得｡引数は PyNode"""
     sel = om.MSelectionList()
     sel.add(shape.name())
     dag = sel.getDagPath(0)
@@ -1625,6 +1626,7 @@ def get_normals(shape):
 
 
 def set_normals(shape, normals):
+    """[pm] APIを使用した法線設定｡引数は PyNode"""
     sel = om.MSelectionList()
     sel.add(shape.name())
     dag = sel.getDagPath(0)
@@ -1634,6 +1636,7 @@ def set_normals(shape, normals):
 
 
 def get_points(shape, space=om.MSpace.kObject):
+    """[pm] APIを使用した頂点座標取得｡引数は PyNode"""
     sel = om.MSelectionList()
     sel.add(shape.name())
     dag = sel.getDagPath(0)
@@ -1643,9 +1646,67 @@ def get_points(shape, space=om.MSpace.kObject):
 
 
 def set_points(shape, points, space=om.MSpace.kObject):
+    """[pm] APIを使用した頂点座標設定｡引数は PyNode"""
     sel = om.MSelectionList()
     sel.add(shape.name())
     dag = sel.getDagPath(0)
     fn_mesh = om.MFnMesh(dag)
 
     fn_mesh.setPoints(points, space=space)
+
+
+def is_face(comp):
+    """[om] 指定したコンポーネント(MObject) がフェースなら True を返す
+
+    Args:
+        comp ([MObject]): コンポーネント
+
+    Returns:
+        bool: コンポーネントがフェースならTrue, それ以外なら False
+    """
+    return comp.apiType() == om.MFn.kMeshPolygonComponent
+
+
+def is_edge(comp):
+    """[om] 指定したコンポーネント(MObject) がエッジなら True を返す
+
+    Args:
+        comp ([MObject]): コンポーネント
+
+    Returns:
+        bool: コンポーネントがエッジならTrue, それ以外なら False
+    """
+    return comp.apiType() == om.MFn.kMeshEdgeComponent
+
+
+def convert_mobject_type(obj, comp, from_type, to_type):
+    """[om] MObject のコンポーネントタイプを変換する
+
+    Args:
+        obj (MDagPath): コンポーネントが所属するオブジェクト
+        comp (MObject): コンポーネント
+        from_type (str): 変換元のコンポーネントタイプ
+        to_type (str): 変換先のコンポーネントタイプ
+
+    Returns:
+        MObject: 変換されたコンポーネント
+    """
+    fn_mesh = om.MFnMesh(obj)
+
+    if from_type == "e" and to_type == "v":
+        # 変換元エッジのイテレーター
+        e_itr = om.MItMeshEdge(obj, comp)
+
+        # 変換後のコンポーネントと MObject
+        components = om.MFnSingleIndexedComponent()
+        converted_comp = components.create(om.MFn.kMeshVertComponent)
+
+        # エッジの構成頂点をすべて MObject に追加する
+        while not e_itr.isDone():
+            ei = e_itr.index()
+            ids = list(fn_mesh.getEdgeVertices(ei))
+            components.addElements(ids)
+
+            e_itr.next()
+
+        return converted_comp
