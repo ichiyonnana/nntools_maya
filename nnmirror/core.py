@@ -425,7 +425,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='bind')
-        ui.button(label='bind Op', c=self.onBindOptions, dgc=self.onBindOptions)
+        ui.button(label='bind Op', c=self.onBindOptions, dgc=self.onBind)
         ui.button(label='unbind', c=self.onUnbind, dgc=self.onUnbindOptions)
         ui.button(label='unlockTRS [lock]', c=self.onUnlockTRS, dgc=self.onLockTRS)
         ui.end_layout()
@@ -657,6 +657,9 @@ class NN_ToolWindow(object):
 
     def onBindOptions(self, *args):
         mel.eval('SmoothBindSkinOptions')
+
+    def onBind(self, *args):
+        pm.skinCluster()
 
     def onUnbind(self, *args):
         mel.eval('DetachSkin')
