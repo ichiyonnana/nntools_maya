@@ -38,6 +38,10 @@ class NnSnapshotState(om.MPxCommand):
             dag = slist.getDagPath(0)
             fn_mesh = om.MFnMesh(dag)
 
+            if self.to_store_smooths or self.to_store_normals:
+                all_edge_ids = range(fn_mesh.numEdges)
+                self.smooths = [fn_mesh.isEdgeSmooth(ei) for ei in all_edge_ids]
+
             if self.to_store_normals:
                 self.normals = fn_mesh.getNormals()
 
@@ -47,13 +51,8 @@ class NnSnapshotState(om.MPxCommand):
             if self.to_store_colors:
                 self.colors = fn_mesh.getColors()
 
-            if self.to_store_smooths:
-                all_edge_ids = range(fn_mesh.numEdges)
-                self.smooths = [fn_mesh.isEdgeSmooth(ei) for ei in all_edge_ids]
-
     def parseArguments(self, args):
         """引数の解析"""
-        # TODO: 実装
 
         # 引数オブジェクト
         argData = om.MArgParser(self.syntax(), args)
@@ -88,6 +87,10 @@ class NnSnapshotState(om.MPxCommand):
             dag = slist.getDagPath(0)
             fn_mesh = om.MFnMesh(dag)
 
+            if self.to_store_smooths or self.to_store_normals:
+                all_edge_ids = range(fn_mesh.numEdges)
+                fn_mesh.setEdgeSmoothings(all_edge_ids, self.smooths)
+
             if self.to_store_normals:
                 fn_mesh.setNormals(self.normals)
 
@@ -97,9 +100,7 @@ class NnSnapshotState(om.MPxCommand):
             if self.to_store_colors:
                 fn_mesh.setColors(self.colors)
 
-            if self.to_store_smooths:
-                all_edge_ids = range(fn_mesh.numEdges)
-                fn_mesh.setEdgeSmoothings(all_edge_ids, self.smooths)
+            fn_mesh.updateSurface()
 
     def undoIt(self):
         """Undo時の処理"""
@@ -110,6 +111,10 @@ class NnSnapshotState(om.MPxCommand):
             dag = slist.getDagPath(0)
             fn_mesh = om.MFnMesh(dag)
 
+            if self.to_store_smooths or self.to_store_normals:
+                all_edge_ids = range(fn_mesh.numEdges)
+                fn_mesh.setEdgeSmoothings(all_edge_ids, self.smooths)
+
             if self.to_store_normals:
                 fn_mesh.setNormals(self.normals)
 
@@ -119,9 +124,7 @@ class NnSnapshotState(om.MPxCommand):
             if self.to_store_colors:
                 fn_mesh.setColors(self.colors)
 
-            if self.to_store_smooths:
-                all_edge_ids = range(fn_mesh.numEdges)
-                fn_mesh.setEdgeSmoothings(all_edge_ids, self.smooths)
+            fn_mesh.updateSurface()
 
     def isUndoable(self):
         """Undo可能ならTrueを返す"""
