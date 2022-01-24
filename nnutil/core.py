@@ -1633,6 +1633,7 @@ def set_normals(shape, normals):
     fn_mesh = om.MFnMesh(dag)
 
     fn_mesh.setNormals(normals)
+    fn_mesh.updateSurface()
 
 
 def get_points(shape, space=om.MSpace.kObject):
@@ -1653,6 +1654,29 @@ def set_points(shape, points, space=om.MSpace.kObject):
     fn_mesh = om.MFnMesh(dag)
 
     fn_mesh.setPoints(points, space=space)
+    fn_mesh.updateSurface()
+
+
+def get_smooths(shape):
+    """[pm] APIを使用したハードエッジ情報取得。引数はPyNode"""
+    sel = om.MSelectionList()
+    sel.add(shape.name())
+    dag = sel.getDagPath(0)
+    fn_mesh = om.MFnMesh(dag)
+    all_edge_ids = range(fn_mesh.numEdges)
+    edge_smooths = [fn_mesh.isEdgeSmooth(ei) for ei in all_edge_ids]
+
+    return edge_smooths
+
+
+def set_smooths(shape, edge_smooths):
+    """[pm] APIを使用したハードエッジ情報設定。引数はPyNode"""
+    sel = om.MSelectionList()
+    sel.add(shape.name())
+    dag = sel.getDagPath(0)
+    fn_mesh = om.MFnMesh(dag)
+    all_edge_ids = range(fn_mesh.numEdges)
+    fn_mesh.setEdgeSmoothings(all_edge_ids, edge_smooths)
 
 
 def is_face(comp):
@@ -1679,6 +1703,30 @@ def is_edge(comp):
     return comp.apiType() == om.MFn.kMeshEdgeComponent
 
 
+def is_vertex(comp):
+    """[om] 指定したコンポーネント(MObject) が頂点なら True を返す
+
+    Args:
+        comp ([MObject]): コンポーネント
+
+    Returns:
+        bool: コンポーネントが頂点ならTrue, それ以外なら False
+    """
+    return comp.apiType() == om.MFn.kMeshVertComponent
+
+
+def is_vertexface(comp):
+    """[om] 指定したコンポーネント(MObject) が頂点フェースなら True を返す
+
+    Args:
+        comp ([MObject]): コンポーネント
+
+    Returns:
+        bool: コンポーネントが頂点フェースならTrue, それ以外なら False
+    """
+    return comp.apiType() == om.MFn.kMeshVtxFaceComponent
+
+
 def convert_mobject_type(obj, comp, from_type, to_type):
     """[om] MObject のコンポーネントタイプを変換する
 
@@ -1692,6 +1740,7 @@ def convert_mobject_type(obj, comp, from_type, to_type):
         MObject: 変換されたコンポーネント
     """
     fn_mesh = om.MFnMesh(obj)
+    converted_comp = None
 
     if from_type == "e" and to_type == "v":
         # 変換元エッジのイテレーター
@@ -1709,4 +1758,86 @@ def convert_mobject_type(obj, comp, from_type, to_type):
 
             e_itr.next()
 
-        return converted_comp
+    elif from_type == "f" and to_type == "v":
+        # 変換元エッジのイテレーター
+        f_itr = om.MItMeshPolygon(obj, comp)
+
+        # 変換後のコンポーネントと MObject
+        components = om.MFnSingleIndexedComponent()
+        converted_comp = components.create(om.MFn.kMeshVertComponent)
+
+        # エッジの構成頂点をすべて MObject に追加する
+        while not f_itr.isDone():
+            fi = f_itr.index()
+            ids = list(fn_mesh.getPolygonVertices(fi))
+            components.addElements(ids)
+
+            f_next(f_itr)
+
+    elif from_type == "vf" and to_type == "v":
+        # 変換元エッジのイテレーター
+        vf_itr = om.MItMeshFaceVertex(obj, comp)
+
+        # 変換後のコンポーネントと MObject
+        components = om.MFnSingleIndexedComponent()
+        converted_comp = components.create(om.MFn.kMeshVertComponent)
+
+        # エッジの構成頂点をすべて MObject に追加する
+        while not vf_itr.isDone():
+            vi = vf_itr.vertexId()
+            components.addElements([vi])
+
+            vf_itr.next()
+
+    return converted_comp
+
+
+def is_skined(shape):
+    """指定したシェイプがバインド済みならTrueを返す
+
+    Args:
+        shape (Mesh): バインド済みか調べるメッシュ
+
+    Returns:
+        bool: バインド済みならTrue, 未バインドならFalse を返す
+    """
+    skined = False
+
+    if any([isinstance(x, nt.SkinCluster) for x in shape.inputs()]):
+        skined = True
+    else:
+        object_sets = [x for x in shape.inputs() if isinstance(x, nt.ObjectSet)]
+        for object_set in object_sets:
+            if any([isinstance(x, nt.SkinCluster) for x in object_set.inputs()]):
+                skined = True
+
+    return skined
+
+
+def get_orig_shape(shape):
+    """指定したシェイプのOrigシェイプを取得する
+
+    Args:
+        shape (Mesh): Origメッシュを取得するバインド済みメッシュ
+
+    Returns:
+        Mesh: Origメッシュ
+    """
+    return [x for x in pm.listRelatives(shape.getParent(), shapes=True, noIntermediate=False) if x.intermediateObject.get()][0]
+
+
+def f_next(face_itr):
+    """MItMeshPolygon の next() を呼ぶ。
+
+    Maya2019 以前の不具合対策
+    https://forums.autodesk.com/t5/maya-programming/mitmeshpolygon-next-takes-an-argument-wrong-documentation/td-p/6252636
+
+    Args:
+        face_itr (MItMeshPolygon): フェースのイテレーター
+    """
+    ver = int(cmds.about(version=True))
+
+    if ver < 2019:
+        face_itr.next(None)
+    else:
+        face_itr.next()
