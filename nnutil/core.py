@@ -1842,3 +1842,16 @@ def f_next(face_itr):
         face_itr.next(None)
     else:
         face_itr.next()
+
+
+def is_same_topology(shape1, shape2):
+    """[pm] 二つのシェープのトポロジーが一致しているか調べる｡
+
+    Args:
+        shape1 (Mesh): 比較するメッシュ1
+        shape2 (Mesh): 比較するメッシュ2
+
+    Returns:
+        bool: ふたつのシェープのトポロジーが一致していれば True を返す
+    """
+    return pm.polyCompare(shape1, shape2, faceDesc=True) == 0
