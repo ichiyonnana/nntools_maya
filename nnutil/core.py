@@ -1330,13 +1330,14 @@ def uuid_to_name(uuid):
 
 def get_fullpath(name):
     """ [cmds] オブジェクト名のフルパスを取得する """
-    return cmds.ls(name, l=True)
+    return cmds.ls(name, l=True)[0]
 
 
 def get_basename(name):
     """ [pm/cmds] オブジェクト名からベースネームを取得する """
     fullpath = get_fullpath(name)
-    return re(r"^.*\|", "", fullpath)
+
+    return re.sub(r"^.*\|", "", fullpath)
 
 
 def get_active_camera():
