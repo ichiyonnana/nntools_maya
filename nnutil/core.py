@@ -1680,6 +1680,131 @@ def set_smooths(shape, edge_smooths):
     fn_mesh.setEdgeSmoothings(all_edge_ids, edge_smooths)
 
 
+def get_normal_locks(shape):
+    """[pm] APIを使用した法線ロック情報取得。引数はPyNode"""
+    obj = om.MGlobal.getSelectionListByName(shape.name()).getDagPath(0)
+    fn_mesh = om.MFnMesh(obj)
+
+    # ロック状態の取得
+    locks = [None] * fn_mesh.numNormals
+
+    all_vf = om.MItMeshFaceVertex(obj, om.MObject.kNullObj)
+    while not all_vf.isDone():
+        vf = all_vf
+        fi = vf.faceId()
+        vi = vf.vertexId()
+        ni = vf.normalId()
+
+        locks[ni] = fn_mesh.isNormalLocked(ni)
+
+        all_vf.next()
+
+    return locks
+
+
+def set_normal_locks(shape, locks):
+    """[pm] APIを使用した法線ロック情報設定。引数はPyNode"""
+    obj = om.MGlobal.getSelectionListByName(shape.name()).getDagPath(0)
+    fn_mesh = om.MFnMesh(obj)
+
+    smooths = get_smooths(shape)
+
+    # API の引数用リストの作成
+    locked_fi = []
+    locked_vi = []
+    unlocked_fi = []
+    unlocked_vi = []
+
+    all_vf = om.MItMeshFaceVertex(obj, om.MObject.kNullObj)
+    while not all_vf.isDone():
+        vf = all_vf
+        fi = vf.faceId()
+        vi = vf.vertexId()
+        ni = vf.normalId()
+
+        if locks[ni]:
+            locked_fi.append(fi)
+            locked_vi.append(vi)
+
+        else:
+            unlocked_fi.append(fi)
+            unlocked_vi.append(vi)
+
+        all_vf.next()
+
+    fn_mesh.lockFaceVertexNormals(locked_fi, locked_vi)
+    fn_mesh.unlockFaceVertexNormals(unlocked_fi, unlocked_vi)
+
+    # ハードエッジの復帰
+    set_smooths(shape, smooths)
+
+    fn_mesh.updateSurface()
+
+
+def get_normal_locks_index_pair(shape):
+    """[pm] APIを使用した法線ロック情報取得。引数はPyNode"""
+    obj = om.MGlobal.getSelectionListByName(shape.name()).getDagPath(0)
+    fn_mesh = om.MFnMesh(obj)
+
+    # ロック状態の取得
+    locks = dict()
+
+    all_vf = om.MItMeshFaceVertex(obj, om.MObject.kNullObj)
+    while not all_vf.isDone():
+        vf = all_vf
+        fi = vf.faceId()
+        vi = vf.vertexId()
+        ni = vf.normalId()
+
+        locks[(fi, vi)] = fn_mesh.isNormalLocked(ni)
+
+        all_vf.next()
+
+    return locks
+
+
+def set_normal_locks_index_pair(shape, locks):
+    """[pm] APIを使用した法線ロック情報設定。引数はPyNode"""
+    if not isinstance(locks, dict):
+        raise
+
+    obj = om.MGlobal.getSelectionListByName(shape.name()).getDagPath(0)
+    fn_mesh = om.MFnMesh(obj)
+
+    smooths = get_smooths(shape)
+
+    # API の引数用リストの作成
+    locked_fi = []
+    locked_vi = []
+    unlocked_fi = []
+    unlocked_vi = []
+
+    all_vf = om.MItMeshFaceVertex(obj, om.MObject.kNullObj)
+    while not all_vf.isDone():
+        vf = all_vf
+        fi = vf.faceId()
+        vi = vf.vertexId()
+        ni = vf.normalId()
+
+        if locks[(fi, vi)]:
+            locked_fi.append(fi)
+            locked_vi.append(vi)
+
+        else:
+            unlocked_fi.append(fi)
+            unlocked_vi.append(vi)
+
+        all_vf.next()
+
+    fn_mesh.lockFaceVertexNormals(locked_fi, locked_vi)
+    fn_mesh.unlockFaceVertexNormals(unlocked_fi, unlocked_vi)
+
+    # ハードエッジの復帰
+    set_smooths(shape, smooths)
+
+    fn_mesh.updateSurface()
+
+
 def is_face(comp):
     """[om] 指定したコンポーネント(MObject) がフェースなら True を返す
 
