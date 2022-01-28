@@ -341,3 +341,69 @@ def is_ctrl():
 def is_alt():
     """ Alt キーが押されているときに True """
     return bool(pm.getModifiers() & 8)
+
+
+def input_dialog(title="title", message=""):
+    """インプットダイアログの表示
+
+    Args:
+        title (str, optional): タイトルの文字列. Defaults to "".
+        message (str, optional): ダイアログのメッセージ. Defaults to "".
+
+    Returns:
+        str or None: ユーザーが入力した文字列を返す｡未入力やキャンセル時は None を返す
+    """
+    BTL_OK = "OK"
+    BTL_CANCEL = "Cancel"
+
+    result = pm.promptDialog(
+            title=title,
+            message=message,
+            button=[BTL_OK, BTL_CANCEL],
+            defaultButton=BTL_OK,
+            cancelButton=BTL_CANCEL,
+            dismissString=BTL_CANCEL)
+
+    if result == BTL_OK:
+        text = pm.promptDialog(query=True, text=True)
+
+        if text == "":
+            return None
+        else:
+            return text
+    else:
+        return None
+
+
+def yes_no_dialog(title="title", message=""):
+    """Yes/No ダイアログの表示
+
+    Args:
+        title (str, optional): タイトルの文字列. Defaults to "".
+        message (str, optional): ダイアログのメッセージ. Defaults to "".
+
+    Returns:
+        bool or None: Yes が押されたら True, No が押されたら False, ダイアログがキャンセルされたら None を返す
+    """
+    BTL_YES = "Yes"
+    BTL_NO = "No"
+    BTL_CANCEL = "Cancel"
+
+    result = pm.confirmDialog(title=title, message=message, button=[BTL_YES, BTL_NO, BTL_CANCEL])
+
+    if result == BTL_YES:
+        return True
+    elif result == BTL_NO:
+        return False
+    else:
+        return None
+
+
+def ok_dialog(title="title", message=""):
+    """メッセージダイアログの表示
+
+    Args:
+        title (str, optional): タイトルの文字列. Defaults to "".
+        message (str, optional): ダイアログのメッセージ. Defaults to "".
+    """
+    pm.confirmDialog(title=title, message=message, button="OK")
