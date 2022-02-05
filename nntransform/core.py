@@ -66,6 +66,14 @@ class NN_ToolWindow(object):
         cmds.separator(width=window_width)
 
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
+        self.label1 = cmds.text(label='Unlock', width=header_width)
+        self.buttonA = cmds.button(l='unlock', c=self.onUnlockTRS, width=bw_single)
+        self.buttonA = cmds.button(l='lock', c=self.onLockTRS, width=bw_single)
+        cmds.setParent("..")
+
+        cmds.separator(width=window_width)
+
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
         self.label1 = cmds.text(label='Match', width=header_width)
         self.buttonA = cmds.button(l='All', c=self.onMatchTransformAll, width=bw_single)
         self.buttonA = cmds.button(l='Tra', c=self.onMatchTransformTra, width=bw_single)
@@ -121,6 +129,18 @@ class NN_ToolWindow(object):
 
     def onResetTransformOp(self, *args):
         mel.eval("ResetTransformationsOptions;")
+
+    def onUnlockTRS(self, *args):
+        objects = cmds.ls(selection=True)
+
+        for obj in objects:
+            nnutil.unlock_trs(obj)
+
+    def onLockTRS(self, *args):
+        objects = cmds.ls(selection=True)
+
+        for obj in objects:
+            nnutil.lock_trs(obj)
 
     def onMatchTransformAll(self, *args):
         mel.eval("MatchTransform;")
