@@ -2002,10 +2002,10 @@ def is_format_option_supported():
 
 
 def lock_trs(obj):
-    """指定したオブジェクトのトランスフォームをロックする
+    """[pm/cmds]指定したオブジェクトのトランスフォームをロックする
 
     Args:
-        obj (Transform): トランスフォームをロックするトランスフォームノード
+        obj (Transform or str): トランスフォームをロックするトランスフォームノード
     """
     obj = pynode(obj)
     obj.translateX.lock()
@@ -2020,10 +2020,10 @@ def lock_trs(obj):
 
 
 def unlock_trs(obj):
-    """指定したオブジェクトのトランスフォームをアンロックする
+    """[pm/cmds]指定したオブジェクトのトランスフォームをアンロックする
 
     Args:
-        obj (Transform): トランスフォームをアンロックするトランスフォームノード
+        obj (Transform or str): トランスフォームをアンロックするトランスフォームノード
     """
     obj = pynode(obj)
     obj.translateX.unlock()
