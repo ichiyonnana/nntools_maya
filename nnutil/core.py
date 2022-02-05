@@ -9,6 +9,7 @@ import datetime
 import math
 import re
 import copy
+import os
 
 import itertools as it
 import functools
@@ -1333,10 +1334,15 @@ def get_fullpath(name):
 
 
 def get_basename(name):
-    """ [pm/cmds] オブジェクト名からベースネームを取得する """
-    fullpath = get_fullpath(name)
+    """ネームスペースとパスを取り除いたオブジェクト自身の名前を取得する
 
-    return re.sub(r"^.*\|", "", fullpath)
+    Args:
+        name (str): ネームスペースやパスを含んでいる可能性のあるオブジェクト名
+
+    Returns:
+        str: ネームスペースとパスを取り除いたオブジェクト自身の名前
+    """
+    return re.sub(r"^.*\|", "", name)
 
 
 def get_active_camera():
@@ -1966,6 +1972,7 @@ def f_next(face_itr):
         face_itr.next(None)
     else:
         face_itr.next()
+# フォーマットオプションをサポートしているかを返す
 
 
 def is_same_topology(shape1, shape2):
@@ -1979,3 +1986,67 @@ def is_same_topology(shape1, shape2):
         bool: ふたつのシェープのトポロジーが一致していれば True を返す
     """
     return pm.polyCompare(shape1, shape2, faceDesc=True) == 0
+
+
+def is_format_option_supported():
+    """ウェイトのインポートエクスポートが format オプションに対応している場合 True を返す
+
+    Returns:
+        [type]: [description]
+    """
+    ver = int(cmds.about(version=True))
+    if ver > 2018:
+        return True
+    else:
+        return False
+
+
+def lock_trs(obj):
+    """指定したオブジェクトのトランスフォームをロックする
+
+    Args:
+        obj (Transform): トランスフォームをロックするトランスフォームノード
+    """
+    obj = pynode(obj)
+    obj.translateX.lock()
+    obj.translateY.lock()
+    obj.translateZ.lock()
+    obj.rotateX.lock()
+    obj.rotateY.lock()
+    obj.rotateZ.lock()
+    obj.scaleX.lock()
+    obj.scaleY.lock()
+    obj.scaleZ.lock()
+
+
+def unlock_trs(obj):
+    """指定したオブジェクトのトランスフォームをアンロックする
+
+    Args:
+        obj (Transform): トランスフォームをアンロックするトランスフォームノード
+    """
+    obj = pynode(obj)
+    obj.translateX.unlock()
+    obj.translateY.unlock()
+    obj.translateZ.unlock()
+    obj.rotateX.unlock()
+    obj.rotateY.unlock()
+    obj.rotateZ.unlock()
+    obj.scaleX.unlock()
+    obj.scaleY.unlock()
+    obj.scaleZ.unlock()
+
+
+def exist_file(dir, filename):
+    """ファイルが存在する場合は True を返す
+
+    Args:
+        dir (str): 存在するか調べるパス
+        filename (str): 存在するか調べるファイル名
+
+    Returns:
+        bool: ファイルが存在する場合は True, 存在しない場合は False
+    """
+    path = dir + filename
+
+    return os.path.exists(path)

@@ -17,86 +17,6 @@ import nnutil.display as nd
 import nnutil.ui as ui
 
 
-def FormatOptionsupported():
-    """ウェイトのインポートエクスポートが format オプションに対応している場合 True を返す
-
-    Returns:
-        [type]: [description]
-    """
-    ver = int(cmds.about(version=True))
-    if ver > 2018:
-        return True
-    else:
-        return False
-
-
-def lock_trs(obj):
-    """指定したオブジェクトのトランスフォームをロックする
-
-    Args:
-        obj (Transform): トランスフォームをロックするトランスフォームノード
-    """
-    obj = nu.pynode(obj)
-    obj.translateX.lock()
-    obj.translateY.lock()
-    obj.translateZ.lock()
-    obj.rotateX.lock()
-    obj.rotateY.lock()
-    obj.rotateZ.lock()
-    obj.scaleX.lock()
-    obj.scaleY.lock()
-    obj.scaleZ.lock()
-
-
-def unlock_trs(obj):
-    """指定したオブジェクトのトランスフォームをアンロックする
-
-    Args:
-        obj (Transform): トランスフォームをアンロックするトランスフォームノード
-    """
-    obj = nu.pynode(obj)
-    obj.translateX.unlock()
-    obj.translateY.unlock()
-    obj.translateZ.unlock()
-    obj.rotateX.unlock()
-    obj.rotateY.unlock()
-    obj.rotateZ.unlock()
-    obj.scaleX.unlock()
-    obj.scaleY.unlock()
-    obj.scaleZ.unlock()
-
-
-def get_basename(s):
-    """ネームスペースとパスを取り除いたオブジェクト自身の名前を取得する
-
-    Args:
-        s (str): ネームスペースやパスを含んでいる可能性のあるオブジェクト名
-
-    Returns:
-        str: ネームスペースとパスを取り除いたオブジェクト自身の名前
-    """
-    # ネームスペース削除
-    sanitize_name = re.sub(r'^.*\:', "", s, 1)
-    # パス形式なら | より前を捨てる
-    sanitize_name = re.sub(r'^.*\|', "", sanitize_name, 1)
-    return sanitize_name
-
-
-def exist_file(dir, filename):
-    """ファイルが存在する場合は True を返す
-
-    Args:
-        dir (str): 存在するか調べるパス
-        filename (str): 存在するか調べるファイル名
-
-    Returns:
-        bool: ファイルが存在する場合は True, 存在しない場合は False
-    """
-    path = dir + filename
-
-    return os.path.exists(path)
-
-
 def export_weight(objects=None, temp_mode=False, filename=None):
     """ウェイトをXMLでエクスポートする
 
@@ -131,7 +51,7 @@ def export_weight(objects=None, temp_mode=False, filename=None):
             if temp_mode:
                 filename = "temp"
             else:
-                filename = get_basename(obj.name())
+                filename = nu.get_basename(obj.name())
 
         currentScene = cmds.file(q=True, sn=True)
         dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
@@ -141,7 +61,7 @@ def export_weight(objects=None, temp_mode=False, filename=None):
         except:
             pass
 
-        if FormatOptionsupported():
+        if nu.is_format_option_supported():
             cmd = 'deformerWeights -export -vc -deformer "%(skincluster)s" -format "XML" -path "%(dir)s" "%(filename)s.xml"' % locals()
         else:
             cmd = 'deformerWeights -export -vc -deformer %(skincluster)s -path "%(dir)s" "%(filename)s.xml"' % locals()
@@ -200,7 +120,7 @@ def import_weight(objects=None, method=BM_BILINEAR, temp_mode=False, filename=No
             if temp_mode:
                 filename = "temp.xml"
             else:
-                filename = get_basename(obj.name()) + ".xml"
+                filename = nu.get_basename(obj.name()) + ".xml"
 
         elif ".xml" not in filename:
             filename = filename + ".xml"
@@ -210,7 +130,7 @@ def import_weight(objects=None, method=BM_BILINEAR, temp_mode=False, filename=No
 
         # ウェイトファイルがあるオブジェクトだけ処理
         print(dir+filename)
-        if exist_file(dir, filename):
+        if nu.exist_file(dir, filename):
             # ウェイトファイル直接開いてインフルエンスリスト取得
             influence_list = []
             path = dir + filename
@@ -293,9 +213,9 @@ def combine_skined_mesh(objects=None):
     if len(all_meshes) == len(skined_meshes):
         # すべてのメッシュがスキンクラスターを持っていれば polyUniteSkinned で結合する
         object, node = pm.polyUniteSkinned(all_meshes, ch=1, mergeUVSets=1, objectPivot=True)
-        unlock_trs(object)
+        nu.unlock_trs(object)
         pm.parent(object, parent)
-        lock_trs(object)
+        nu.lock_trs(object)
         pm.bakePartialHistory(object, ppt=True)
         nu.pynode(object).rename(name)
 
@@ -668,11 +588,11 @@ class NN_ToolWindow(object):
 
     def onUnlockTRS(self, *args):
         for obj in pm.selected(flatten=True):
-            unlock_trs(obj)
+            nu.unlock_trs(obj)
 
     def onLockTRS(self, *args):
         for obj in pm.selected(flatten=True):
-            lock_trs(obj)
+            nu.lock_trs(obj)
 
     def onCombine(self, *args):
         combine_skined_mesh()
