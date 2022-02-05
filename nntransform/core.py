@@ -24,6 +24,7 @@ color_select = (0.5, 0.75, 1.0)
 bw_single = 24
 bw_double = bw_single*2 + 2
 
+
 class NN_ToolWindow(object):
 
     def __init__(self):
@@ -45,8 +46,8 @@ class NN_ToolWindow(object):
     def layout(self):
         self.columnLayout = cmds.columnLayout()
 
-        self.rowLayout1 = cmds.rowLayout( numberOfColumns=16 )
-        self.label1 = cmds.text( label='Freeze' ,width=header_width)
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
+        self.label1 = cmds.text(label='Freeze', width=header_width)
         self.buttonA = cmds.button(l='All', c=self.onFreezeTransformAll, width=bw_single)
         self.buttonA = cmds.button(l='Tra', c=self.onFreezeTransformTra, width=bw_single)
         self.buttonA = cmds.button(l='Rot', c=self.onFreezeTransformRot, width=bw_single)
@@ -56,16 +57,16 @@ class NN_ToolWindow(object):
 
         cmds.separator(width=window_width)
 
-        self.rowLayout1 = cmds.rowLayout( numberOfColumns=16 )
-        self.label1 = cmds.text( label='Reset' ,width=header_width)
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
+        self.label1 = cmds.text(label='Reset', width=header_width)
         self.buttonA = cmds.button(l='All', c=self.onResetTransformAll, width=bw_single)
         self.buttonA = cmds.button(l='Op', c=self.onResetTransformOp, width=bw_single)
         cmds.setParent("..")
 
         cmds.separator(width=window_width)
 
-        self.rowLayout1 = cmds.rowLayout( numberOfColumns=16 )
-        self.label1 = cmds.text( label='Match' ,width=header_width)
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
+        self.label1 = cmds.text(label='Match', width=header_width)
         self.buttonA = cmds.button(l='All', c=self.onMatchTransformAll, width=bw_single)
         self.buttonA = cmds.button(l='Tra', c=self.onMatchTransformTra, width=bw_single)
         self.buttonA = cmds.button(l='Rot', c=self.onMatchTransformRot, width=bw_single)
@@ -76,16 +77,16 @@ class NN_ToolWindow(object):
 
         cmds.separator(width=window_width)
 
-        self.rowLayout1 = cmds.rowLayout( numberOfColumns=16 )
-        self.label1 = cmds.text( label='Pivot' ,width=header_width)
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
+        self.label1 = cmds.text(label='Pivot', width=header_width)
         self.buttonA = cmds.button(l='Center', c=self.onCenterPivot, width=bw_double)
         self.buttonA = cmds.button(l='Bake', c=self.onBakePivot, width=bw_double)
         cmds.setParent("..")
 
         cmds.separator(width=window_width)
 
-        self.rowLayout1 = cmds.rowLayout( numberOfColumns=16 )
-        self.label1 = cmds.text( label='Create' ,width=header_width)
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
+        self.label1 = cmds.text(label='Create', width=header_width)
         self.buttonA = cmds.button(l='Locator', c=self.onCreateLOcator, width=bw_double)
         self.buttonA = cmds.button(l='Joint', c=self.onCreateJoint, width=bw_double)
         self.buttonA = cmds.button(l='Empty', c=self.onCreateEmpty, width=bw_double)
@@ -93,8 +94,8 @@ class NN_ToolWindow(object):
 
         cmds.separator(width=window_width)
 
-        self.rowLayout1 = cmds.rowLayout( numberOfColumns=16 )
-        self.label1 = cmds.text( label='Convert' ,width=header_width)
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
+        self.label1 = cmds.text(label='Convert', width=header_width)
         self.buttonA = cmds.button(l='Instance to Mesh', c=self.onInstanceToMesh, width=bw_double)
         cmds.setParent("..")
 
@@ -175,11 +176,14 @@ class NN_ToolWindow(object):
     def onInstanceToMesh(self, *args):
         nnutil.freeze_instance()
 
+
 def showNNToolWindow():
     NN_ToolWindow().create()
 
+
 def main():
     showNNToolWindow()
+
 
 if __name__ == "__main__":
     main()
