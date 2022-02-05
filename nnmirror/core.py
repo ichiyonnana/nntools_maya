@@ -451,7 +451,6 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='Editor')
         ui.button(label='SIWE', c=self.onEditorSIWE)
-        ui.button(label='mSkin', c=self.onEditorMskin)
         ui.button(label='copyWeightOp', c=self.onCopyWeightOp)
         ui.end_layout()
 
@@ -709,10 +708,6 @@ class NN_ToolWindow(object):
     def onEditorSIWE(self, *args):
         import siweighteditor.siweighteditor
         siweighteditor.siweighteditor.Option()
-
-    def onEditorMskin(self, *args):
-        import SkyTools.rigging.mSkin as sw
-        sw.show()
 
     def onCopyWeightOp(self, *args):
         mel.eval("CopySkinWeightsOptions")
