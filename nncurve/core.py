@@ -303,6 +303,13 @@ class NN_ToolWindow(object):
         self.bt_ = cmds.button(l='Draw On Top [off]', c=self.onEnableDrawOnTop, dgc=self.onDisableDrawOnTop)
         cmds.setParent("..")
 
+        cmds.separator(width=window_width)
+
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
+        self.label1 = cmds.text(label='Tools', width=header_width)
+        self.bt_ = cmds.button(l='Simplify', c=self.onExecSimplify)
+        cmds.setParent("..")
+
     def onSetKeepRatio(self, *args):
         pass
 
@@ -601,6 +608,10 @@ class NN_ToolWindow(object):
             if isValid(obj):
                 shape = cmds.listRelatives(obj, shapes=True)[0]
                 cmds.setAttr(shape + ".alwaysDrawOnTop", 0)
+
+    def onExecSimplify(self, *args):
+        import nnsimplify
+        nnsimplify.main()
 
 
 def showNNToolWindow():
