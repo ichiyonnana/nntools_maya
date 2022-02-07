@@ -6,6 +6,7 @@ import copy
 
 import importlib
 
+import pymel.core as pm
 import maya.cmds as cmds
 import maya.mel as mel
 
@@ -301,6 +302,7 @@ class NN_ToolWindow(object):
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
         self.label1 = cmds.text(label='Display', width=header_width)
         self.bt_ = cmds.button(l='Draw On Top [off]', c=self.onEnableDrawOnTop, dgc=self.onDisableDrawOnTop)
+        self.bt_ = cmds.button(l='Add Isolation', c=self.onAddIsolation)
         cmds.setParent("..")
 
         cmds.separator(width=window_width)
@@ -608,6 +610,13 @@ class NN_ToolWindow(object):
             if isValid(obj):
                 shape = cmds.listRelatives(obj, shapes=True)[0]
                 cmds.setAttr(shape + ".alwaysDrawOnTop", 0)
+
+    def onAddIsolation(self, *args):
+        active_panel = pm.getPanel(withFocus=True)
+        all_curves = getAllCurves()
+
+        for curve in all_curves:
+            pm.isolateSelect(active_panel, addDagObject=curve)
 
     def onExecSimplify(self, *args):
         import nnsimplify
