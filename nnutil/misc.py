@@ -758,20 +758,29 @@ def toggle_imageplane_visivility():
 
 def isolate_with_imageplanes():
     active_panel = pm.getPanel(withFocus=True)
-    is_isolated = pm.isolateSelect(active_panel, q=True, state=True)
 
-    if is_isolated:
-        pm.isolateSelect(active_panel, state=0)
+    if "modelPanel" in active_panel.name():
+
+        is_isolated = pm.isolateSelect(active_panel, q=True, state=True)
+
+        if is_isolated:
+            pm.isolateSelect(active_panel, state=0)
+
+        else:
+            current_selection = pm.selected()
+            imageplanes = pm.ls(type="imagePlane")
+            pm.select(imageplanes, add=True)
+            pm.isolateSelect(active_panel, addSelected=True)
+            pm.editor(active_panel, e=True, lockMainConnection=True, mainListConnection="activeList")
+            pm.isolateSelect(active_panel, state=1)
+
+            pm.select(current_selection)
+
+    elif "polyTexturePlacementPanel" in active_panel.name():
+        mel.eval("textureEditorToggleIsolateSelect()")
 
     else:
-        current_selection = pm.selected()
-        imageplanes = pm.ls(type="imagePlane")
-        pm.select(imageplanes, add=True)
-        pm.isolateSelect(active_panel, addSelected=True)
-        pm.editor(active_panel, e=True, lockMainConnection=True, mainListConnection="activeList")
-        pm.isolateSelect(active_panel, state=1)
-
-        pm.select(current_selection)
+        raise
 
 
 def set_radius_auto(joints=[]):
