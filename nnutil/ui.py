@@ -45,6 +45,11 @@ width5 = width1*5 + 8
 width6 = width1*6 + 10
 width7 = width1*7 + 12
 
+
+def width(n):
+    return width1 * n + 2 * (n-1)
+
+
 height0 = 0
 height0_5 = 12
 height1 = 24
@@ -55,6 +60,10 @@ height4 = height1*4 + 6
 height5 = height1*5 + 8
 height6 = height1*6 + 10
 height7 = height1*7 + 12
+
+
+def height(n):
+    return height1 * n + 2 * (n-1)
 
 
 def any_handler(*args):
