@@ -3,6 +3,9 @@
 """
 
 """
+import os
+import re
+
 import maya.cmds as cmds
 import pymel.core as pm
 
@@ -25,6 +28,8 @@ class NN_ToolWindow(object):
         self.active_camera = pm.PyNode(nu.get_active_camera())
         self.active_camera_trs = self.active_camera.getParent()
         self.all_imageplanes = pm.listRelatives(self.active_camera_trs, ad=True)
+
+        self.image_editor = r"D:\Program Files\Adobe\Adobe Photoshop 2022\Photoshop.exe"
 
     def create(self):
         if cmds.window(self.window, exists=True):
@@ -53,19 +58,24 @@ class NN_ToolWindow(object):
                                                     selectItem=self.active_camera_trs,
                                                     showIndexedItem=1,
                                                     selectCommand=self.onClickCameraListItem,
-                                                    doubleClickCommand=self.onDoubleClickCameraListItem
+                                                    doubleClickCommand=self.onDoubleClickCameraListItem,
+                                                    height=ui.height(10)
                                                     )
         ui.end_layout()
 
         # 右ペイン
         ui.column_layout()
+        ui.row_layout()
         ui.button(label="Select Item", c=self.onSelectImageplane)
+        ui.button(label="Edit Image", c=self.onEditImage, dgc=self.onSetImageEditor)
+        ui.end_layout()
         self.item_list = pm.textScrollList(
                                                     numberOfRows=20,
                                                     allowMultiSelection=True,
                                                     append=self.all_imageplanes,
                                                     showIndexedItem=1,
-                                                    selectCommand=self.onClickImageplaneListItem
+                                                    selectCommand=self.onClickImageplaneListItem,
+                                                    height=ui.height(10)
                                                     )
 
         ui.end_layout()
@@ -130,6 +140,23 @@ class NN_ToolWindow(object):
     def onSelectImageplane(self, *args):
         object = pm.PyNode(pm.textScrollList(self.item_list, q=True, selectItem=True)[0])
         pm.select(object.getParent())
+
+    def onEditImage(self, *args):
+        """選択されているイメージプレーンを開く"""
+        selected_items = pm.textScrollList(self.item_list, q=True, selectItem=True)
+
+        for item in selected_items:
+            ip = pm.PyNode(item)
+            filename = re.sub(r"/", r"\\", ip.imageName.get())
+            cmd = '"%s" %s' % (self.image_editor, filename)
+            os.system(cmd)
+
+    def onSetImageEditor(self, *args):
+        """画像編集エディターの指定ダイアログ"""
+        image_editor_path = ui.input_dialog(title="image editor path", message="input image editor path")
+
+        if image_editor_path:
+            self.image_editor = image_editor_path
 
 
 def showNNToolWindow():
