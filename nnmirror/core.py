@@ -403,6 +403,14 @@ class NN_ToolWindow(object):
         ui.header(label='Remesh')
         ui.button(label='QRemesher', c=self.onQuadRemesher)
         ui.end_layout()
+        
+        ui.separator()
+
+        ui.row_layout()
+        ui.header(label='Etc')
+        ui.button(label='Get Pos', c=self.onGetPos)
+        ui.button(label='Set Pos', c=self.onSetPos)
+        ui.end_layout()
 
     def onMirrorFaceXPosi(self, *args):
         mel.eval('polyMirrorFace  -cutMesh 1 -axis 0 -axisDirection 0 -mergeMode 1 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1;')
@@ -662,6 +670,14 @@ class NN_ToolWindow(object):
     def onQuadRemesher(self, *args):
         import QuadRemesher
         QuadRemesher.QuadRemesher()
+
+    def onGetPos(self, *args):
+        obj = pm.selected(flatten=True)[0]
+        self.getpos_points = nu.get_points(obj)
+
+    def onSetPos(self, *args):
+        obj = pm.selected(flatten=True)[0]
+        nu.set_points(obj, points=self.getpos_points)
 
 
 def showNNToolWindow():
