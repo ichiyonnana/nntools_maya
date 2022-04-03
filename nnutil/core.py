@@ -10,6 +10,8 @@ import math
 import re
 import copy
 import os
+import sys
+import hashlib
 
 import itertools as it
 import functools
@@ -24,6 +26,25 @@ import maya.api.OpenMaya as om
 
 
 DEBUG = False
+
+
+class Hashable:
+    def __init__(self, object, hash):
+        hash_str = hashlib.md5(hash.encode())
+        self.hash = int(hash_str.hexdigest(), 16)
+        self.object = object
+
+    def __hash__(self):
+        return self.hash
+
+    def object(self):
+        return self.object
+
+
+def is_python2():
+    """Python が 3 系未満なら True を返す"""
+
+    return sys.version_info.major < 3
 
 
 def get_selection(**kwargs):
@@ -137,7 +158,7 @@ def list_diff(l1, l2):
         l1 = list(l1)
         l2 = list(l2)
 
-    return filter(lambda x: x not in l2, l1)
+    return list(filter(lambda x: x not in l2, l1))
 
 
 def list_intersection(l1, l2):
@@ -152,7 +173,7 @@ def list_intersection(l1, l2):
         l1 = list(l1)
         l2 = list(l2)
 
-    return filter(lambda x: x in l2, l1)
+    return list(filter(lambda x: x in l2, l1))
 
 
 def distance(p1, p2):
@@ -1126,7 +1147,15 @@ def uniq(a):
             elements_tuple_list = list(set([tuple(x) for x in a]))
             return ["".join(elements_tuple) for elements_tuple in elements_tuple_list]
         else:
-            return list(set(a))
+            if is_python2():
+                return list(set(a))
+            else:
+                hashable_a = [Hashable(x, str(x)) for x in a]
+                list(set(hashable_a))
+                a = [x.object for x in hashable_a]
+
+                return a
+
     else:
         return a
 
@@ -1304,7 +1333,15 @@ def _get_all_polylines_pm(edges):
     """
     polylines = []
     rest_edges = edges
-    intersections = [v for v in to_vtx(edges, pn=True) if len(set(to_edge(v, pn=True)) & set(edges)) > 2]
+
+    # エッジ同士の交点
+    intersections = []
+
+    # 全ての構成頂点のうち､その頂点の接続エッジが edges に 2 本以上含まれていればその頂点は交点
+    for v in to_vtx(edges, pn=True):
+        connected_edges = to_edge(v, pn=True)
+        if len(list_intersection(connected_edges, edges)) > 2:
+            intersections.append(v)
 
     while len(rest_edges) > 0:
         polyline = _get_poly_line_pm(edges=rest_edges, intersections=intersections)
@@ -1392,7 +1429,7 @@ def get_end_vertices_v(vertices):
 
     for vertex in vertices:
         connected_vertices = get_connected_vertices(vertex)
-        if len(set(connected_vertices) & set(vertices)) == 1:
+        if len(list_intersection(connected_vertices, vertices)) == 1:
             end_vertices.append(vertex)
 
     return end_vertices

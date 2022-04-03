@@ -5,7 +5,6 @@ import math
 import traceback
 
 import nnutil.ui as ui
-reload(ui)
 
 
 # vertex から point 取得

@@ -22,7 +22,7 @@ def main():
             command_list = mel.eval("runTimeCommand -q -userCommandArray")
 
             for cmd_name in command_list:
-                print cmd_name
+                print(cmd_name)
                 mel.eval("runTimeCommand -e -delete %(cmd_name)s" % locals())
 
             print("Deleted")

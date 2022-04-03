@@ -16,7 +16,7 @@ import pymel.core as pm
 import pymel.core.datatypes as dt
 import pymel.core.nodetypes as nt
 
-import core
+from . import core
 
 
 def make_curve_from_edges(edges, n=4):

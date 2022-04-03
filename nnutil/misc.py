@@ -517,7 +517,7 @@ def get_digon_edge_pairs(obj):
 
     for edge in border_edges:
         for connected_edge in [x for x in edge.connectedEdges() if x in border_edges]:
-            if len(set(edge.connectedVertices()) & set(connected_edge.connectedVertices())) == 2:
+            if len(nu.list_intersection(edge.connectedVertices(), connected_edge.connectedVertices())) == 2:
                 if not (connected_edge, edge) in digon_edge_pairs:
                     digon_edge_pairs.append((edge, connected_edge))
     
