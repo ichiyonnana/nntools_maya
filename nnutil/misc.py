@@ -741,42 +741,42 @@ def change_uveditor_image(n):
 
 
 def toggle_joint_locator_visibility():
-    active_panel = pm.getPanel(withFocus=True)
-    current_visibility = pm.modelEditor(active_panel, q=True, joints=True)
+    active_panel = cmds.getPanel(withFocus=True)
+    current_visibility = cmds.modelEditor(active_panel, q=True, joints=True)
     new_visibility = not current_visibility
-    pm.modelEditor(active_panel, e=True, joints=new_visibility)
-    pm.modelEditor(active_panel, e=True, locators=new_visibility)
-    pm.modelEditor(active_panel, e=True, jointXray=1)
+    cmds.modelEditor(active_panel, e=True, joints=new_visibility)
+    cmds.modelEditor(active_panel, e=True, locators=new_visibility)
+    cmds.modelEditor(active_panel, e=True, jointXray=1)
 
 
 def toggle_imageplane_visivility():
-    active_panel = pm.getPanel(withFocus=True)
-    current_visibility = pm.modelEditor(active_panel, q=True, imagePlane=True)
+    active_panel = cmds.getPanel(withFocus=True)
+    current_visibility = cmds.modelEditor(active_panel, q=True, imagePlane=True)
     new_visibility = not current_visibility
-    pm.modelEditor(active_panel, e=True, imagePlane=new_visibility)
+    cmds.modelEditor(active_panel, e=True, imagePlane=new_visibility)
 
 
 def isolate_with_imageplanes():
-    active_panel = pm.getPanel(withFocus=True)
+    active_panel = cmds.getPanel(withFocus=True)
 
-    if "modelPanel" in active_panel.name():
+    if "modelPanel" in active_panel:
 
-        is_isolated = pm.isolateSelect(active_panel, q=True, state=True)
+        is_isolated = cmds.isolateSelect(active_panel, q=True, state=True)
 
         if is_isolated:
-            pm.isolateSelect(active_panel, state=0)
+            cmds.isolateSelect(active_panel, state=0)
 
         else:
-            current_selection = pm.selected()
-            imageplanes = pm.ls(type="imagePlane")
-            pm.select(imageplanes, add=True)
-            pm.isolateSelect(active_panel, addSelected=True)
-            pm.editor(active_panel, e=True, lockMainConnection=True, mainListConnection="activeList")
-            pm.isolateSelect(active_panel, state=1)
+            current_selection = cmds.ls(selection=True, flatten=True)
+            imageplanes = cmds.ls(type="imagePlane")
+            cmds.select(imageplanes, add=True)
+            cmds.isolateSelect(active_panel, addSelected=True)
+            cmds.editor(active_panel, e=True, lockMainConnection=True, mainListConnection="activeList")
+            cmds.isolateSelect(active_panel, state=1)
 
-            pm.select(current_selection)
+            cmds.select(current_selection)
 
-    elif "polyTexturePlacementPanel" in active_panel.name():
+    elif "polyTexturePlacementPanel" in active_panel:
         mel.eval("textureEditorToggleIsolateSelect()")
 
     else:
