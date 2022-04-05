@@ -612,11 +612,11 @@ class NN_ToolWindow(object):
                 cmds.setAttr(shape + ".alwaysDrawOnTop", 0)
 
     def onAddIsolation(self, *args):
-        active_panel = pm.getPanel(withFocus=True)
+        active_panel = cmds.getPanel(withFocus=True)
         all_curves = getAllCurves()
 
         for curve in all_curves:
-            pm.isolateSelect(active_panel, addDagObject=curve)
+            cmds.isolateSelect(active_panel, addDagObject=curve)
 
     def onExecSimplify(self, *args):
         import nnsimplify
