@@ -22,6 +22,8 @@ class NN_ToolWindow(object):
         self.title = dialog_name
         self.size = (300, 95)
 
+        self.is_chunk_open = False
+
     def create(self):
         if cmds.window(self.window, exists=True):
             cmds.deleteUI(self.window, window=True)
@@ -52,7 +54,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label="")
-        self.fs_red = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragRed)
+        self.fs_red = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragRed, cc=self.onCloseChunk)
         ui.end_layout()
 
         ui.row_layout()
@@ -66,7 +68,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label="")
-        self.fs_green = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragGreen)
+        self.fs_green = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragGreen, cc=self.onCloseChunk)
         ui.end_layout()
 
         ui.row_layout()
@@ -80,7 +82,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label="")
-        self.fs_blue = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragBlue)
+        self.fs_blue = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragBlue, cc=self.onCloseChunk)
         ui.end_layout()
 
         ui.row_layout()
@@ -94,7 +96,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label="")
-        self.fs_alpha = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragAlpha)
+        self.fs_alpha = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragAlpha, cc=self.onCloseChunk)
         ui.end_layout()
 
         ui.row_layout()
@@ -115,80 +117,141 @@ class NN_ToolWindow(object):
         mel.eval("toggleShadeMode")
 
     def onSetColorR000(self, *args):
-        pm.polyColorPerVertex(r=0.0)
+        v = 0.0
+        pm.polyColorPerVertex(r=v)
+        ui.set_value(self.fs_red, value=v)
 
     def onSetColorR025(self, *args):
-        pm.polyColorPerVertex(r=0.25)
+        v = 0.25
+        pm.polyColorPerVertex(r=v)
+        ui.set_value(self.fs_red, value=v)
 
     def onSetColorR050(self, *args):
-        pm.polyColorPerVertex(r=0.5)
+        v = 0.5
+        pm.polyColorPerVertex(r=v)
+        ui.set_value(self.fs_red, value=v)
 
     def onSetColorR075(self, *args):
-        pm.polyColorPerVertex(r=0.75)
+        v = 0.75
+        pm.polyColorPerVertex(r=v)
+        ui.set_value(self.fs_red, value=v)
 
     def onSetColorR100(self, *args):
-        pm.polyColorPerVertex(r=1.0)
+        v = 1.0
+        pm.polyColorPerVertex(r=v)
+        ui.set_value(self.fs_red, value=v)
 
     def onSetColorG000(self, *args):
-        pm.polyColorPerVertex(g=0.0)
+        v = 0.0
+        pm.polyColorPerVertex(g=v)
+        ui.set_value(self.fs_green, value=v)
 
     def onSetColorG025(self, *args):
-        pm.polyColorPerVertex(g=0.25)
+        v = 0.25
+        pm.polyColorPerVertex(g=v)
+        ui.set_value(self.fs_green, value=v)
 
     def onSetColorG050(self, *args):
-        pm.polyColorPerVertex(g=0.5)
+        v = 0.5
+        pm.polyColorPerVertex(g=v)
+        ui.set_value(self.fs_green, value=v)
 
     def onSetColorG075(self, *args):
-        pm.polyColorPerVertex(g=0.75)
+        v = 0.75
+        pm.polyColorPerVertex(g=v)
+        ui.set_value(self.fs_green, value=v)
 
     def onSetColorG100(self, *args):
-        pm.polyColorPerVertex(g=1.0)
+        v = 1.0
+        pm.polyColorPerVertex(g=v)
+        ui.set_value(self.fs_green, value=v)
 
     def onSetColorB000(self, *args):
-        pm.polyColorPerVertex(b=0.0)
+        v = 0.0
+        pm.polyColorPerVertex(b=v)
+        ui.set_value(self.fs_blue, value=v)
 
     def onSetColorB025(self, *args):
-        pm.polyColorPerVertex(b=0.25)
+        v = 0.25
+        pm.polyColorPerVertex(b=v)
+        ui.set_value(self.fs_blue, value=v)
 
     def onSetColorB050(self, *args):
-        pm.polyColorPerVertex(b=0.5)
+        v = 0.5
+        pm.polyColorPerVertex(b=v)
+        ui.set_value(self.fs_blue, value=v)
 
     def onSetColorB075(self, *args):
-        pm.polyColorPerVertex(b=0.75)
+        v = 0.75
+        pm.polyColorPerVertex(b=v)
+        ui.set_value(self.fs_blue, value=v)
 
     def onSetColorB100(self, *args):
-        pm.polyColorPerVertex(b=1.0)
+        v = 1.0
+        pm.polyColorPerVertex(b=v)
+        ui.set_value(self.fs_blue, value=v)
 
     def onSetColorA000(self, *args):
-        pm.polyColorPerVertex(a=0.0)
+        v = 0.0
+        pm.polyColorPerVertex(a=v)
+        ui.set_value(self.fs_alpha, value=v)
 
     def onSetColorA025(self, *args):
-        pm.polyColorPerVertex(a=0.25)
+        v = 0.25
+        pm.polyColorPerVertex(a=v)
+        ui.set_value(self.fs_alpha, value=v)
 
     def onSetColorA050(self, *args):
-        pm.polyColorPerVertex(a=0.5)
+        v = 0.5
+        pm.polyColorPerVertex(a=v)
+        ui.set_value(self.fs_alpha, value=v)
 
     def onSetColorA075(self, *args):
-        pm.polyColorPerVertex(a=0.75)
+        v = 0.75
+        pm.polyColorPerVertex(a=v)
+        ui.set_value(self.fs_alpha, value=v)
 
     def onSetColorA100(self, *args):
-        pm.polyColorPerVertex(a=1.0)
+        v = 1.0
+        pm.polyColorPerVertex(a=v)
+        ui.set_value(self.fs_alpha, value=v)
 
     def onDragRed(self, *args):
+        if not self.is_chunk_open:
+            pm.undoInfo(openChunk=True)
+            self.is_chunk_open = True
+
         v = ui.get_value(self.fs_red)
         pm.polyColorPerVertex(r=v)
 
     def onDragGreen(self, *args):
+        if not self.is_chunk_open:
+            pm.undoInfo(openChunk=True)
+            self.is_chunk_open = True
+
         v = ui.get_value(self.fs_green)
         pm.polyColorPerVertex(g=v)
 
     def onDragBlue(self, *args):
+        if not self.is_chunk_open:
+            pm.undoInfo(openChunk=True)
+            self.is_chunk_open = True
+
         v = ui.get_value(self.fs_blue)
         pm.polyColorPerVertex(b=v)
 
     def onDragAlpha(self, *args):
+        if not self.is_chunk_open:
+            pm.undoInfo(openChunk=True)
+            self.is_chunk_open = True
+
         v = ui.get_value(self.fs_alpha)
         pm.polyColorPerVertex(a=v)
+
+    def onCloseChunk(self, *args):
+        if self.is_chunk_open:
+            pm.undoInfo(closeChunk=True)
+            self.is_chunk_open = False
 
 
 def showNNToolWindow():
