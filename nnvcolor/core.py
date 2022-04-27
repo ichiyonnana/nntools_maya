@@ -13,38 +13,49 @@ import nnutil.decorator as deco
 import nnutil.ui as ui
 import nnutil.display as nd
 
-dialog_name = "NN_VColor"
+window_name = "NN_VColor"
 
 
 class NN_ToolWindow(object):
     def __init__(self):
-        self.window = dialog_name
-        self.title = dialog_name
-        self.size = (300, 95)
+        self.window = window_name
+        self.title = window_name
+        self.size = (251, 220)
 
         self.is_chunk_open = False
 
     def create(self):
-        if cmds.window(self.window, exists=True):
-            cmds.deleteUI(self.window, window=True)
-        self.window = cmds.window(
-            self.window,
-            t=self.title,
-            widthHeight=self.size
-        )
+        if pm.window(self.window, exists=True):
+            pm.deleteUI(self.window, window=True)
+
+        # プリファレンスの有無による分岐
+        if pm.windowPref(self.window, exists=True):
+            # ウィンドウのプリファレンスがあれば位置だけ保存して削除
+            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
+            pm.windowPref(self.window, remove=True)
+
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+
+        else:
+            # プリファレンスがなければデフォルト位置に指定サイズで表示
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+
         self.layout()
-        cmds.showWindow()
+        pm.showWindow(self.window)
 
     def layout(self):
         ui.column_layout()
 
         ui.row_layout()
-        ui.button(label="Create Set [Op]", c=self.onCreateColorSet, dgc=self.onColorSetEditor)
-        ui.button(label="Toggle Disp", c=self.onToggleDisplay)
+        ui.button(label="RGBA", c=self.onSetColorRGBA, dgc=self.onGetColorRGBA)
+        ui.button(label="Create Set [Op]", c=self.onCreateColorSet, dgc=self.onColorSetEditor, width=ui.width(3.75))
+        ui.button(label="Toggle Disp", c=self.onToggleDisplay, width=ui.width(3.75))
         ui.end_layout()
 
+        ui.separator(width=1, height=5)
+
         ui.row_layout()
-        ui.header(label="R")
+        ui.button(label="R", c=self.onSetColorR, dgc=self.onGetColorR, width=ui.header_width)
         ui.button(label="0.00", c=self.onSetColorR000, bgc=(0, 0, 0), width=ui.width1_5)
         ui.button(label="0.25", c=self.onSetColorR025, bgc=(0.25, 0, 0), width=ui.width1_5)
         ui.button(label="0.50", c=self.onSetColorR050, bgc=(0.5, 0, 0), width=ui.width1_5)
@@ -57,8 +68,10 @@ class NN_ToolWindow(object):
         self.fs_red = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragRed, cc=self.onCloseChunk)
         ui.end_layout()
 
+        ui.separator(width=1, height=5)
+
         ui.row_layout()
-        ui.header(label="G")
+        ui.button(label="G", c=self.onSetColorG, dgc=self.onGetColorG, width=ui.header_width)
         ui.button(label="0.00", c=self.onSetColorG000, bgc=(0, 0, 0), width=ui.width1_5)
         ui.button(label="0.25", c=self.onSetColorG025, bgc=(0, 0.25, 0), width=ui.width1_5)
         ui.button(label="0.50", c=self.onSetColorG050, bgc=(0, 0.5, 0), width=ui.width1_5)
@@ -71,8 +84,11 @@ class NN_ToolWindow(object):
         self.fs_green = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragGreen, cc=self.onCloseChunk)
         ui.end_layout()
 
+        ui.separator(width=1, height=5)
+
+
         ui.row_layout()
-        ui.header(label="B")
+        ui.button(label="B", c=self.onSetColorB, dgc=self.onGetColorB, width=ui.header_width)
         ui.button(label="0.00", c=self.onSetColorB000, bgc=(0, 0, 0), width=ui.width1_5)
         ui.button(label="0.25", c=self.onSetColorB025, bgc=(0, 0, 0.25), width=ui.width1_5)
         ui.button(label="0.50", c=self.onSetColorB050, bgc=(0, 0, 0.5), width=ui.width1_5)
@@ -85,8 +101,11 @@ class NN_ToolWindow(object):
         self.fs_blue = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragBlue, cc=self.onCloseChunk)
         ui.end_layout()
 
+        ui.separator(width=1, height=5)
+
+
         ui.row_layout()
-        ui.header(label="A")
+        ui.button(label="A", c=self.onSetColorA, dgc=self.onGetColorA, width=ui.header_width)
         ui.button(label="0.00", c=self.onSetColorA000, bgc=(0, 0, 0), width=ui.width1_5)
         ui.button(label="0.25", c=self.onSetColorA025, bgc=(0.25, 0.25, 0.25), width=ui.width1_5)
         ui.button(label="0.50", c=self.onSetColorA050, bgc=(0.5, 0.5, 0.5), width=ui.width1_5)
@@ -107,146 +126,310 @@ class NN_ToolWindow(object):
 
         ui.end_layout()
 
+    def _get_color(self, *args):
+        """選択している全ての頂点の頂点カラーを平均した値を返す"""
+
+        if not pm.selected():
+            return None
+
+        color_components = pm.polyColorPerVertex(q=True, r=True, g=True, b=True, a=True)
+
+        if color_components:
+            r_list = [color_components[i+0] for i in range(len(color_components)/3)]
+            g_list = [color_components[i+1] for i in range(len(color_components)/3)]
+            b_list = [color_components[i+2] for i in range(len(color_components)/3)]
+            a_list = [color_components[i+3] for i in range(len(color_components)/3)]
+            count = len(r_list)
+
+            r = sum(r_list)/count
+            g = sum(g_list)/count
+            b = sum(b_list)/count
+            a = sum(a_list)/count
+
+            return (r, g, b, a)
+
     def onCreateColorSet(self, *args):
+        """カラーセットを作成する"""
         pm.polyColorSet(create=True, clamped=0, rpt="RGBA", colorSet="colorSet")
 
     def onColorSetEditor(self, *args):
+        """カラーセットエディタを開く"""
         mel.eval("colorSetEditor")
 
     def onToggleDisplay(self, *args):
+        """頂点カラー表示のトグル"""
         mel.eval("toggleShadeMode")
 
+    def onGetColorRGBA(self, *args):
+        """選択している全ての頂点の頂点カラーの平均の RGBA 成分をスライダーに設定する"""
+        color = self._get_color()
+
+        if color:
+            ui.set_value(self.fs_red, value=color[0])
+            ui.set_value(self.fs_green, value=color[1])
+            ui.set_value(self.fs_blue, value=color[2])
+            ui.set_value(self.fs_blue, value=color[3])
+
+    def onSetColorRGBA(self, *args):
+        """スライダーの値でRGBAを全て設定する"""
+        if pm.selected():
+            r = ui.get_value(self.fs_red)
+            g = ui.get_value(self.fs_green)
+            b = ui.get_value(self.fs_blue)
+            a = ui.get_value(self.fs_alpha)
+            pm.polyColorPerVertex(r=r, g=g, b=b, a=a)
+
+    def onGetColorR(self, *args):
+        """選択している全ての頂点の頂点カラーの平均の R 成分をスライダーに設定する"""
+        color = self._get_color()
+
+        if color:
+            ui.set_value(self.fs_red, value=color[0])
+
+    def onGetColorG(self, *args):
+        """選択している全ての頂点の頂点カラーの平均の G 成分をスライダーに設定する"""
+        color = self._get_color()
+
+        if color:
+            ui.set_value(self.fs_green, value=color[1])
+
+    def onGetColorB(self, *args):
+        """選択している全ての頂点の頂点カラーの平均の B 成分をスライダーに設定する"""
+        color = self._get_color()
+
+        if color:
+            ui.set_value(self.fs_blue, value=color[2])
+
+    def onGetColorA(self, *args):
+        """選択している全ての頂点の頂点カラーの平均の A 成分をスライダーに設定する"""
+        color = self._get_color()
+
+        if color:
+            ui.set_value(self.fs_alpha, value=color[3])
+
+    def onSetColorR(self, *args):
+        """R をスライダーの値に設定する"""
+        v = ui.get_value(self.fs_red)
+
+        if pm.selected():
+            pm.polyColorPerVertex(r=v)
+
+    def onSetColorG(self, *args):
+        """G をスライダーの値に設定する"""
+        v = ui.get_value(self.fs_green)
+
+        if pm.selected():
+            pm.polyColorPerVertex(g=v)
+
+    def onSetColorB(self, *args):
+        """B をスライダーの値に設定する"""
+        v = ui.get_value(self.fs_blue)
+
+        if pm.selected():
+            pm.polyColorPerVertex(b=v)
+
+    def onSetColorA(self, *args):
+        """A をスライダーの値に設定する"""
+        v = ui.get_value(self.fs_alpha)
+
+        if pm.selected():
+            pm.polyColorPerVertex(a=v)
+
     def onSetColorR000(self, *args):
+        """R を 0.00 に設定する"""
         v = 0.0
-        pm.polyColorPerVertex(r=v)
         ui.set_value(self.fs_red, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(r=v)
 
     def onSetColorR025(self, *args):
+        """R を 0.25 に設定する"""
         v = 0.25
-        pm.polyColorPerVertex(r=v)
         ui.set_value(self.fs_red, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(r=v)
 
     def onSetColorR050(self, *args):
+        """R を 0.50 に設定する"""
         v = 0.5
-        pm.polyColorPerVertex(r=v)
         ui.set_value(self.fs_red, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(r=v)
 
     def onSetColorR075(self, *args):
+        """R を 0.75 に設定する"""
         v = 0.75
-        pm.polyColorPerVertex(r=v)
         ui.set_value(self.fs_red, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(r=v)
 
     def onSetColorR100(self, *args):
+        """R を 1.00 に設定する"""
         v = 1.0
-        pm.polyColorPerVertex(r=v)
         ui.set_value(self.fs_red, value=v)
 
+        if pm.selected():
+            pm.polyColorPerVertex(r=v)
+
     def onSetColorG000(self, *args):
+        """G を 0.00 に設定する"""
         v = 0.0
-        pm.polyColorPerVertex(g=v)
         ui.set_value(self.fs_green, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(g=v)
 
     def onSetColorG025(self, *args):
+        """G を 0.25 に設定する"""
         v = 0.25
-        pm.polyColorPerVertex(g=v)
         ui.set_value(self.fs_green, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(g=v)
 
     def onSetColorG050(self, *args):
+        """G を 0.50 に設定する"""
         v = 0.5
-        pm.polyColorPerVertex(g=v)
         ui.set_value(self.fs_green, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(g=v)
 
     def onSetColorG075(self, *args):
+        """G を 0.75 に設定する"""
         v = 0.75
-        pm.polyColorPerVertex(g=v)
         ui.set_value(self.fs_green, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(g=v)
 
     def onSetColorG100(self, *args):
+        """G を 1.00 に設定する"""
         v = 1.0
-        pm.polyColorPerVertex(g=v)
         ui.set_value(self.fs_green, value=v)
 
+        if pm.selected():
+            pm.polyColorPerVertex(g=v)
+
     def onSetColorB000(self, *args):
+        """B を 0.00 に設定する"""
         v = 0.0
-        pm.polyColorPerVertex(b=v)
         ui.set_value(self.fs_blue, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(b=v)
 
     def onSetColorB025(self, *args):
+        """B を 0.25 に設定する"""
         v = 0.25
-        pm.polyColorPerVertex(b=v)
         ui.set_value(self.fs_blue, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(b=v)
 
     def onSetColorB050(self, *args):
+        """B を 0.50 に設定する"""
         v = 0.5
-        pm.polyColorPerVertex(b=v)
         ui.set_value(self.fs_blue, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(b=v)
 
     def onSetColorB075(self, *args):
+        """B を 0.75 に設定する"""
         v = 0.75
-        pm.polyColorPerVertex(b=v)
         ui.set_value(self.fs_blue, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(b=v)
 
     def onSetColorB100(self, *args):
+        """B を 1.00 に設定する"""
         v = 1.0
-        pm.polyColorPerVertex(b=v)
         ui.set_value(self.fs_blue, value=v)
 
+        if pm.selected():
+            pm.polyColorPerVertex(b=v)
+
     def onSetColorA000(self, *args):
+        """A を 0.00 に設定する"""
         v = 0.0
-        pm.polyColorPerVertex(a=v)
         ui.set_value(self.fs_alpha, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(a=v)
 
     def onSetColorA025(self, *args):
+        """A を 0.25 に設定する"""
         v = 0.25
-        pm.polyColorPerVertex(a=v)
         ui.set_value(self.fs_alpha, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(a=v)
 
     def onSetColorA050(self, *args):
+        """A を 0.50 に設定する"""
         v = 0.5
-        pm.polyColorPerVertex(a=v)
         ui.set_value(self.fs_alpha, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(a=v)
 
     def onSetColorA075(self, *args):
+        """A を 0.75 に設定する"""
         v = 0.75
-        pm.polyColorPerVertex(a=v)
         ui.set_value(self.fs_alpha, value=v)
+
+        if pm.selected():
+            pm.polyColorPerVertex(a=v)
 
     def onSetColorA100(self, *args):
+        """A を 1.00 に設定する"""
         v = 1.0
-        pm.polyColorPerVertex(a=v)
         ui.set_value(self.fs_alpha, value=v)
 
-    def onDragRed(self, *args):
-        if not self.is_chunk_open:
-            pm.undoInfo(openChunk=True)
-            self.is_chunk_open = True
+        if pm.selected():
+            pm.polyColorPerVertex(a=v)
 
-        v = ui.get_value(self.fs_red)
-        pm.polyColorPerVertex(r=v)
+    def onDragRed(self, *args):
+        if pm.selected():
+            if not self.is_chunk_open:
+                pm.undoInfo(openChunk=True)
+                self.is_chunk_open = True
+
+            v = ui.get_value(self.fs_red)
+            pm.polyColorPerVertex(r=v)
 
     def onDragGreen(self, *args):
-        if not self.is_chunk_open:
-            pm.undoInfo(openChunk=True)
-            self.is_chunk_open = True
+        if pm.selected():
+            if not self.is_chunk_open:
+                pm.undoInfo(openChunk=True)
+                self.is_chunk_open = True
 
-        v = ui.get_value(self.fs_green)
-        pm.polyColorPerVertex(g=v)
+            v = ui.get_value(self.fs_green)
+            pm.polyColorPerVertex(g=v)
 
     def onDragBlue(self, *args):
-        if not self.is_chunk_open:
-            pm.undoInfo(openChunk=True)
-            self.is_chunk_open = True
+        if pm.selected():
+            if not self.is_chunk_open:
+                pm.undoInfo(openChunk=True)
+                self.is_chunk_open = True
 
-        v = ui.get_value(self.fs_blue)
-        pm.polyColorPerVertex(b=v)
+            v = ui.get_value(self.fs_blue)
+            pm.polyColorPerVertex(b=v)
 
     def onDragAlpha(self, *args):
-        if not self.is_chunk_open:
-            pm.undoInfo(openChunk=True)
-            self.is_chunk_open = True
+        if pm.selected():
+            if not self.is_chunk_open:
+                pm.undoInfo(openChunk=True)
+                self.is_chunk_open = True
 
-        v = ui.get_value(self.fs_alpha)
-        pm.polyColorPerVertex(a=v)
+            v = ui.get_value(self.fs_alpha)
+            pm.polyColorPerVertex(a=v)
 
     def onCloseChunk(self, *args):
         if self.is_chunk_open:
