@@ -35,6 +35,15 @@ def export_weight(objects=None, specified_name=None):
         if not objects:
             raise(Exception("no targets"))
 
+    # ウェイト用ディレクトリがなければ作成する
+    currentScene = cmds.file(q=True, sn=True)
+    dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
+
+    try:
+        os.mkdir(dir)
+    except:
+        pass
+
     for obj in objects:
         # meshでなければskip
         if not hasattr(pm.PyNode(obj), "getShape") and not isinstance(obj, nt.Mesh):
@@ -46,18 +55,16 @@ def export_weight(objects=None, specified_name=None):
         if skincluster == "":
             continue
 
-        # エクスポートするファイル名が未指定ならオブジェクト名使用する
+        # エクスポートするファイル名の決定
+        filename = ""
+
         if specified_name is None:
             filename = nu.get_basename(obj.name())
 
-        currentScene = cmds.file(q=True, sn=True)
-        dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
+        else:
+            filename = specified_name
 
-        try:
-            os.mkdir(dir)
-        except:
-            pass
-
+        # エクスポート
         if nu.is_format_option_supported():
             cmd = 'deformerWeights -export -vc -deformer "%(skincluster)s" -format "XML" -path "%(dir)s" "%(filename)s.xml"' % locals()
         else:
@@ -82,7 +89,7 @@ BM_BILINEAR = "bilinear"
 BM_OVER = "over"
 
 
-def import_weight(objects=None, method=BM_BILINEAR, temp_mode=False, filename=None):
+def import_weight(objects=None, method=BM_BILINEAR, specified_name=None):
     """ウェイトをXMLからインポートする
 
     Args:
@@ -102,7 +109,8 @@ def import_weight(objects=None, method=BM_BILINEAR, temp_mode=False, filename=No
     elif not isinstance(objects, list):
         raise(Exception())
 
-    name_specified = bool(filename)
+    currentScene = cmds.file(q=True, sn=True)
+    dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
 
     for obj in objects:
         # meshでなければskip
@@ -114,17 +122,16 @@ def import_weight(objects=None, method=BM_BILINEAR, temp_mode=False, filename=No
         skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals())
 
         # インポートするファイル名の決定
-        if not name_specified:
-            if temp_mode:
-                filename = "temp.xml"
+        filename = ""
+
+        if specified_name is None:
+            filename = nu.get_basename(obj.name()) + ".xml"
+
+        else:
+            if ".xml" in specified_name:
+                filename = specified_name
             else:
-                filename = nu.get_basename(obj.name()) + ".xml"
-
-        elif ".xml" not in filename:
-            filename = filename + ".xml"
-
-        currentScene = cmds.file(q=True, sn=True)
-        dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
+                filename = specified_name + ".xml"
 
         # ウェイトファイルがあるオブジェクトだけ処理
         print(dir+filename)
@@ -551,7 +558,7 @@ class NN_ToolWindow(object):
         filename = ui.get_value(self.eb_tempname)
 
         if is_specify_name:
-            export_weight(filename=filename)
+            export_weight(specified_name=filename)
         else:
             export_weight()
 
@@ -564,7 +571,7 @@ class NN_ToolWindow(object):
         method = BM_INDEX
 
         if is_specify_name:
-            import_weight(filename=filename, method=method)
+            import_weight(specified_name=filename, method=method)
         else:
             import_weight(method=method)
 
@@ -574,7 +581,7 @@ class NN_ToolWindow(object):
         method = BM_NEAREST
 
         if is_specify_name:
-            import_weight(filename=filename, method=method)
+            import_weight(specified_name=filename, method=method)
         else:
             import_weight(method=method)
 
@@ -584,7 +591,7 @@ class NN_ToolWindow(object):
         method = BM_BARYCENTRIC
 
         if is_specify_name:
-            import_weight(filename=filename, method=method)
+            import_weight(specified_name=filename, method=method)
         else:
             import_weight(method=method)
 
@@ -594,7 +601,7 @@ class NN_ToolWindow(object):
         method = BM_BILINEAR
 
         if is_specify_name:
-            import_weight(filename=filename, method=method)
+            import_weight(specified_name=filename, method=method)
         else:
             import_weight(method=method)
 
@@ -604,7 +611,7 @@ class NN_ToolWindow(object):
         method = BM_OVER
 
         if is_specify_name:
-            import_weight(filename=filename, method=method)
+            import_weight(specified_name=filename, method=method)
         else:
             import_weight(method=method)
 
