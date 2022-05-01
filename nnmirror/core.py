@@ -17,23 +17,23 @@ import nnutil.display as nd
 import nnutil.ui as ui
 
 
-def export_weight(objects=None, temp_mode=False, filename=None):
+def export_weight(objects=None, specified_name=None):
     """ウェイトをXMLでエクスポートする
 
     Args:
         objects (Transform or Mesh, optional): 対象のオブジェクト。省略時は選択オブジェクトを使用する. Defaults to None.
         temp_mode (bool, optional): True の場合オブジェクト名にかかわらず同一のファイル名を使用する. Defaults to False.
-        filename (str, optional): ウェイトを書き出す際のファイル名。省略時はオブジェクト名。temp_mode よりも優先される. Defaults to None.
+        specified_name (str, optional): ウェイトを書き出す際のファイル名。省略時はオブジェクト名。 Defaults to None.
     """
+    # 選択復帰用
     current_selections = pm.selected()
 
+    # オブジェクト未指定時は選択オブジェクトを使用する
     if not objects:
         objects = pm.selected(flatten=True)
 
         if not objects:
             raise(Exception("no targets"))
-
-    name_specified = bool(filename)
 
     for obj in objects:
         # meshでなければskip
@@ -46,12 +46,9 @@ def export_weight(objects=None, temp_mode=False, filename=None):
         if skincluster == "":
             continue
 
-        # エクスポートするファイル名
-        if not name_specified:
-            if temp_mode:
-                filename = "temp"
-            else:
-                filename = nu.get_basename(obj.name())
+        # エクスポートするファイル名が未指定ならオブジェクト名使用する
+        if specified_name is None:
+            filename = nu.get_basename(obj.name())
 
         currentScene = cmds.file(q=True, sn=True)
         dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
@@ -73,6 +70,7 @@ def export_weight(objects=None, temp_mode=False, filename=None):
             # エクスポートできないノードのスキップ
             pass
 
+    # 選択復帰
     pm.select(current_selections, replace=True)
 
 
@@ -308,13 +306,13 @@ class NN_ToolWindow(object):
         ui.button(label='X', c=self.onMirrorJointX, bgc=ui.color_x, width=ui.width2)
         ui.button(label='Y', c=self.onMirrorJointY, bgc=ui.color_y, width=ui.width2)
         ui.button(label='Z', c=self.onMirrorJointZ, bgc=ui.color_z, width=ui.width2)
+        ui.button(label='Op', c=self.onMirrorJointOp)
         ui.end_layout()
 
         ui.row_layout()
         ui.header()
         self.eb_prefix_from = ui.eb_text(text="L_")
         self.eb_prefix_to = ui.eb_text(text="R_")
-        ui.button(label='Op', c=self.onMirrorJointOp)
         ui.end_layout()
 
         ui.row_layout()
@@ -329,7 +327,8 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='weight')
         ui.button(label='export', c=self.onExportWeight, dgc=self.onExportWeightOptions)
-        self.tempMode = ui.check_box(label='temporary', v=False)
+        self.cb_specify_name = ui.check_box(label='specify name', v=False)
+        self.eb_tempname = ui.eb_text(text="temp", width=ui.width(3))
         ui.end_layout()
 
         ui.row_layout()
@@ -548,36 +547,66 @@ class NN_ToolWindow(object):
         nm.set_radius_auto()
 
     def onExportWeight(self, *args):
-        temp_mode = ui.get_value(self.tempMode)
-        export_weight(temp_mode=temp_mode)
+        is_specify_name = ui.get_value(self.cb_specify_name)
+        filename = ui.get_value(self.eb_tempname)
+
+        if is_specify_name:
+            export_weight(filename=filename)
+        else:
+            export_weight()
 
     def onExportWeightOptions(self, *args):
         mel.eval('ExportDeformerWeights')
 
     def onImportWeightIndex(self, *args):
-        temp_mode = ui.get_value(self.tempMode)
+        is_specify_name = ui.get_value(self.cb_specify_name)
+        filename = ui.get_value(self.eb_tempname)
         method = BM_INDEX
-        import_weight(temp_mode=temp_mode, method=method)
+
+        if is_specify_name:
+            import_weight(filename=filename, method=method)
+        else:
+            import_weight(method=method)
 
     def onImportWeightNearest(self, *args):
-        temp_mode = ui.get_value(self.tempMode)
+        is_specify_name = ui.get_value(self.cb_specify_name)
+        filename = ui.get_value(self.eb_tempname)
         method = BM_NEAREST
-        import_weight(temp_mode=temp_mode, method=method)
+
+        if is_specify_name:
+            import_weight(filename=filename, method=method)
+        else:
+            import_weight(method=method)
 
     def onImportWeightBarycentric(self, *args):
-        temp_mode = ui.get_value(self.tempMode)
+        is_specify_name = ui.get_value(self.cb_specify_name)
+        filename = ui.get_value(self.eb_tempname)
         method = BM_BARYCENTRIC
-        import_weight(temp_mode=temp_mode, method=method)
+
+        if is_specify_name:
+            import_weight(filename=filename, method=method)
+        else:
+            import_weight(method=method)
 
     def onImportWeightBilinear(self, *args):
-        temp_mode = ui.get_value(self.tempMode)
+        is_specify_name = ui.get_value(self.cb_specify_name)
+        filename = ui.get_value(self.eb_tempname)
         method = BM_BILINEAR
-        import_weight(temp_mode=temp_mode, method=method)
+
+        if is_specify_name:
+            import_weight(filename=filename, method=method)
+        else:
+            import_weight(method=method)
 
     def onImportWeightOver(self, *args):
-        temp_mode = ui.get_value(self.tempMode)
+        is_specify_name = ui.get_value(self.cb_specify_name)
+        filename = ui.get_value(self.eb_tempname)
         method = BM_OVER
-        import_weight(temp_mode=temp_mode, method=method)
+
+        if is_specify_name:
+            import_weight(filename=filename, method=method)
+        else:
+            import_weight(method=method)
 
     def onImportWeightOptions(self, *args):
         mel.eval('ImportDeformerWeights')
