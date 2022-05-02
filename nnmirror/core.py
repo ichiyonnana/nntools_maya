@@ -185,7 +185,7 @@ def import_weight(objects=None, method=BM_BILINEAR, specified_name=None):
 
 def combine_skined_mesh(objects=None):
     """指定したオブジェクトをウェイトを維持して結合する。
-    
+
     バインド済みのメッシュとそうでないメッシュが混在していた場合はすべてバインド済みにした上で結合する。
 
     Args:
@@ -244,6 +244,20 @@ def combine_skined_mesh(objects=None):
         pm.parent(object, parent)
         pm.bakePartialHistory(object, ppt=True)
         nu.pynode(object).rename(name)
+
+
+def duplicate_mesh(extract=False):
+    selected_faces = pm.selected(flatten=True)
+    object = pm.polyListComponentConversion(selected_faces[0])
+    object2 = pm.duplicate(object)
+
+    pm.select(object2)
+    pm.selectMode(component=True)
+    mel.eval("invertSelection")
+    pm.delete()
+
+    if extract:
+        pm.delete(selected_faces)
 
 
 class NN_ToolWindow(object):
@@ -406,10 +420,12 @@ class NN_ToolWindow(object):
         ui.separator()
 
         ui.row_layout()
-        ui.header(label='Remesh')
+        ui.header(label='Mesh')
+        ui.button(label='Extract', c=self.onExtract)
+        ui.button(label='Duplicate', c=self.onDuplicate)
         ui.button(label='QRemesher', c=self.onQuadRemesher)
         ui.end_layout()
-        
+
         ui.separator()
 
         ui.row_layout()
@@ -706,6 +722,12 @@ class NN_ToolWindow(object):
     def onQuadRemesher(self, *args):
         import QuadRemesher
         QuadRemesher.QuadRemesher()
+
+    def onExtract(self, *args):
+        duplicate_mesh(extract=True)
+
+    def onDuplicate(self, *args):
+        duplicate_mesh()
 
     def onGetPos(self, *args):
         obj = pm.selected(flatten=True)[0]
