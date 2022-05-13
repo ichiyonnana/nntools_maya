@@ -740,13 +740,14 @@ def change_uveditor_image(n):
         mel.eval("ToggleUVIsolateViewSelected;")
 
 
-def toggle_joint_locator_visibility():
+def toggle_joint_locator_visibility(locator=False):
     active_panel = cmds.getPanel(withFocus=True)
     current_visibility = cmds.modelEditor(active_panel, q=True, joints=True)
     new_visibility = not current_visibility
     cmds.modelEditor(active_panel, e=True, joints=new_visibility)
-    cmds.modelEditor(active_panel, e=True, locators=new_visibility)
     cmds.modelEditor(active_panel, e=True, jointXray=1)
+    if locator:
+        cmds.modelEditor(active_panel, e=True, locators=new_visibility)
 
 
 def toggle_imageplane_visivility():
