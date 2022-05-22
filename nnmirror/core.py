@@ -17,6 +17,24 @@ import nnutil.display as nd
 import nnutil.ui as ui
 
 
+def mirror_objects(objects=None, axis=0, direction=1, cut=False):
+    if cut:
+        merge_mode = 0
+    else:
+        merge_mode = 1
+
+    objects = pm.selected(flatten=True)
+
+    if isinstance(objects[0], (nt.Mesh, nt.Transform)):
+        # オブジェクト
+        for obj in objects:
+            if obj.getShape():
+                pm.polyMirrorFace(obj, cutMesh=1, axis=axis, axisDirection=direction, mergeMode=merge_mode, mergeThresholdType=1, mergeThreshold=0.01, mirrorAxis=1, mirrorPosition=0, smoothingAngle=180, flipUVs=0, ch=1)
+    else:
+        # コンポーネント
+        pm.polyMirrorFace(cutMesh=1, axis=axis, axisDirection=direction, mergeMode=merge_mode, mergeThresholdType=1, mergeThreshold=0.01, mirrorAxis=1, mirrorPosition=0, smoothingAngle=180, flipUVs=0, ch=1)
+
+
 def export_weight(objects=None, specified_name=None):
     """ウェイトをXMLでエクスポートする
 
@@ -435,22 +453,22 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
     def onMirrorFaceXPosi(self, *args):
-        mel.eval('polyMirrorFace  -cutMesh 1 -axis 0 -axisDirection 0 -mergeMode 1 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1;')
+        mirror_objects(axis=0, direction=0, cut=False)
 
     def onMirrorFaceXNega(self, *args):
-        mel.eval('polyMirrorFace  -cutMesh 1 -axis 0 -axisDirection 1 -mergeMode 1 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1;')
+        mirror_objects(axis=0, direction=1, cut=False)
 
     def onMirrorFaceYPosi(self, *args):
-        mel.eval('polyMirrorFace  -cutMesh 1 -axis 1 -axisDirection 0 -mergeMode 1 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1;')
+        mirror_objects(axis=1, direction=0, cut=False)
 
     def onMirrorFaceYNega(self, *args):
-        mel.eval('polyMirrorFace  -cutMesh 1 -axis 1 -axisDirection 1 -mergeMode 1 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1;')
+        mirror_objects(axis=1, direction=1, cut=False)
 
     def onMirrorFaceZPosi(self, *args):
-        mel.eval('polyMirrorFace  -cutMesh 1 -axis 2 -axisDirection 0 -mergeMode 1 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1;')
+        mirror_objects(axis=2, direction=0, cut=False)
 
     def onMirrorFaceZNega(self, *args):
-        mel.eval('polyMirrorFace  -cutMesh 1 -axis 2 -axisDirection 1 -mergeMode 1 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1;')
+        mirror_objects(axis=2, direction=1, cut=False)
 
     def onMirrorFaceOp(self, *args):
         mel.eval('MirrorPolygonGeometryOptions')
@@ -477,22 +495,22 @@ class NN_ToolWindow(object):
             cmds.xform(v, a=True, os=True, t=(0, y, z))
 
     def onCutGeoXPosi(self, *args):
-        mel.eval('polyMirrorFace  -cutMesh 1 -axis 0 -axisDirection 1 -mergeMode 0 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1 ;')
+        mirror_objects(axis=0, direction=0, cut=True)
 
     def onCutGeoXNega(self, *args):
-        mel.eval('polyMirrorFace  -cutMesh 1 -axis 0 -axisDirection 1 -mergeMode 0 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1 ;')
+        mirror_objects(axis=0, direction=1, cut=True)
 
     def onCutGeoYPosi(self, *args):
-        mel.eval('polyMirrorFace  -cutMesh 1 -axis 1 -axisDirection 1 -mergeMode 0 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1 ;')
+        mirror_objects(axis=1, direction=0, cut=True)
 
     def onCutGeoYNega(self, *args):
-        mel.eval('polyMirrorFace  -cutMesh 1 -axis 1 -axisDirection 1 -mergeMode 0 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1 ;')
+        mirror_objects(axis=1, direction=1, cut=True)
 
     def onCutGeoZPosi(self, *args):
-        mel.eval('polyMirrorFace  -cutMesh 1 -axis 2 -axisDirection 1 -mergeMode 0 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1 ;')
+        mirror_objects(axis=2, direction=0, cut=True)
 
     def onCutGeoZNega(self, *args):
-        mel.eval('polyMirrorFace  -cutMesh 1 -axis 2 -axisDirection 1 -mergeMode 0 -mergeThresholdType 1 -mergeThreshold 0.01 -mirrorAxis 1 -mirrorPosition 0 -smoothingAngle 180 -flipUVs 0 -ch 1 ;')
+        mirror_objects(axis=2, direction=1, cut=True)
 
     def onFlipX(self, *args):
         selections = cmds.ls(selection=True, flatten=True)
