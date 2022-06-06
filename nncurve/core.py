@@ -21,6 +21,15 @@ import nnutil.display as nd
 
 DEBUG = False
 
+
+window_name = "NN_Curve"
+window = None
+
+
+def get_window():
+    return window
+
+
 window_width = 300
 header_width = 50
 bw_single = 24
@@ -199,8 +208,8 @@ def getAllCurves():
 class NN_ToolWindow(object):
 
     def __init__(self):
-        self.window = 'NN_Curve'
-        self.title = 'NN_Curve'
+        self.window = window_name
+        self.title = window_name
         self.size = (350, 95)
 
     def create(self):

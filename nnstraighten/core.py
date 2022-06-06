@@ -13,6 +13,15 @@ import maya.mel as mel
 
 import nnutil as nu
 
+
+window_name = "NN_Straighten"
+window = None
+
+
+def get_window():
+    return window
+
+
 window_width = 300
 header_width = 50
 color_x = (1.0, 0.5, 0.5)
@@ -49,10 +58,9 @@ class NN_ToolWindow(object):
     MD_LINE = 1
     MD_PLANE = 2
 
-
     def __init__(self):
-        self.window = 'NN_Straighten'
-        self.title = 'NN_Straighten'
+        self.window = window_name
+        self.title = window_name
         self.size = (window_width, 95)
 
         self.sample_vts = []

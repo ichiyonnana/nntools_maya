@@ -16,6 +16,15 @@ import nnutil.curve as nc
 import nnutil.ui as ui
 import nnutil.display as nd
 
+
+window_name = "NN_Simplify"
+window = None
+
+
+def get_window():
+    return window
+
+
 window_width = 300
 header_width = 50
 
@@ -129,8 +138,8 @@ def equalize_edges(edges=None, multiplier=1.0):
 class NN_ToolWindow(object):
 
     def __init__(self):
-        self.window = 'NN_Simplify'
-        self.title = 'NN_Simplify'
+        self.window = window_name
+        self.title = window_name
         self.size = (window_width, 95)
 
         pm.selectPref(trackSelectionOrder=True)

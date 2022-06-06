@@ -15,6 +15,15 @@ import pymel.core.nodetypes as nt
 import nnutil as nu
 import nnutil.ui as ui
 
+
+window_name = "NN_Lattice"
+window = None
+
+
+def get_window():
+    return window
+
+
 window_width = 300
 header_width = 50
 
@@ -520,8 +529,8 @@ def apply_lattice(lattices=[]):
 class NN_ToolWindow(object):
 
     def __init__(self):
-        self.window = 'NN_Lattice'
-        self.title = 'NN_Lattice'
+        self.window = window_name
+        self.title = window_name
         self.size = (window_width, 95)
 
         pm.selectPref(trackSelectionOrder=True)

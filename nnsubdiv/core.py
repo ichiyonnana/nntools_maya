@@ -16,6 +16,15 @@ import pymel.core.nodetypes as nt
 import nnutil
 import nnutil.ui as ui
 
+
+window_name = "NN_Subdiv"
+window = None
+
+
+def get_window():
+    return window
+
+
 window_width = 300
 header_width = 50
 color_x = (1.0, 0.5, 0.5)
@@ -31,8 +40,8 @@ bw_triple = bw_single*3 + 4
 class NN_ToolWindow(object):
 
     def __init__(self):
-        self.window = 'NN_Subdiv'
-        self.title = 'NN_Subdiv'
+        self.window = window_name
+        self.title = window_name
         self.size = (window_width, 95)
 
         pm.selectPref(trackSelectionOrder=True)

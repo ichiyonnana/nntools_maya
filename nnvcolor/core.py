@@ -13,7 +13,13 @@ import nnutil.decorator as deco
 import nnutil.ui as ui
 import nnutil.display as nd
 
+
 window_name = "NN_VColor"
+window = None
+
+
+def get_window():
+    return window
 
 
 class NN_ToolWindow(object):

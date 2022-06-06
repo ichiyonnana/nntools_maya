@@ -7,6 +7,14 @@ import traceback
 import nnutil.ui as ui
 
 
+window_name = "NN_Align_EdgeRing"
+window = None
+
+
+def get_window():
+    return window
+
+
 # vertex から point 取得
 def pointFromVertex(vtx):
     return cmds.xform(vtx, q=True, ws=True, t=True)
@@ -60,8 +68,8 @@ class NN_AlignedgeRingWindow(object):
     preserveAngle = True  # もとのエッジの角度を維持するならTrue
 
     def __init__(self):
-        self.window = 'NN_AlignedgeRingWindow'
-        self.title = 'Align EdgeRing'
+        self.window = window_name
+        self.title = window_name
         self.size = (350, 95)
 
         self.absolute_mode_components = []

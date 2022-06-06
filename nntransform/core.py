@@ -14,6 +14,15 @@ import maya.mel as mel
 
 import nnutil
 
+
+window_name = "NN_Transform"
+window = None
+
+
+def get_window():
+    return window
+
+
 window_width = 240
 header_width = 50
 color_x = (1.0, 0.5, 0.5)
@@ -28,8 +37,8 @@ bw_double = bw_single*2 + 2
 class NN_ToolWindow(object):
 
     def __init__(self):
-        self.window = 'NN_Transform'
-        self.title = 'NN_Transform'
+        self.window = window_name
+        self.title = window_name
         self.size = (window_width, 95)
 
     def create(self):

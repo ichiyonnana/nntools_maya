@@ -15,13 +15,18 @@ import nnutil.ui as ui
 import nnutil.display as nd
 
 
-dialog_name = "NN_Camera"
+window_name = "NN_Camera"
+window = None
+
+
+def get_window():
+    return window
 
 
 class NN_ToolWindow(object):
     def __init__(self):
-        self.window = dialog_name
-        self.title = dialog_name
+        self.window = window_name
+        self.title = window_name
         self.size = (300, 95)
 
         self.all_cameras = pm.ls(type="camera")
@@ -75,6 +80,7 @@ class NN_ToolWindow(object):
                                                     append=self.all_imageplanes,
                                                     showIndexedItem=1,
                                                     selectCommand=self.onClickImageplaneListItem,
+                                                    doubleClickCommand=self.onDoubleClickImageplaneListItem,
                                                     height=ui.height(10)
                                                     )
 
@@ -133,13 +139,21 @@ class NN_ToolWindow(object):
                 pm.PyNode(item).visibility.set(False)
                 pm.PyNode(item).getParent().visibility.set(False)
 
+    def onDoubleClickImageplaneListItem(self, *args):
+        """アイテムの選択"""
+        self.onSelectImageplane()
+
     def onSelectCameraObject(self, *args):
         camera = pm.PyNode(pm.textScrollList(self.camera_list, q=True, selectItem=True)[0])
         pm.select(camera.getParent())
 
     def onSelectImageplane(self, *args):
-        object = pm.PyNode(pm.textScrollList(self.item_list, q=True, selectItem=True)[0])
-        pm.select(object.getParent())
+        pm.select(clear=True)
+        objects = pm.textScrollList(self.item_list, q=True, selectItem=True)
+
+        for object_name in objects:
+            object = pm.PyNode(object_name)
+            pm.select(object.getParent(), add=True)
 
     def onEditImage(self, *args):
         """選択されているイメージプレーンを開く"""

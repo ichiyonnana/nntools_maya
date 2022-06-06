@@ -9,6 +9,14 @@ import nnutil.core as nu
 import nnutil.decorator as deco
 
 
+window_name = "NN_Skin"
+window = None
+
+
+def get_window():
+    return window
+
+
 def get_skincluster(target):
     """
     スキンクラスターの取得
@@ -311,8 +319,8 @@ def average_weight(selections=None):
 class NN_ToolWindow(object):
 
     def __init__(self):
-        self.window = 'NN_Skin'
-        self.title = 'NN_Skin'
+        self.window = window_name
+        self.title = window_name
         self.size = (350, 95)
 
     def create(self):

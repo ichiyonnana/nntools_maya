@@ -30,6 +30,7 @@ def mirror_objects(objects=None, axis=0, direction=1, cut=False):
         for obj in objects:
             if obj.getShape():
                 pm.polyMirrorFace(obj, cutMesh=1, axis=axis, axisDirection=direction, mergeMode=merge_mode, mergeThresholdType=1, mergeThreshold=0.01, mirrorAxis=1, mirrorPosition=0, smoothingAngle=180, flipUVs=0, ch=1)
+                pm.bakePartialHistory(obj, ppt=True)
     else:
         # コンポーネント
         pm.polyMirrorFace(cutMesh=1, axis=axis, axisDirection=direction, mergeMode=merge_mode, mergeThresholdType=1, mergeThreshold=0.01, mirrorAxis=1, mirrorPosition=0, smoothingAngle=180, flipUVs=0, ch=1)

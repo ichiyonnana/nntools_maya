@@ -9,6 +9,14 @@ import nnutil.core as nu
 import nnutil.ui as ui
 import nnutil.decorator as nd
 
+window_name = "NN_UVToolkit"
+window = None
+
+
+def get_window():
+    return window
+
+
 MSG_NOT_IMPLEMENTED = "未実装"
 
 
@@ -653,8 +661,8 @@ def draw_edge(map_size):
 
 class NN_ToolWindow(object):
     def __init__(self):
-        self.window = 'NN_UVToolkit'
-        self.title = 'NN_UVToolkit'
+        self.window = window_name
+        self.title = window_name
         self.size = (350, 95)
 
     def create(self):
