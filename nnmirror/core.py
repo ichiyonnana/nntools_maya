@@ -255,9 +255,9 @@ def combine_skined_mesh(objects=None):
         # 先に適当なメッシュのウェイトをコピーしてから polyUniteSkinned で結合する
         static_meshes = nu.list_diff(all_meshes, skined_meshes)
         weight_file_name = "combine_skined_mesh_temp"
-        export_weight([skined_meshes[0]], filename=weight_file_name)
+        export_weight([skined_meshes[0]], specified_name=weight_file_name)
 
-        import_weight(static_meshes, filename=weight_file_name)
+        import_weight(static_meshes, specified_name=weight_file_name)
 
         object, node = pm.polyUniteSkinned(all_meshes, ch=1, mergeUVSets=1, objectPivot=True)
         pm.parent(object, parent)
