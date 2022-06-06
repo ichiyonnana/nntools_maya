@@ -5,6 +5,7 @@ import os
 import sys
 import traceback
 
+import maya.api.OpenMaya as om
 import pymel.core as pm
 import pymel.core.nodetypes as nt
 import pymel.core.datatypes as dt
@@ -396,6 +397,13 @@ class NN_ToolWindow(object):
         ui.button(label='unlockTRS [lock]', c=self.onUnlockTRS, dgc=self.onLockTRS)
         ui.end_layout()
 
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='reset pose', c=self.onResetPose)
+        ui.button(label='move joint', c=self.onMoveSkinedJointTool)
+        ui.button(label='del pose', c=self.onDeletePose)
+        ui.end_layout()
+
         ui.separator()
 
         ui.row_layout()
@@ -679,6 +687,26 @@ class NN_ToolWindow(object):
     def onLockTRS(self, *args):
         for obj in pm.selected(flatten=True):
             nu.lock_trs(obj)
+
+    def onResetPose(self, *args):
+        pm.dagPose(reset=True, n="bindPose1", bindPose=True)
+
+    def onMoveSkinedJointTool(self, *args):
+        mel.eval("MoveSkinJointsToolOptions")
+
+    def onDeletePose(self, *args):
+        poses = [x for x in pm.ls(type="dagPose") if "bindPose" in x.name()]
+
+        if len(poses) == 0:
+            return
+
+        elif len(poses) >= 2:
+            pm.delete(poses[1:-1])
+
+        else:
+            pass
+
+        poses[0].rename("bindPose1")
 
     def onCombine(self, *args):
         combine_skined_mesh()
