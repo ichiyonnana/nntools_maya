@@ -16,6 +16,13 @@ import nnutil.misc as nm
 import nnutil.display as nd
 import nnutil.ui as ui
 
+window_name = "NN_Mirror"
+window = None
+
+
+def get_window():
+    return window
+
 
 def mirror_objects(objects=None, axis=0, direction=1, cut=False):
     if cut:
@@ -282,8 +289,8 @@ def duplicate_mesh(extract=False):
 class NN_ToolWindow(object):
 
     def __init__(self):
-        self.window = 'NN_Mirror'
-        self.title = 'NN_Mirror'
+        self.window = window_name
+        self.title = window_name
         self.size = (300, 95)
 
     def create(self):
