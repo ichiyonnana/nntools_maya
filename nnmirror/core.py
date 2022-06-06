@@ -757,11 +757,25 @@ class NN_ToolWindow(object):
 
     def onGetPos(self, *args):
         obj = pm.selected(flatten=True)[0]
-        self.getpos_points = nu.get_points(obj)
+
+        if ui.is_shift():
+            self.getpos_points = nu.get_points(obj, space=om.MSpace.kWorld)
+            nd.message("copy points (world space)")
+
+        else:
+            self.getpos_points = nu.get_points(obj, space=om.MSpace.kObject)
+            nd.message("copy points (object space)")
 
     def onSetPos(self, *args):
         obj = pm.selected(flatten=True)[0]
-        nu.set_points(obj, points=self.getpos_points)
+
+        if ui.is_shift():
+            nu.set_points(obj, points=self.getpos_points, space=om.MSpace.kWorld)
+            nd.message("paste points (world space)")
+
+        else:
+            nu.set_points(obj, points=self.getpos_points, space=om.MSpace.kObject)
+            nd.message("paste points (object space)")
 
 
 def showNNToolWindow():
