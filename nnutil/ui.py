@@ -164,16 +164,16 @@ def text(label="", width=button_width_auto, *args, **kwargs):
     return pm.text(label=label, width=actual_width, *args, **kwargs)
 
 
-def button(label, icon=None, width=button_width_auto, bgc=color_default, c=any_handler, dgc=any_handler, *args, **kwargs):
+def button(label, icon=None, width=button_width_auto, height=height1, bgc=color_default, c=any_handler, dgc=any_handler, *args, **kwargs):
     actual_width = width
 
     if width == button_width_auto:
         actual_width = decide_width(label, with_icon=bool(icon))
 
     if icon:
-        component = pm.iconTextButton(l=label, image1=icon, style="iconAndTextHorizontal", bgc=bgc, c=c, dgc=dgc, width=actual_width, height=height1, *args, **kwargs)
+        component = pm.iconTextButton(l=label, image1=icon, style="iconAndTextHorizontal", bgc=bgc, c=c, dgc=dgc, width=actual_width, height=height, *args, **kwargs)
     else:
-        component = pm.button(l=label, c=c, dgc=dgc, width=actual_width, height=height1, bgc=bgc, *args, **kwargs)
+        component = pm.button(l=label, c=c, dgc=dgc, width=actual_width, height=height, bgc=bgc, *args, **kwargs)
 
     return component
 
