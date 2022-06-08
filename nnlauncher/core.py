@@ -23,19 +23,19 @@ def get_window():
 
 class NN_ToolWindow(object):
     all_modules = [
-        "nnmirror.core",
-        "nnuvtoolkit.core",
-        "nncamera.core",
-        "align_edgering_length.core",
-        "nncurve.core",
-        "nnsimplify.core",
-        "nnstraighten.core",
-        "nnlattice.core",
-        "altunt.core",
-        "nnvcolor.core",
-        "nnskin.core",
-        "nnsubdiv.core",
-        "nntransform.core",
+        "nnmirror",
+        "nnuvtoolkit",
+        "nncamera",
+        "align_edgering_length",
+        "nncurve",
+        "nnsimplify",
+        "nnstraighten",
+        "nnlattice",
+        "altunt",
+        "nnvcolor",
+        "nnskin",
+        "nnsubdiv",
+        "nntransform",
         ]
 
     def __init__(self):
@@ -211,8 +211,9 @@ class NN_ToolWindow(object):
         """全ての NNTools ダイアログを閉じる"""
         for module_name in self.all_modules:
             module = __import__(module_name)
-            if pm.window(module.window_name, exists=True):
-                pm.deleteUI(module.window_name, window=True)
+
+            if pm.window(module.core.window_name, exists=True):
+                pm.deleteUI(module.core.window_name, window=True)
 
         if not ui.is_shift():
             pm.deleteUI(self.window, window=True)
