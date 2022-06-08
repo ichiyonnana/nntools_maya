@@ -27,7 +27,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (300, 95)
+        self.size = (350, 320)
 
         self.all_cameras = pm.ls(type="camera")
         self.active_camera = pm.PyNode(nu.get_active_camera())
@@ -37,17 +37,28 @@ class NN_ToolWindow(object):
         self.image_editor = r"D:\Program Files\Adobe\Adobe Photoshop 2022\Photoshop.exe"
 
     def create(self):
-        if cmds.window(self.window, exists=True):
-            cmds.deleteUI(self.window, window=True)
-        self.window = cmds.window(
-            self.window,
-            t=self.title,
-            widthHeight=self.size
-        )
+        if pm.window(self.window, exists=True):
+            pm.deleteUI(self.window, window=True)
+
+        # プリファレンスの有無による分岐
+        if pm.windowPref(self.window, exists=True):
+            # ウィンドウのプリファレンスがあれば位置だけ保存して削除
+            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
+            pm.windowPref(self.window, remove=True)
+
+            # 前回位置に指定したサイズで表示
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+
+        else:
+            # プリファレンスがなければデフォルト位置に指定サイズで表示
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+
         self.layout()
-        cmds.showWindow()
+        pm.showWindow(self.window)
 
     def layout(self):
+        ui.column_layout()
+
         ui.row_layout()
 
         # 左ペイン
@@ -83,7 +94,12 @@ class NN_ToolWindow(object):
                                                     doubleClickCommand=self.onDoubleClickImageplaneListItem,
                                                     height=ui.height(10)
                                                     )
+        ui.end_layout()
 
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.button(label="Toggle Display", c=self.onToggleDisplay)
         ui.end_layout()
 
         ui.end_layout()
@@ -171,6 +187,18 @@ class NN_ToolWindow(object):
 
         if image_editor_path:
             self.image_editor = image_editor_path
+
+    def onToggleDisplay(self, *args):
+        """シーン内のすべてのイメージプレーンの Display モード (lokking through camera / in all views) をトグルする"""
+        ips = pm.ls(type="imagePlane")
+        current = ips[0].displayOnlyIfCurrent.get()
+
+        for ip in ips:
+            print(ip.name())
+            ip.displayOnlyIfCurrent.set(not current)
+            print(ip.displayOnlyIfCurrent.get())
+
+        pm.select(ips)
 
 
 def showNNToolWindow():
