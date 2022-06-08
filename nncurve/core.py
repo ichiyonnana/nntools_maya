@@ -210,20 +210,27 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (350, 95)
+        self.size = (240, 360)
 
     def create(self):
-        if cmds.window(self.window, exists=True):
-            cmds.deleteUI(self.window, window=True)
-        self.window = cmds.window(
-            self.window,
-            t=self.title,
-            widthHeight=self.size
-        )
-        self.layout()
-        cmds.showWindow()
+        if pm.window(self.window, exists=True):
+            pm.deleteUI(self.window, window=True)
 
-        cmds.textField(self.tx_rebuild_resolution, e=True, tx=4)
+        # プリファレンスの有無による分岐
+        if pm.windowPref(self.window, exists=True):
+            # ウィンドウのプリファレンスがあれば位置だけ保存して削除
+            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
+            pm.windowPref(self.window, remove=True)
+
+            # 前回位置に指定したサイズで表示
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+
+        else:
+            # プリファレンスがなければデフォルト位置に指定サイズで表示
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+
+        self.layout()
+        pm.showWindow(self.window)
 
     def layout(self):
         self.columnLayout = cmds.columnLayout()
@@ -268,7 +275,7 @@ class NN_ToolWindow(object):
         self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
         self.cb_keep_ratio_mode = cmds.checkBox(l='keep ratio', v=True, cc=self.onSetKeepRatio)
         self.bt_ = cmds.button(l='/2', c=self.onRebuildResolutionDiv2)
-        self.tx_rebuild_resolution = cmds.textField(tx='', width=32)
+        self.tx_rebuild_resolution = cmds.textField(tx='2', width=32)
         self.bt_ = cmds.button(l='x2', c=self.onRebuildResolutionMul2)
         cmds.setParent("..")
 

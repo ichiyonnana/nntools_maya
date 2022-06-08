@@ -1,6 +1,7 @@
 # coding:utf-8
 # エッジのリスト選択して実行すると片側固定して幅を統一するやつ
 import maya.cmds as cmds
+import pymel.core as pm
 import math
 import traceback
 
@@ -70,22 +71,30 @@ class NN_AlignedgeRingWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (350, 95)
+        self.size = (270, 320)
 
         self.absolute_mode_components = []
         self.relative_mode_components = []
 
     def create(self):
-        if cmds.window('NN_AlignedgeRingWindow', exists=True):
-            cmds.deleteUI('NN_AlignedgeRingWindow', window=True)
+        if pm.window(self.window, exists=True):
+            pm.deleteUI(self.window, window=True)
 
-        self.window = cmds.window(
-            self.window,
-            t=self.title,
-            widthHeight=self.size
-        )
+        # プリファレンスの有無による分岐
+        if pm.windowPref(self.window, exists=True):
+            # ウィンドウのプリファレンスがあれば位置だけ保存して削除
+            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
+            pm.windowPref(self.window, remove=True)
+
+            # 前回位置に指定したサイズで表示
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+
+        else:
+            # プリファレンスがなければデフォルト位置に指定サイズで表示
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+
         self.layout()
-        cmds.showWindow()
+        pm.showWindow(self.window)
 
     def layout(self):
         ui.column_layout()

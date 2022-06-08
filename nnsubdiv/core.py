@@ -25,7 +25,7 @@ def get_window():
     return window
 
 
-window_width = 300
+window_width = 260
 header_width = 50
 color_x = (1.0, 0.5, 0.5)
 color_y = (0.5, 1.0, 0.5)
@@ -42,20 +42,29 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (window_width, 95)
+        self.size = (window_width, 280)
 
         pm.selectPref(trackSelectionOrder=True)
 
     def create(self):
-        if cmds.window(self.window, exists=True):
-            cmds.deleteUI(self.window, window=True)
-        self.window = cmds.window(
-            self.window,
-            t=self.title,
-            widthHeight=self.size
-        )
+        if pm.window(self.window, exists=True):
+            pm.deleteUI(self.window, window=True)
+
+        # プリファレンスの有無による分岐
+        if pm.windowPref(self.window, exists=True):
+            # ウィンドウのプリファレンスがあれば位置だけ保存して削除
+            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
+            pm.windowPref(self.window, remove=True)
+
+            # 前回位置に指定したサイズで表示
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+
+        else:
+            # プリファレンスがなければデフォルト位置に指定サイズで表示
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+
         self.layout()
-        cmds.showWindow()
+        pm.showWindow(self.window)
 
     def layout(self):
         self.columnLayout = cmds.columnLayout()
