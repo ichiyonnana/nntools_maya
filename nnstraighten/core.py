@@ -8,6 +8,7 @@ import os
 import sys
 import traceback
 
+import pymel.core as pm
 import maya.cmds as cmds
 import maya.mel as mel
 
