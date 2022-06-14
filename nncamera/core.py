@@ -23,11 +23,23 @@ def get_window():
     return window
 
 
+class ListItem:
+    def __init__(self, name, key, content):
+        self.name = name
+        self.key = key
+        self.content = content
+
+
 class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (350, 320)
+        self.size = (350, 340)
+
+        self.target_panel = None  # Fix Panel 有効時に使用されるパネル
+
+        self.camera_list_items = []  # カメラリストの ListItem 配列
+        self.imageplane_list_items = []  # イメージプレーンリストの ListItem 配列
 
         self.all_cameras = pm.ls(type="camera")
         self.active_camera = pm.PyNode(nu.get_active_camera())
@@ -65,7 +77,8 @@ class NN_ToolWindow(object):
         ui.column_layout()
         ui.row_layout()
         ui.button(label="Update", c=self.onUpdateCameraList)
-        ui.button(label="Select Camera", c=self.onSelectCameraObject)
+        ui.button(label="Select", c=self.onSelectCameraObject)
+        ui.button(label="Lock", c=self.onLockCamera, dgc=self.onUnLockCamera)
         ui.end_layout()
         self.camera_list = pm.textScrollList(
                                                     numberOfRows=20,
@@ -82,8 +95,9 @@ class NN_ToolWindow(object):
         # 右ペイン
         ui.column_layout()
         ui.row_layout()
-        ui.button(label="Select Item", c=self.onSelectImageplane)
-        ui.button(label="Edit Image", c=self.onEditImage, dgc=self.onSetImageEditor)
+        ui.button(label="Lock", c=self.onLockImageplane, dgc=self.onUnLockImageplane)
+        ui.button(label="Dup", c=self.onDuplicateImageplane)
+        ui.button(label="Edit", c=self.onEditImage, dgc=self.onSetImageEditor)
         ui.end_layout()
         self.item_list = pm.textScrollList(
                                                     numberOfRows=20,
@@ -99,7 +113,14 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
         ui.row_layout()
+        ui.button(label="TearOff", c=self.onTearOff)
         ui.button(label="Toggle Display", c=self.onToggleDisplay)
+        ui.button(label="Fix Panel", c=self.onFixPanel)
+        self.cb_fix_target = ui.check_box(label="Fix Panel")
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.button(label="LookThrough Parent", c=self.onLookThroughParent)
         ui.end_layout()
 
         ui.end_layout()
@@ -125,7 +146,7 @@ class NN_ToolWindow(object):
                                 )
 
     def onClickCameraListItem(self, *args):
-        """カメラ選択のハンドラ｡子供のリストを更新する"""
+        """カメラリストアイテムのクリックのハンドラ｡子供のリストを更新する"""
         camera_name = pm.textScrollList(self.camera_list, q=True, selectItem=True)[0]
         camera = pm.PyNode(camera_name)
         camera_trs = camera.getParent()
@@ -136,23 +157,27 @@ class NN_ToolWindow(object):
         pm.textScrollList(self.item_list, e=True, append=all_imageplanes, sii=visible_indices)
 
     def onDoubleClickCameraListItem(self, *args):
-        """カメラダブルクリックのハンドラ｡アクティブパネルのカメラを切り替える"""
+        """カメラリストアイテムのダブルクリックのハンドラ｡アクティブパネルのカメラを切り替える"""
         camera_name = pm.textScrollList(self.camera_list, q=True, selectItem=True)[0]
         active_panel = pm.getPanel(wf=True)
 
-        pm.lookThru(active_panel, camera_name)
+        if ui.get_value(self.cb_fix_target):
+            pm.lookThru(self.target_panel, camera_name)
+
+        else:
+            pm.lookThru(active_panel, camera_name)
 
     def onClickImageplaneListItem(self, *args):
-        """アイテムの選択状態の更新｡ビジビリティの更新"""
+        """イメージプレーンリストアイテムのクリック｡ビジビリティの更新"""
         all_items = pm.textScrollList(self.item_list, q=True, allItems=True)
         selected_items = pm.textScrollList(self.item_list, q=True, selectItem=True)
 
         for item in all_items:
+            pm.PyNode(item).visibility.set(True)
+
             if item in selected_items:
-                pm.PyNode(item).visibility.set(True)
                 pm.PyNode(item).getParent().visibility.set(True)
             else:
-                pm.PyNode(item).visibility.set(False)
                 pm.PyNode(item).getParent().visibility.set(False)
 
     def onDoubleClickImageplaneListItem(self, *args):
@@ -160,16 +185,22 @@ class NN_ToolWindow(object):
         self.onSelectImageplane()
 
     def onSelectCameraObject(self, *args):
+        """カメラオブジェクトの選択"""
         camera = pm.PyNode(pm.textScrollList(self.camera_list, q=True, selectItem=True)[0])
         pm.select(camera.getParent())
 
     def onSelectImageplane(self, *args):
+        """イメージプレーンオブジェクトの選択"""
         pm.select(clear=True)
         objects = pm.textScrollList(self.item_list, q=True, selectItem=True)
 
         for object_name in objects:
             object = pm.PyNode(object_name)
             pm.select(object.getParent(), add=True)
+
+    def onDuplicateImageplane(self, *args):
+        """イメージプレーンオブジェクトと参照先の画像ファイルの複製"""
+        # TODO: 実装
 
     def onEditImage(self, *args):
         """選択されているイメージプレーンを開く"""
@@ -188,6 +219,66 @@ class NN_ToolWindow(object):
         if image_editor_path:
             self.image_editor = image_editor_path
 
+    def onLockCamera(self, *args):
+        """カメラオブジェクトのロック"""
+        camera = pm.PyNode(pm.textScrollList(self.camera_list, q=True, selectItem=True)[0]).getParent()
+        camera.translateX.lock()
+        camera.translateY.lock()
+        camera.translateZ.lock()
+        camera.rotateX.lock()
+        camera.rotateY.lock()
+        camera.rotateZ.lock()
+        camera.scaleX.lock()
+        camera.scaleY.lock()
+        camera.scaleZ.lock()
+
+    def onUnLockCamera(self, *args):
+        """カメラオブジェクトのアンロック"""
+        camera = pm.PyNode(pm.textScrollList(self.camera_list, q=True, selectItem=True)[0]).getParent()
+        camera.translateX.unlock()
+        camera.translateY.unlock()
+        camera.translateZ.unlock()
+        camera.rotateX.unlock()
+        camera.rotateY.unlock()
+        camera.rotateZ.unlock()
+        camera.scaleX.unlock()
+        camera.scaleY.unlock()
+        camera.scaleZ.unlock()
+
+    def onLockImageplane(self, *args):
+        """イメージプレーンオブジェクトのロック"""
+        pm.select(clear=True)
+        objects = pm.textScrollList(self.item_list, q=True, selectItem=True)
+
+        for object_name in objects:
+            object = pm.PyNode(object_name).getParent()
+            object.translateX.lock()
+            object.translateY.lock()
+            object.translateZ.lock()
+            object.rotateX.lock()
+            object.rotateY.lock()
+            object.rotateZ.lock()
+            object.scaleX.lock()
+            object.scaleY.lock()
+            object.scaleZ.lock()
+
+    def onUnLockImageplane(self, *args):
+        """イメージプレーンオブジェクトのアンロック"""
+        pm.select(clear=True)
+        objects = pm.textScrollList(self.item_list, q=True, selectItem=True)
+
+        for object_name in objects:
+            object = pm.PyNode(object_name).getParent()
+            object.translateX.unlock()
+            object.translateY.unlock()
+            object.translateZ.unlock()
+            object.rotateX.unlock()
+            object.rotateY.unlock()
+            object.rotateZ.unlock()
+            object.scaleX.unlock()
+            object.scaleY.unlock()
+            object.scaleZ.unlock()
+
     def onToggleDisplay(self, *args):
         """シーン内のすべてのイメージプレーンの Display モード (lokking through camera / in all views) をトグルする"""
         ips = pm.ls(type="imagePlane")
@@ -199,6 +290,33 @@ class NN_ToolWindow(object):
             print(ip.displayOnlyIfCurrent.get())
 
         pm.select(ips)
+
+    def onFixPanel(self, *args):
+        """"""
+        self.target_panel = pm.getPanel(wf=True)
+        ui.set_value(self.cb_fix_target, value=True)
+
+    def onLookThroughParent(self, *args):
+        """"""
+        ips = pm.ls(type="imagePlane")
+
+        for ip_shape in ips:
+            ip_trs = ip_shape.getParent()
+            camera_shape = ip_trs.getParent().getShape()
+
+            ip_shape.lookThroughCamera.disconnect()
+            ip_shape.displayOnlyIfCurrent.set(True)
+            camera_shape.message.connect(ip_shape.lookThroughCamera)
+
+            pm.imagePlane(ip_shape, e=True, lookThrough=camera_shape, showInAllViews=False)
+
+    def onTearOff(self, *args):
+        """"""
+        active_panel = pm.getPanel(wf=True)
+        panel_type = pm.getPanel(typeOf=active_panel)
+
+        if panel_type == "modelPanel":
+            pm.modelPanel(tearOffCopy=active_panel)
 
 
 def showNNToolWindow():
