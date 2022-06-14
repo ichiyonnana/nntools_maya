@@ -198,7 +198,7 @@ def float_slider(min=0, max=1, value=0, step=0.1, width=button_width2, dc=any_ha
     return component
 
 
-def int_slider(min=0, max=1, value=0, step=0.1, width=button_width2, dc=any_handler, cc=any_handler, *args, **kwargs):
+def int_slider(min=0, max=1, value=0, step=1, width=button_width2, dc=any_handler, cc=any_handler, *args, **kwargs):
     """[summary]
 
     Args:
