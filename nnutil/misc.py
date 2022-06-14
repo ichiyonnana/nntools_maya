@@ -818,3 +818,26 @@ def set_radius_constant(joints=[], radius=0.001):
 
     for j in joints:
         j.setRadius(radius)
+
+
+def divide_without_history():
+    selection = pm.selected(flatten=True)
+
+    if selection:
+        if type(selection[0]) == nt.Mesh:
+            pm.polySubdivideFacet()
+        if type(selection[0]) == nt.Transform and hasattr(selection[0], "getShape") and selection[0].getShape():
+            pm.polySubdivideFacet()
+        elif type(selection[0]) == pm.MeshFace:
+            pm.polySubdivideFacet()
+        elif type(selection[0]) == pm.MeshEdge:
+            pm.polySubdivideEdge()
+        else:
+            pass
+
+        pm.bakePartialHistory(ppt=True)
+
+
+def soft_connect(edge_flow=0):
+    pm.polyConnectComponents(insertWithEdgeFlow=edge_flow, adjustEdgeFlow=1)
+    # TODO: ハードエッジ除去処理
