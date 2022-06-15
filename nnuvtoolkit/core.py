@@ -685,6 +685,8 @@ class NN_ToolWindow(object):
         self.layout()
         pm.showWindow(self.window)
 
+        ui.set_value(self.mapSize, 1024)
+
     def layout(self):
         self.columnLayout = ui.column_layout()
 
