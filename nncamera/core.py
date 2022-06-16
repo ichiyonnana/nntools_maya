@@ -34,6 +34,23 @@ class ListItem:
         return "ListItem(%s)" % self.content
 
 
+def get_unmatch_part(path1, path2):
+    blocks1 = path1.split("|")
+    blocks2 = path2.split("|")
+    unmatch_list = []
+    length = min(len(blocks1), len(blocks2))
+
+    for i in range(length):
+        if blocks1[i] != blocks2[i]:
+            unmatch_list.append(blocks1[i])
+
+    if unmatch_list:
+        return unmatch_list[0]
+
+    else:
+        return None
+
+
 class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
@@ -152,7 +169,18 @@ class NN_ToolWindow(object):
         for camera in cmds.ls(type="camera"):
             item = ListItem()
             item.content = camera
-            item.name = re.sub(r"^.*\|", "", camera)
+            item.name = re.match(r"(.*\|)?(.+)(Shape)", camera).groups()[1]
+            basename = re.sub(r"^.*\|", "", camera)
+
+            # 名前の重複があればパスの差異を付与
+            if not pm.uniqueObjExists(basename):
+                duplicates = cmds.ls(basename)
+                duplicates.remove(item.content)
+                uniq_str = get_unmatch_part(item.content, duplicates[0])
+
+                if uniq_str:
+                    item.name = "{}    ({})".format(item.name, uniq_str)
+
             self.camera_list_items.append(item)
 
         # ソート
