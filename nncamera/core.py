@@ -166,7 +166,7 @@ class NN_ToolWindow(object):
         # ListItem 配列の更新
         self.camera_list_items = []
 
-        for camera in cmds.ls(type="camera"):
+        for camera in cmds.ls(type="camera", long=True):
             item = ListItem()
             item.content = camera
             item.name = re.match(r"(.*\|)?(.+)(Shape)", camera).groups()[1]
@@ -174,7 +174,7 @@ class NN_ToolWindow(object):
 
             # 名前の重複があればパスの差異を付与
             if not pm.uniqueObjExists(basename):
-                duplicates = cmds.ls(basename)
+                duplicates = cmds.ls(basename, long=True)
                 duplicates.remove(item.content)
                 uniq_str = get_unmatch_part(item.content, duplicates[0])
 
