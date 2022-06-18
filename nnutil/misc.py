@@ -841,3 +841,10 @@ def divide_without_history():
 def soft_connect(edge_flow=0):
     pm.polyConnectComponents(insertWithEdgeFlow=edge_flow, adjustEdgeFlow=1)
     # TODO: ハードエッジ除去処理
+
+
+def reload_all_texture():
+    mel.eval("createViewport20OptionsUI;")
+    mel.eval("AEReloadAllTextures;")
+    mel.eval("window -e -vis 0 Viewport20OptionsWindow;")
+
