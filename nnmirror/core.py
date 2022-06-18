@@ -49,7 +49,6 @@ def export_weight(objects=None, specified_name=None):
 
     Args:
         objects (Transform or Mesh, optional): 対象のオブジェクト。省略時は選択オブジェクトを使用する. Defaults to None.
-        temp_mode (bool, optional): True の場合オブジェクト名にかかわらず同一のファイル名を使用する. Defaults to False.
         specified_name (str, optional): ウェイトを書き出す際のファイル名。省略時はオブジェクト名。 Defaults to None.
     """
     # 選択復帰用
@@ -122,8 +121,7 @@ def import_weight(objects=None, method=BM_BILINEAR, specified_name=None):
     Args:
         objects (Transform or Mesh, optional): 対象のオブジェクト。省略時は選択オブジェクトを使用する. Defaults to None.
         method (str, optional): バインドメソッド. Defaults to BM_BILINEAR.
-        temp_mode (bool, optional): True の場合オブジェクト名にかかわらず同一のファイル名を使用する. Defaults to False.
-        filename (str, optional): ウェイトを読み込む際のファイル名。省略時はオブジェクト名。temp_mode よりも優先される. Defaults to None.
+        specified_name (str, optional): ウェイトを読み込む際のファイル名。省略時はオブジェクト名。temp_mode よりも優先される. Defaults to None.
     """
     current_selections = pm.selected()
 
