@@ -8,6 +8,9 @@
 
 import itertools
 import re
+import datetime
+import glob
+import os
 
 import maya.cmds as cmds
 import maya.mel as mel
@@ -848,3 +851,28 @@ def reload_all_texture():
     mel.eval("AEReloadAllTextures;")
     mel.eval("window -e -vis 0 Viewport20OptionsWindow;")
 
+
+def rename_incremental_saves():
+    """インクリメンタルセーブのファイル名を変更する
+
+    連番を取り除き [YYYYmmdd_HHMM_SS]<scene_name>.ma という形式にする
+    対象は今開いているシーンのインクリメンタルセーブのみ
+    """
+    scene_name = re.sub(r"^.+[/\\]", "", pm.system.sceneName())
+    project_dir = re.sub(r"scenes.+$", "", pm.system.sceneName())
+    incremental_save_dir = project_dir + "scenes/incrementalSave/"
+    target_dir = incremental_save_dir + scene_name + "/"
+
+    files = glob.glob(target_dir + "*")
+
+    for filename in files:
+        if not re.search(r"\.\d+\.ma", filename):
+            continue
+
+        filename = re.sub(r"\\", "/", filename)
+        timestamp = datetime.datetime.fromtimestamp(os.stat(filename).st_mtime).strftime("%Y%m%d_%H%M_%S")
+        new_name = "[{}]{}".format(timestamp, scene_name)
+
+        if not os.path.isfile(target_dir + new_name):
+            os.rename(filename, target_dir + new_name)
+            print("rename {}".format(new_name))
