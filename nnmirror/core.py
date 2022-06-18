@@ -272,17 +272,40 @@ def combine_skined_mesh(objects=None):
 
 
 def duplicate_mesh(extract=False):
+    # 選択コンポーネント取得
     selected_faces = pm.selected(flatten=True)
-    object = pm.polyListComponentConversion(selected_faces[0])
-    object2 = pm.duplicate(object)
 
-    pm.select(object2)
-    pm.selectMode(component=True)
-    mel.eval("invertSelection")
-    pm.delete()
+    if not selected_faces or not type(selected_faces[0]) == pm.MeshFace:
+        return None
 
+    # 選択コンポーネントからオブジェクト取得
+    object = pm.PyNode(pm.polyListComponentConversion(selected_faces[0])[0])
+
+    # オブジェクト複製
+    object2 = pm.duplicate(object)[0].getShape()
+
+    # skined ならウェイト複製
+    if nu.is_skined(object):
+        weight_name = "duplicated_obj_weight"
+        export_weight([object], specified_name=weight_name)
+        import_weight([object2], method=BM_INDEX, specified_name=weight_name)
+
+    # 選択コンポーネント以外削除
+    face_indices = [x.index() for x in selected_faces]
+    delete_faces = []
+
+    for fi in range(object2.numFaces()):
+        if fi not in face_indices:
+            delete_faces.append(pm.MeshFace("{}.f[{}]".format(object2.name(), fi)))
+
+    pm.delete(delete_faces)
+
+    # extract True なら元オブジェクトの選択コンポーネント削除
     if extract:
         pm.delete(selected_faces)
+
+    pm.bakePartialHistory(object, ppt=True)
+    pm.bakePartialHistory(object2, ppt=True)
 
 
 class NN_ToolWindow(object):
