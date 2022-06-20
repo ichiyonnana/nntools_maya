@@ -271,6 +271,35 @@ def combine_skined_mesh(objects=None):
         nu.pynode(object).rename(name)
 
 
+def duplicate_object():
+    """"""
+    selection = pm.selected()
+
+    if selection:
+        if type(selection[0]) != nt.Transform and type(selection[0]) != nt.Mesh:
+            return
+
+        else:
+            for sel in selection:
+                if type(sel) == nt.Transform and hasattr(sel, "getShape") and sel.getShape() and type(sel.getShape()) == nt.Mesh:
+                    object = sel.getShape()
+
+                elif type(sel) == nt.Mesh:
+                    object = sel
+
+                else:
+                    continue
+
+                # オブジェクト複製
+                object2 = pm.duplicate(object)[0].getShape()
+
+                # skined ならウェイト複製
+                if nu.is_skined(object):
+                    weight_name = "duplicated_obj_weight"
+                    export_weight([object], specified_name=weight_name)
+                    import_weight([object2], method=BM_INDEX, specified_name=weight_name)
+
+
 def duplicate_mesh(extract=False):
     # 選択コンポーネント取得
     selected_faces = pm.selected(flatten=True)
@@ -811,7 +840,18 @@ class NN_ToolWindow(object):
         duplicate_mesh(extract=True)
 
     def onDuplicate(self, *args):
-        duplicate_mesh()
+        """"""
+        selection = pm.selected()
+
+        if selection:
+            if type(selection[0]) == nt.Transform or type(selection[0]) == nt.Mesh:
+                duplicate_object()
+
+            elif type(selection[0]) == pm.MeshFace:
+                duplicate_mesh()
+
+            else:
+                return
 
     def onGetPos(self, *args):
         obj = pm.selected(flatten=True)[0]
