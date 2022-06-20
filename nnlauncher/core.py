@@ -31,10 +31,12 @@ class NN_ToolWindow(object):
         "nnsimplify",
         "nnstraighten",
         "nnlattice",
+        "nnlauncher",
         "altunt",
         "nnvcolor",
         "nnskin",
         "nnsubdiv",
+        "nnanim",
         "nntransform",
         ]
 
@@ -98,6 +100,7 @@ class NN_ToolWindow(object):
         ui.header(label="Etc")
         ui.button(label="SKin", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onSKin)
         ui.button(label="Subdiv", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onSubdiv)
+        ui.button(label="Anim", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onAnim)
         ui.button(label="Transform", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onTransform)
         ui.end_layout()
 
@@ -197,6 +200,13 @@ class NN_ToolWindow(object):
         """"""
         import nnsubdiv.core
         nnsubdiv.core.main()
+        if not ui.is_shift():
+            pm.deleteUI(self.window, window=True)
+
+    def onAnim(self, *args):
+        """"""
+        import nnanim.core
+        nnanim.core.main()
         if not ui.is_shift():
             pm.deleteUI(self.window, window=True)
 
