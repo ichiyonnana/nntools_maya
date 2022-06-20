@@ -21,6 +21,7 @@ import pymel.core.datatypes as dt
 
 from . import core as nu
 from . import command as nuc
+from . import ui as ui
 
 
 def message(s):
@@ -876,3 +877,41 @@ def rename_incremental_saves():
         if not os.path.isfile(target_dir + new_name):
             os.rename(filename, target_dir + new_name)
             print("rename {}".format(new_name))
+
+
+def replace_file_node():
+    """選択中のファイルノードを既存の別のファイルノードに差し替える
+    """
+    selection = pm.selected()
+    all_materials = pm.ls(materials=True)
+
+    if selection and type(selection[0]) == nt.File:
+        # 差し替え元となる選択されているファイルノードを取得
+        current_file = selection[0]
+        all_files = pm.ls(type="file")
+        all_files.remove(current_file.name())
+
+        # 差し替え先となる任意のファイルノードをユーザーに選択させる
+        i = ui.ListDialog.create(items=all_files)
+
+        if i is not None:
+            replace_file = all_files[i]
+
+        else:
+            return
+
+        # 差し替え元ファイルが接続されている他ノードの入力プラグ
+        dst_plugs = pm.listConnections(current_file, destination=True, source=False, plugs=True)
+
+        for dst_plug in dst_plugs:
+            if dst_plug.node() in all_materials:
+                # 差し替え元ファイルの全ての出力プラグを差し替える
+                current_src_plugs = pm.listConnections(dst_plugs, destination=False, source=True, plugs=True)
+
+                for current_src_plug in current_src_plugs:
+                    # 差し替え先ファイルの出力プラグ決定
+                    new_src_plug = pm.Attribute(replace_file.name() + "." + current_src_plug.attrName())
+
+                    # プラグの再接続
+                    dst_plug.disconnect()
+                    new_src_plug.connect(dst_plug)
