@@ -416,3 +416,95 @@ def ok_dialog(title="title", message=""):
         message (str, optional): ダイアログのメッセージ. Defaults to "".
     """
     pm.confirmDialog(title=title, message=message, button="OK")
+
+
+class ListDialog:
+    """リストアイテムを選択するダイアログ
+
+    以下のように使用する
+    ret = ListDialog.create(title="list dialog", message="select item", items=text_list)
+    """
+    list_ui = None
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def return_index(cls, *args):
+        """"""
+
+        indices = pm.textScrollList(ListDialog.list_ui, q=True, selectIndexedItem=True)
+
+        if indices:
+            pm.layoutDialog(dismiss=str(indices[0]-1))
+        else:
+            pm.layoutDialog(dismiss="Cancel")
+
+    @classmethod
+    def create(cls, title="", message="", items=None):
+        """引数で指定したリストの要素を textScrollList として表示し"""
+
+        def checkboxPrompt(title=title, message=message, items=items):
+            form = pm.setParent(q=True)
+            pm.formLayout(form, e=True, width=300)
+
+            # UIコントロール作成
+            label_message_text = pm.text(l=message)
+            list_ui = pm.textScrollList(append=items, height=200)
+            button_ok = pm.button(l='OK', c=ListDialog.return_index)
+            button_cancel = pm.button(l='Cancel', c='pm.layoutDialog(dismiss="Cancel")')
+
+            ListDialog.list_ui = list_ui
+
+            # オフセット量
+            spacer = 5
+            top = 5
+            edge = 5
+
+            # ダイアログへのアンカー配置
+            attachForm = [
+                (label_message_text, 'top', top),
+                (label_message_text, 'left', edge),
+                (label_message_text, 'right', edge),
+                (list_ui, 'left', edge),
+                (list_ui, 'right', edge),
+                (button_ok, 'left', edge),
+                (button_cancel, 'right', edge),
+                ]
+
+            # アンカー配置せずフリーになる方向
+            attachNone = [
+                (label_message_text, 'bottom'),
+                (list_ui, 'bottom'),
+                (button_ok, 'bottom'),
+                (button_cancel, 'bottom'),
+                ]
+
+            # コントロールにアタッチするUIと方向
+            attachControl = [
+                (list_ui, 'top', spacer, label_message_text),
+                (button_ok, 'top', spacer, list_ui),
+                (button_cancel, 'top', spacer, list_ui),
+                ]
+
+            # 指定したアンカーからの距離
+            attachPosition = [
+                (button_ok, 'right', spacer, 33),
+                (button_cancel, 'left', spacer, 33),
+                ]
+
+            pm.formLayout(
+                form,
+                edit=True,
+                attachForm=attachForm,
+                attachNone=attachNone,
+                attachControl=attachControl,
+                attachPosition=attachPosition)
+
+        ret = pm.layoutDialog(ui=checkboxPrompt)
+
+        if ret != "Cancel":
+            return int(ret)
+
+        else:
+            return None
