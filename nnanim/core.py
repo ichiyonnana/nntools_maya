@@ -68,6 +68,12 @@ class NN_ToolWindow(object):
         start_joint, end_joint = pm.selected()[0:2]
         handle, effector = pm.ikHandle(startJoint=start_joint, endEffector=end_joint, name=self.handle_name)
         locator = pm.spaceLocator(p=(0, 0, 0), name=self.locator_name)
+        p1 = start_joint.getMatrix(worldSpace=True)[3][0:3]
+        p2 = end_joint.getMatrix(worldSpace=True)[3][0:3]
+        p3 = start_joint.getChildren()[0].getMatrix(worldSpace=True)[3][0:3]
+        p = p3 + (p3-p1 + p3-p2) / 2
+        locator = pm.spaceLocator(p=(0, 0, 0), absolute=True, name=self.locator_name)
+        locator.translate.set(p)
         pm.poleVectorConstraint(locator, handle)
 
     def onMakeIKHandleChain(self, *args):
