@@ -4,6 +4,7 @@
 リグ･アニメーション関連
 """
 import pymel.core as pm
+import maya.mel as mel
 
 import nnutil.core as nu
 import nnutil.decorator as deco
@@ -29,6 +30,18 @@ class NN_ToolWindow(object):
         self.ik_handle = None
         self.polevector_locator = None
         self.spline_curve = None
+
+        self.hair_system_name = "NNANIMHS_hairSystem"
+        self.hair_system_grp_name = "NNANIMHS_hairSystemGrp"
+        self.nucleus_name = "NNANIMHS_nucleus"
+        self.hair_curves_grp_name = "NNANIMHS_hairSystemGrpOutputCurves"
+        self.hair_curve_name = "NNANIMHS_curve"
+        self.hair_follicle_grp_name = "NNANIMHS_hairSystemGrpFollicles"
+        self.follicle_name = "NNANIMHS_follicle"
+        self.hair_ik_grp_name = "NNANIMHS_objects"
+
+        self.hair_system = None
+        self.nucleus = None
 
     def create(self):
         if pm.window(self.window, exists=True):
@@ -58,6 +71,11 @@ class NN_ToolWindow(object):
         ui.button(label="IK (Plane)", c=self.onMakeIKHandlePlane)
         ui.button(label="IK (Chain)", c=self.onMakeIKHandleChain)
         ui.button(label="IK (Spline)", c=self.onMakeIKHandleSpline)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label="")
+        ui.button(label="IK (Hair)", c=self.onMakeIKHandleHair)
         ui.end_layout()
 
         ui.row_layout()
@@ -130,7 +148,8 @@ class NN_ToolWindow(object):
         選択したジョイントからスプラインIK ハンドルを作成する
         """
         start_joint, end_joint = pm.selected()[0:2]
-        handle, effector, curve = pm.ikHandle(sol="ikSplineSolver", startJoint=start_joint, endEffector=end_joint, name=self.handle_name)
+        span = 2
+        handle, effector, curve = pm.ikHandle(sol="ikSplineSolver", startJoint=start_joint, endEffector=end_joint, name=self.handle_name, numSpans=span)
         pm.rename(curve, self.curve_name)
         pm.select(curve)
         handle.visibility.set(False)
@@ -139,6 +158,92 @@ class NN_ToolWindow(object):
         self.polevector_locator = None
         self.spline_curve = curve
 
+        n = self.spline_curve.numCVs() - 1
+        pm.intSlider(self.sl_cv_index, e=True, max=n)
+
+        ui.disable_ui(self.bt_ik_handle)
+        ui.disable_ui(self.bt_pv_locator)
+        ui.enable_ui(self.bt_spline_curve)
+        ui.enable_ui(self.sl_cv_index)
+
+    def _create_hair_system(self):
+        """HiarSystem を作成する｡すでに存在する場合は何もしない
+        アトリビュートの接続は
+        """
+        if pm.objExists(self.hair_system_name):
+            self.hair_system = pm.PyNode(self.hair_system_name)
+        else:
+            self.hair_system = pm.createNode("hairSystem", name=self.hair_system_name, skipSelect=True)
+            self.hair_system.getParent().rename(self.hair_system_grp_name)
+
+        if pm.objExists(self.nucleus_name):
+            self.nucleus = pm.PyNode(self.nucleus_name)
+        else:
+            self.nucleus = pm.createNode("nucleus", name=self.nucleus_name, skipSelect=True)
+
+        time_node = pm.PyNode("time1")
+        time_node.outTime.connect(self.hair_system.currentTime)
+        time_node.outTime.connect(self.nucleus.currentTime)
+        self.nucleus.outputObjects[0].connect(self.hair_system.nextState)
+        self.nucleus.startFrame.connect(self.hair_system.startFrame)
+        self.hair_system.currentState.connect(self.nucleus.inputActive[0])
+        self.hair_system.startState.connect(self.nucleus.inputActiveStart[0])
+
+        # パラメーターの設定 (暫定)
+        self.hair_system.startCurveAttract.set(0)
+        self.hair_system.drag.set(0)
+        self.hair_system.motionDrag.set(0.1)
+        self.hair_system.gravity.set(0.98)
+
+    def onMakeIKHandleHair(self, *args):
+        """nHair をハンドルとしたスプラインIKを作成する
+        """
+        start_joint, end_joint = pm.selected()[0:2]
+
+        # ジョイントからカーブを作成する
+        span = 10
+        # pm.curve(d=2, p=[(),(),()])
+        handle, effector, curve = pm.ikHandle(sol="ikSplineSolver", startJoint=start_joint, endEffector=end_joint, name=self.handle_name, numSpans=span)
+        pm.delete(handle)
+        pm.parent(curve, world=True)
+
+        # カーブをnHairダイナミクスに変換
+        self._create_hair_system()
+        pm.select([curve, self.hair_system], self.hair_system, replace=True)
+        mel.eval('makeCurvesDynamic 2 { "0", "0", "1", "1", "0"};')
+        curve.visibility.set(False)
+        hair_curve = pm.PyNode(self.hair_curves_grp_name).getChildren()[-1]
+        hair_curve.rename(self.hair_curve_name)
+
+        # follicle の固定を根元だけに変更
+        follicle = pm.PyNode(self.hair_follicle_grp_name).getChildren()[-1]
+        follicle.pointLock.set(1)
+        follicle.rename(self.follicle_name)
+
+        # カーブを使用してスプラインIK作成
+        handle, effector = pm.ikHandle(sol="ikSplineSolver", startJoint=start_joint, endEffector=end_joint, name=self.handle_name, numSpans=span, createCurve=False, curve=hair_curve)
+        handle.visibility.set(False)
+
+        self.ik_handle = handle
+        self.polevector_locator = None
+        self.spline_curve = hair_curve
+
+        # ダイナミクス用カーブはスタートジョイントと兄弟にする
+        if start_joint.getParent():
+            hair_curve.setParent(start_joint.getParent())
+
+        # グループにまとめる
+        if not pm.objExists(self.hair_ik_grp_name):
+            pm.createNode("transform", name=self.hair_ik_grp_name)
+
+        hair_ik_grp = pm.PyNode(self.hair_ik_grp_name)
+        handle.setParent(hair_ik_grp)
+        pm.PyNode(self.hair_system_grp_name).setParent(hair_ik_grp)
+        pm.PyNode(self.nucleus_name).setParent(hair_ik_grp)
+        pm.PyNode(self.hair_follicle_grp_name).setParent(hair_ik_grp)
+        pm.PyNode(self.hair_curves_grp_name).setParent(hair_ik_grp)
+
+        # UI の更新
         n = self.spline_curve.numCVs() - 1
         pm.intSlider(self.sl_cv_index, e=True, max=n)
 
@@ -157,6 +262,15 @@ class NN_ToolWindow(object):
 
         curves = pm.ls(self.curve_name + "*")
         pm.delete(curves)
+
+        hair_objects = pm.PyNode(self.hair_ik_grp_name)
+        pm.delete(hair_objects)
+
+        follicles = pm.ls(self.follicle_name + "*")
+        pm.delete(follicles)
+
+        hair_curves = pm.ls(self.hair_curve_name + "*")
+        pm.delete(hair_curves)
 
         self.ik_handle = None
         self.polevector_locator = None
