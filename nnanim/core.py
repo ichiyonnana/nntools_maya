@@ -194,6 +194,7 @@ class NN_ToolWindow(object):
         self.hair_system.drag.set(0)
         self.hair_system.motionDrag.set(0.1)
         self.hair_system.gravity.set(0.98)
+        self.hair_system.active.set(1)
 
     def onMakeIKHandleHair(self, *args):
         """nHair をハンドルとしたスプラインIKを作成する
