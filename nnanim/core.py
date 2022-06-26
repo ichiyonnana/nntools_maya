@@ -81,6 +81,7 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label="")
         ui.button(label="Delete IK", c=self.onDeleteIK)
+        ui.button(label="Interactive", c=self.onInteractivePlayback)
         ui.end_layout()
 
         ui.separator(height=ui.height(1))
@@ -196,7 +197,7 @@ class NN_ToolWindow(object):
         self.hair_system.drag.set(0)
         self.hair_system.motionDrag.set(0.1)
         self.hair_system.bendResistance.set(0.01)
-        
+
         self.hair_system.active.set(1)
 
     def onMakeIKHandleHair(self, *args):
@@ -284,6 +285,10 @@ class NN_ToolWindow(object):
         ui.disable_ui(self.bt_pv_locator)
         ui.disable_ui(self.bt_spline_curve)
         ui.disable_ui(self.sl_cv_index)
+
+    def onInteractivePlayback(self, *arg):
+        """Interactive Playback"""
+        mel.eval("InteractivePlayback")
 
     def onPickIKHandle(self, *args):
         """最後に作成したIKハンドルの選択"""
