@@ -190,10 +190,13 @@ class NN_ToolWindow(object):
         self.hair_system.startState.connect(self.nucleus.inputActiveStart[0])
 
         # パラメーターの設定 (暫定)
+        self.nucleus.timeScale.set(10)
+
         self.hair_system.startCurveAttract.set(0)
         self.hair_system.drag.set(0)
         self.hair_system.motionDrag.set(0.1)
-        self.hair_system.gravity.set(0.98)
+        self.hair_system.bendResistance.set(0.01)
+        
         self.hair_system.active.set(1)
 
     def onMakeIKHandleHair(self, *args):
