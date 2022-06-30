@@ -81,7 +81,7 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label="")
         ui.button(label="Delete IK", c=self.onDeleteIK)
-        ui.button(label="Interactive", c=self.onInteractivePlayback)
+        ui.button(label="Interactive", c=self.onInteractivePlayback, dgc=self.onInteractivePlaybackCurrentFrame)
         ui.end_layout()
 
         ui.separator(height=ui.height(1))
@@ -287,7 +287,12 @@ class NN_ToolWindow(object):
         ui.disable_ui(self.sl_cv_index)
 
     def onInteractivePlayback(self, *arg):
-        """Interactive Playback"""
+        """Interactive Playback を実行｡カレントタイムはリセットする"""
+        pm.currentTime(0)
+        mel.eval("InteractivePlayback")
+
+    def onInteractivePlaybackCurrentFrame(self, *arg):
+        """Interactive Playback をカレントタイムを維持して実行"""
         mel.eval("InteractivePlayback")
 
     def onPickIKHandle(self, *args):
