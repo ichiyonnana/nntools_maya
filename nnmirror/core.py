@@ -342,7 +342,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (280, 510)
+        self.size = (280, 530)
 
     def create(self):
         if pm.window(self.window, exists=True):
@@ -516,7 +516,12 @@ class NN_ToolWindow(object):
         ui.header(label='Mesh')
         ui.button(label='Extract', c=self.onExtract)
         ui.button(label='Duplicate', c=self.onDuplicate)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label='')
         ui.button(label='QRemesher', c=self.onQuadRemesher)
+        ui.button(label='Simplygon', c=self.onSimplygon)
         ui.end_layout()
 
         ui.separator()
@@ -835,6 +840,9 @@ class NN_ToolWindow(object):
     def onQuadRemesher(self, *args):
         import QuadRemesher
         QuadRemesher.QuadRemesher()
+
+    def onSimplygon(self, *args):
+        mel.eval("SimplygonUI")
 
     def onExtract(self, *args):
         duplicate_mesh(extract=True)
