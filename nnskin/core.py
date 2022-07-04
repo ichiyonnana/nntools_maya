@@ -379,6 +379,7 @@ class NN_ToolWindow(object):
 
         cmds.rowLayout(numberOfColumns=10)
         cmds.button(l='Delete Dup Orig', c=self.on_delete_non_connected_orig_mesh)
+        cmds.button(l='Checker', c=self.on_skin_checker)
         cmds.setParent("..")
 
     @deco.undo_chunk
@@ -434,6 +435,10 @@ class NN_ToolWindow(object):
         if error_objects:
             print(error_objects)
             pm.delete(error_objects)
+
+    def on_skin_checker(self, *args):
+        import nnskin.check_skin_tool
+        nnskin.check_skin_tool.main()
 
 def showNNToolWindow():
     NN_ToolWindow().create()
