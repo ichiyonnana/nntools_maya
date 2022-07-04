@@ -96,6 +96,13 @@ class NN_ToolWindow(object):
         ui.separator(height=ui.height(1))
 
         ui.row_layout()
+        ui.header(label="Collider")
+        ui.button(label="Set to Passive", c=self.onSetToPassiveCollider)
+        ui.end_layout()
+
+        ui.separator(height=ui.height(1))
+
+        ui.row_layout()
         ui.header(label="Picker")
         self.bt_ik_handle = ui.button(label="IK Handle", enable=False, c=self.onPickIKHandle)
         self.bt_pv_locator = ui.button(label="Pole Vector", enable=False, c=self.onPickPoleVector)
@@ -355,6 +362,31 @@ class NN_ToolWindow(object):
     def onInteractivePlaybackCurrentFrame(self, *arg):
         """Interactive Playback をカレントタイムを維持して実行"""
         mel.eval("InteractivePlayback")
+
+    def onSetToPassiveCollider(self, *args):
+        """選択オブジェクトをコライダーに設定する"""
+        selection = pm.selected()
+
+        if selection:
+            for obj in selection:
+                shape = obj.getShape()
+                target = shape if shape else obj
+
+                if target:
+                    if isinstance(target, nt.Mesh):
+                        mel.eval("makeCollideNCloth")
+
+                    rigid = None
+                    for output in shape.outputs():
+                        if hasattr(output, "getShape"):
+                            if output.getShape():
+                                child = output.getShape()
+                                if pm.nodeType(child) == "nRigid":
+                                    rigid = child
+                                    break
+
+                    rigid.currentState.connect(self.nucleus.inputPassive[0], force=True)
+                    rigid.startState.connect(self.nucleus.inputPassiveStart[0], force=True)
 
     def onPickIKHandle(self, *args):
         """最後に作成したIKハンドルの選択"""
