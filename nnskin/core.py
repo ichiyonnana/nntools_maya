@@ -321,7 +321,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (200, 140)
+        self.size = (200, 160)
 
     def create(self):
         if pm.window(self.window, exists=True):
@@ -377,6 +377,10 @@ class NN_ToolWindow(object):
         cmds.button(l='avg', c=self.on_average)
         cmds.setParent("..")
 
+        cmds.rowLayout(numberOfColumns=10)
+        cmds.button(l='Delete Dup Orig', c=self.on_delete_non_connected_orig_mesh)
+        cmds.setParent("..")
+
     @deco.undo_chunk
     def on_set_end_point(self, *args):
         set_end_point_with_selection()
@@ -420,6 +424,16 @@ class NN_ToolWindow(object):
         copy_weight()
         paste_weight_as_possible()
 
+    def on_delete_non_connected_orig_mesh(self, *args):
+        error_objects = []
+
+        for mesh in pm.ls(type="mesh"):
+            if mesh.intermediateObject.get() and len(mesh.outputs()) == 0:
+                error_objects.append(mesh)
+
+        if error_objects:
+            print(error_objects)
+            pm.delete(error_objects)
 
 def showNNToolWindow():
     NN_ToolWindow().create()
