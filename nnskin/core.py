@@ -380,6 +380,7 @@ class NN_ToolWindow(object):
         cmds.rowLayout(numberOfColumns=10)
         cmds.button(l='Delete Dup Orig', c=self.on_delete_non_connected_orig_mesh)
         cmds.button(l='Checker', c=self.on_skin_checker)
+        cmds.button(l='Check Fractions', c=self.on_check_fractions)
         cmds.setParent("..")
 
     @deco.undo_chunk
@@ -439,6 +440,11 @@ class NN_ToolWindow(object):
     def on_skin_checker(self, *args):
         import nnskin.check_skin_tool
         nnskin.check_skin_tool.main()
+
+    def on_check_fractions(self, *args):
+        import nnskin.check_weights_fractions
+        nnskin.check_weights_fractions.main()
+
 
 def showNNToolWindow():
     NN_ToolWindow().create()
