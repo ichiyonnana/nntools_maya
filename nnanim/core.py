@@ -4,6 +4,7 @@
 リグ･アニメーション関連
 """
 import re
+
 import pymel.core as pm
 import pymel.core.nodetypes as nt
 import maya.mel as mel
@@ -42,6 +43,8 @@ class NN_ToolWindow(object):
         self.hair_follicle_grp_name = "NNANIMHS_hairSystemGrpFollicles"
         self.follicle_name = "NNANIMHS_follicle"
         self.hair_ik_grp_name = "NNANIMHS_objects"
+
+        self.dup_prefix = "dup_"
 
         self.hair_system = None
         self.nucleus = None
@@ -217,14 +220,14 @@ class NN_ToolWindow(object):
         self.hair_system.active.set(1)
 
     def get_duplicated_joint_name(self, name):
+        """"""
         base_name = re.sub(r".*\|", "", name)
+
         return self.dup_prefix + base_name
 
     def onMakeIKHandleHair(self, *args):
         """nHair をハンドルとしたスプラインIKを作成する
         """
-        self.dup_prefix = "dup_"
-
         selection = pm.selected()
 
         if len(selection) < 2:
@@ -238,7 +241,7 @@ class NN_ToolWindow(object):
             # start_joint に親がある場合
             parent_joint = start_joint.getParent()
             dup_parent_joint = pm.duplicate(parent_joint)[0]
-            pm.rename(dup_parent_joint, self.get_duplicated_joint_name(parent_joint.fullPathName()))
+            pm.rename(dup_parent_joint, self.get_duplicated_joint_name(parent_joint.name(long=True)))
             dup_tree = pm.listRelatives(dup_parent_joint, allDescendents=True)
 
         else:
@@ -249,8 +252,8 @@ class NN_ToolWindow(object):
             pm.rename(dup_parent_joint, "dup_root")
             dup_tree = pm.listRelatives(dup_parent_joint, allDescendents=True)
 
-        for obj in dup_tree:
-            pm.rename(obj, self.get_duplicated_joint_name(obj.fullPathName()))
+        for joint in dup_tree:
+            pm.rename(joint, self.get_duplicated_joint_name(joint.name(long=True)))
 
         # 複製ジョイントを非表示にする
         dup_parent_joint.visibility.set(False)
@@ -296,11 +299,11 @@ class NN_ToolWindow(object):
         pm.parentConstraint(parent_joint, dup_parent_joint, maintainOffset=True)
 
         # 複製ジョイントから rotate を接続
-        start_depth = start_joint.fullPathName().count("|")
-        end_depth = end_joint.fullPathName().count("|")
+        start_depth = start_joint.name(long=True).count("|")
+        end_depth = end_joint.name(long=True).count("|")
 
         for i in range(start_depth, end_depth+1):
-            orig_joint_name = re.search(r"^(?:\|[^|]+){%s}" % i, end_joint.fullPathName()).group()
+            orig_joint_name = re.search(r"^(?:\|[^|]+){%s}" % i, end_joint.name(long=True)).group()
             dup_joint_name = self.get_duplicated_joint_name(orig_joint_name)
             pm.PyNode(dup_joint_name).rotate.connect(pm.PyNode(orig_joint_name).rotate)
 
