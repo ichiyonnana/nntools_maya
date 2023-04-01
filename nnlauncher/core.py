@@ -3,7 +3,11 @@
 """
 ツールの概要
 """
-from email import header
+import sys
+
+if sys.version_info.major >= 3:
+    import importlib
+
 import pymel.core as pm
 
 import nnutil.core as nu
@@ -233,7 +237,15 @@ class NN_ToolWindow(object):
         for module_name in self.all_modules:
             print("reload %s" % module_name)
             module = __import__(module_name)
-            reload(module.core)
+
+            if sys.version_info.major >= 3:
+                if hasattr(module, "core"):
+                    importlib.reload(module.core)
+                else:
+                    print("%s has no attribute 'core'" % module_name)
+
+            else:
+                reload(module.core)
 
         if not ui.is_shift():
             pm.deleteUI(self.window, window=True)
