@@ -55,7 +55,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (350, 340)
+        self.size = (350, 365)
 
         self.target_panel = None  # Fix Panel 有効時に使用されるパネル
 
@@ -132,6 +132,10 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.button(label="TearOff", c=self.onTearOff)
         ui.button(label="Toggle Display", c=self.onToggleDisplay)
+        ui.button(label="Hide Camera", c=self.onHideCamera)
+        ui.end_layout()
+
+        ui.row_layout()
         ui.button(label="Fix Panel", c=self.onFixPanel)
         self.cb_fix_target = ui.check_box(label="Fix Panel")
         ui.end_layout()
@@ -140,6 +144,7 @@ class NN_ToolWindow(object):
         ui.button(label="LookThrough Parent", c=self.onLookThroughParent)
         ui.button(label="Create ImagePlane", c=self.onCreateImageplane)
         ui.end_layout()
+
 
         ui.end_layout()
 
@@ -235,7 +240,7 @@ class NN_ToolWindow(object):
     def onDoubleClickCameraListItem(self, *args):
         """カメラリストアイテムのダブルクリックのハンドラ｡アクティブパネルのカメラを切り替える"""
         camera_name = self.get_selected_camera_item().content
-        active_panel = pm.getPanel(wf=True)
+        active_panel = cmds.getPanel(wf=True)
 
         if ui.get_value(self.cb_fix_target):
             pm.lookThru(self.target_panel, camera_name)
@@ -375,9 +380,19 @@ class NN_ToolWindow(object):
 
         pm.select(ips)
 
+    def onHideCamera(self, *args):
+        """全てのパネルのカメラを非表示にする"""
+        all_panels = cmds.getPanel(all=True)
+
+        for panel in all_panels:                
+            panel_type = cmds.getPanel(typeOf=panel)
+
+            if panel_type == "modelPanel":
+                pm.modelEditor(panel, e=True, cameras=False)
+
     def onFixPanel(self, *args):
         """"""
-        self.target_panel = pm.getPanel(wf=True)
+        self.target_panel = cmds.getPanel(wf=True)
         ui.set_value(self.cb_fix_target, value=True)
 
     def onLookThroughParent(self, *args):
