@@ -41,7 +41,7 @@ def weight_paint_mode_with_selected_joint(joint=None, meshes=[]):
     """選択したメッシュに対して選択したジョイントがアクティブな状態でウェイトペイントモードに入る"""
     if not joint:
         joint = [x for x in pm.selected(flatten=True) if isinstance(x, nt.Joint)][0]
-    
+
     if not meshes:
         meshes = [x for x in pm.selected(flatten=True) if isinstance(x, nt.Transform)]
 
@@ -75,7 +75,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = dialog_name
         self.title = dialog_name
-        self.size = (300, 95)
+        self.size = (300, 125)
 
         self.root_joint = None
         self.joints = []
@@ -127,8 +127,9 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label="")
         ui.button(label="Prev", c=self.onPrevNoFocus, dgc=self.onPrevFocus)
-        ui.button(label="Reset", c=self.onResetNoFocus, dgc=self.onResetFocus)
+        ui.button(label="Select", c=self.onPrevNoFocus, dgc=self.onSelect)
         ui.button(label="Next", c=self.onNextNoFocus, dgc=self.onNextFocus)
+        ui.button(label="Reset", c=self.onResetNoFocus, dgc=self.onResetFocus)
         ui.end_layout()
 
         ui.separator(height=ui.height1)
@@ -303,7 +304,7 @@ class NN_ToolWindow(object):
         if is_weight_paint_mode():
             activate_select_mode()
             pm.select(self.current_joint())
-        
+
         else:
             weight_paint_mode_with_selected_joint(joint=self.current_joint(), meshes=self.meshes)
 
@@ -314,12 +315,15 @@ class NN_ToolWindow(object):
         self.onPrevNoFocus()
         focus_object(self.current_joint())
 
-    def onResetFocus(self, *args):
-        self.onResetNoFocus()
-        focus_object(self.current_joint())
+    def onSelect(self, *args):
+        pm.select(self.current_joint())
 
     def onNextFocus(self, *args):
         self.onNextNoFocus()
+        focus_object(self.current_joint())
+
+    def onResetFocus(self, *args):
+        self.onResetNoFocus()
         focus_object(self.current_joint())
 
     def onPrevNoFocus(self, *args):
@@ -334,7 +338,7 @@ class NN_ToolWindow(object):
 
         if paint_mode:
             change_paint_target_influence(joint=self.current_joint())
-        
+
         else:
             pm.select(self.current_joint())
 
