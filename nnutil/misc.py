@@ -55,27 +55,42 @@ def disable_all_maintain_max_inf():
         cmds.setAttr(sc + ".maintainMaxInfluences", 0)
 
 
-def set_coord(axis, v):
+def set_coord(axis, v, space="object"):
     """ [cmds] 選択頂点の指定した軸の座標値を設定する
-    
+
     Args:
         axis (str): "x", "y", "z"
         v (str): 頂点を表すコンポーネント文字列
+        space (str): 座標系｡ "object" or "world"｡ デフォルトは world
     """
     selection = cmds.ls(selection=True, flatten=True)
 
     for vtx in selection:
-        x, y, z = cmds.xform(vtx, q=True, a=True, os=True, t=True)
+        if space == "object":
+            x, y, z = cmds.xform(vtx, q=True, a=True, os=True, t=True)
 
-        t = (0, 0, 0)
-        if axis == "x":
-            t = (v, y, z)
-        if axis == "y":
-            t = (x, v, z)
-        if axis == "z":
-            t = (x, y, v)
+            t = (0, 0, 0)
+            if axis == "x":
+                t = (v, y, z)
+            if axis == "y":
+                t = (x, v, z)
+            if axis == "z":
+                t = (x, y, v)
 
-        cmds.xform(vtx, a=True, os=True, t=t)
+            cmds.xform(vtx, a=True, os=True, t=t)
+
+        else:
+            x, y, z = cmds.xform(vtx, q=True, a=True, ws=True, t=True)
+
+            t = (0, 0, 0)
+            if axis == "x":
+                t = (v, y, z)
+            if axis == "y":
+                t = (x, v, z)
+            if axis == "z":
+                t = (x, y, v)
+
+            cmds.xform(vtx, a=True, ws=True, t=t)
 
 
 def set_x_zero():
@@ -915,3 +930,49 @@ def replace_file_node():
                     # プラグの再接続
                     dst_plug.disconnect()
                     new_src_plug.connect(dst_plug)
+
+
+def align_horizontally(each_polyline=True, axis="y"):
+    """選択中のエッジを特定の軸方向に潰す｡
+
+    選択コンポーネントすべてをひとまとまりで潰す場合は each_polyline に False を渡す｡連続エッジごとにそれぞれ処理する場合は True を渡す｡
+
+    Args:
+        each_polyline (bool, optional): 連続するエッジごとに処理を行う場合は True. Defaults to True.
+        axis (str, optional): 潰す軸を指定する｡ "x", "y", "z" のいずれか. Defaults to "y".
+    """
+
+    def flatten_edges(targets, axis):
+        scale_vector = (1, 1, 1)
+
+        if axis == "x":
+            scale_vector = (0, 1, 1)
+        elif axis == "y":
+            scale_vector = (1, 0, 1)
+        elif axis == "z":
+            scale_vector = (1, 1, 0)
+        else:
+            raise("axis must be set to x, y, or z")
+
+        vts = pm.filterExpand(pm.polyListComponentConversion(targets, tv=True), sm=31)
+        p = sum([pm.PyNode(x).getPosition(space="world") for x in vts]) / len(vts)
+
+        for i in range(10):
+            pm.scale(targets, scale_vector, r=True, xc="edge", p=p)
+
+        pm.scale(targets, scale_vector, r=True, p=p)
+
+    selection = pm.selected(flatten=True)
+
+    if selection:
+        if each_polyline:
+            # 連続するエッジごとに処理する
+            polylines = nu.get_all_polylines(selection)
+
+            for edges in polylines:
+                flatten_edges(edges, axis=axis)
+
+        else:
+            # 選択コンポーネントすべてで処理する
+            flatten_edges(selection, axis=axis)
+
