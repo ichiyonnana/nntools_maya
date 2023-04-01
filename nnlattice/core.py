@@ -154,8 +154,11 @@ def get_lattice_menber(lattice):
         ffd = pm.listConnections(lattice.getShape(), type="ffd")[0]
 
     # メンバーの取得
-    object_set = [x for x in pm.listConnections(ffd) if type(x) == nt.ObjectSet][0]
-    members = [nu.get_object(x) for x in object_set.members()]
+    if sys.version_info.major >= 3:
+        members = ffd.outputs()
+    else:
+        object_set = [x for x in pm.listConnections(ffd) if type(x) == nt.ObjectSet][0]
+        members = [nu.get_object(x) for x in object_set.members()]
 
     return members
     
