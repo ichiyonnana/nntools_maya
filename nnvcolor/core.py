@@ -141,10 +141,10 @@ class NN_ToolWindow(object):
         color_components = pm.polyColorPerVertex(q=True, r=True, g=True, b=True, a=True)
 
         if color_components:
-            r_list = [color_components[4*i+0] for i in range(len(color_components)/4)]
-            g_list = [color_components[4*i+1] for i in range(len(color_components)/4)]
-            b_list = [color_components[4*i+2] for i in range(len(color_components)/4)]
-            a_list = [color_components[4*i+3] for i in range(len(color_components)/4)]
+            r_list = [color_components[4*i+0] for i in range(len(color_components)//4)]
+            g_list = [color_components[4*i+1] for i in range(len(color_components)//4)]
+            b_list = [color_components[4*i+2] for i in range(len(color_components)//4)]
+            a_list = [color_components[4*i+3] for i in range(len(color_components)//4)]
             count = len(r_list)
 
             r = sum(r_list)/count
@@ -153,7 +153,7 @@ class NN_ToolWindow(object):
             a = sum(a_list)/count
 
             return (r, g, b, a)
-        
+
         else:
             return None
 
