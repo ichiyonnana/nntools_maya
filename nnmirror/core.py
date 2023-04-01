@@ -530,6 +530,7 @@ class NN_ToolWindow(object):
         ui.header(label='Etc')
         ui.button(label='Get Pos', c=self.onGetPos)
         ui.button(label='Set Pos', c=self.onSetPos)
+        ui.button(label="GoZ", c=self.onGoZ)
         ui.end_layout()
 
     def onMirrorFaceXPosi(self, *args):
@@ -895,6 +896,9 @@ class NN_ToolWindow(object):
             else:
                 nu.set_points(obj, points=self.getpos_points, space=om.MSpace.kObject)
                 nd.message("paste points (object space)")
+
+    def onGoZ(self, *args):
+        mel.eval('source "C:/Users/Public/Pixologic/GoZApps/Maya/GoZBrushFromMaya.mel"')
 
 
 def showNNToolWindow():
