@@ -380,9 +380,9 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Set')
-        ui.button(label='X = ', c=self.onSetZeroX, bgc=ui.color_x, width=ui.width1)
-        ui.button(label='Y = ', c=self.onSetZeroY, bgc=ui.color_y, width=ui.width1)
-        ui.button(label='Z = ', c=self.onSetZeroZ, bgc=ui.color_z, width=ui.width1)
+        ui.button(label='X = ', c=self.onSetXOS, dgc=self.onSetXWS, bgc=ui.color_x, width=ui.width1)
+        ui.button(label='Y = ', c=self.onSetYOS, dgc=self.onSetYWS, bgc=ui.color_y, width=ui.width1)
+        ui.button(label='Z = ', c=self.onSetZOS, dgc=self.onSetZWS, bgc=ui.color_z, width=ui.width1)
         self.coord_value = ui.eb_float(v=0, width=ui.width2)
         ui.end_layout()
 
@@ -553,17 +553,29 @@ class NN_ToolWindow(object):
     def onMirrorFaceOp(self, *args):
         mel.eval('MirrorPolygonGeometryOptions')
 
-    def onSetZeroX(self, *args):
+    def onSetXOS(self, *args):
         v = ui.get_value(self.coord_value)
-        nm.set_coord('x', v)
+        nm.set_coord('x', v, space="object")
 
-    def onSetZeroY(self, *args):
+    def onSetYOS(self, *args):
         v = ui.get_value(self.coord_value)
-        nm.set_coord('y', v)
+        nm.set_coord('y', v, space="object")
 
-    def onSetZeroZ(self, *args):
+    def onSetZOS(self, *args):
         v = ui.get_value(self.coord_value)
-        nm.set_coord('z', v)
+        nm.set_coord('z', v, space="object")
+
+    def onSetXWS(self, *args):
+        v = ui.get_value(self.coord_value)
+        nm.set_coord('x', v, space="world")
+
+    def onSetYWS(self, *args):
+        v = ui.get_value(self.coord_value)
+        nm.set_coord('y', v, space="world")
+
+    def onSetZWS(self, *args):
+        v = ui.get_value(self.coord_value)
+        nm.set_coord('z', v, space="world")
 
     def onSetZeroCenter(objects, axis):
         """
