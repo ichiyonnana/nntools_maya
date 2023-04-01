@@ -1982,8 +1982,8 @@ def is_skined(shape):
     return skined
 
 
-def get_orig_shape(shape):
-    """指定したシェイプのOrigシェイプを取得する
+def get_orig_shape(skined_mesh):
+    """指定したシェイプの Orig シェイプを取得する
 
     Args:
         shape (Mesh): Origメッシュを取得するバインド済みメッシュ
@@ -1991,7 +1991,35 @@ def get_orig_shape(shape):
     Returns:
         Mesh: Origメッシュ
     """
-    return [x for x in pm.listRelatives(shape.getParent(), shapes=True, noIntermediate=False) if x.intermediateObject.get()][0]
+    obj = skined_mesh.getParent()
+    intermediate_shapes = [x for x in pm.listRelatives(obj, shapes=True, noIntermediate=False) if x.intermediateObject.get()]
+
+    for shape in intermediate_shapes:
+        connections = shape.connections()
+        non_info_nodes = [c for c in connections if not isinstance(c, nt.NodeGraphEditorInfo)]
+
+        if len(non_info_nodes) != 0 and shape.intermediateObject.get():
+            return shape
+
+    if intermediate_shapes:
+        return intermediate_shapes[0]
+
+    else:
+        return None
+
+
+def delete_invalid_orig_shape(obj):
+    """指定したトランスフォームノード以下にある不要な Orig シェイプを削除する
+
+    Args:
+        obj (Transform): バインドされたシェイプを持つトランスフォームノード
+    """
+    for shape in pm.listRelatives(obj, s=True):
+        connections = shape.connections()
+        non_info_nodes = [c for c in connections if not isinstance(c, nt.NodeGraphEditorInfo)]
+
+        if len(non_info_nodes) == 0:
+            pm.delete(shape)
 
 
 def f_next(face_itr):
@@ -2087,3 +2115,4 @@ def exist_file(dir, filename):
     path = dir + filename
 
     return os.path.exists(path)
+
