@@ -519,7 +519,8 @@ def apply_lattice(lattices=[]):
 
     # ラティスの削除
     for lattice in lattices_to_remove:
-        pm.delete(lattice)
+        if pm.objExists(lattice):
+            pm.delete(lattice)
     
     # シェイプにラティス削除前の座標を上書き
     for shape, points in shape_points_table.items():
