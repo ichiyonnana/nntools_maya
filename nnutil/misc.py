@@ -976,3 +976,28 @@ def align_horizontally(each_polyline=True, axis="y"):
             # 選択コンポーネントすべてで処理する
             flatten_edges(selection, axis=axis)
 
+
+def rename_dialog():
+    selections = pm.selected()
+
+    if selections:
+        current_name = re.sub(r"^.*\|", "", selections[0].name())
+
+        ret = pm.promptDialog(
+            title="Rename Object",
+            message="Enter Name:",
+            tx=current_name,
+            button=["OK", "Cancel"],
+            defaultButton="OK",
+            cancelButton="Cancel",
+            dismissString="Cancel"
+            )
+
+        if ret == "OK":
+            new_name = pm.promptDialog(q=True, text=True)
+
+            for obj in selections:
+                if hasattr(obj, "fullPathName"):
+                    pm.rename(obj.fullPathName(), new_name)
+                else:
+                    pm.rename(obj.name(), new_name)
