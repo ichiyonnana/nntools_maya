@@ -410,9 +410,9 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Joint')
-        ui.button(label='X', c=self.onMirrorJointX, bgc=ui.color_x, width=ui.width2)
-        ui.button(label='Y', c=self.onMirrorJointY, bgc=ui.color_y, width=ui.width2)
-        ui.button(label='Z', c=self.onMirrorJointZ, bgc=ui.color_z, width=ui.width2)
+        ui.button(label='X', c=self.onMirrorJointX, dgc=self.onMirrorJointXWorld, bgc=ui.color_x, width=ui.width2)
+        ui.button(label='Y', c=self.onMirrorJointY, dgc=self.onMirrorJointYWorld, bgc=ui.color_y, width=ui.width2)
+        ui.button(label='Z', c=self.onMirrorJointZ, dgc=self.onMirrorJointZWorld, bgc=ui.color_z, width=ui.width2)
         ui.button(label='Op', c=self.onMirrorJointOp)
         ui.end_layout()
 
@@ -654,19 +654,67 @@ class NN_ToolWindow(object):
         mel.eval('MirrorSkinWeightsOptions')
 
     def onMirrorJointX(self, *args):
-        prefix_from = ui.get_value(self.eb_prefix_from)
-        prefix_to = ui.get_value(self.eb_prefix_to)
-        mel.eval('mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace "%s" "%s";' % (prefix_from, prefix_to))
+        self._mirrorJoint(axis="x")
 
     def onMirrorJointY(self, *args):
-        prefix_from = ui.get_value(self.eb_prefix_from)
-        prefix_to = ui.get_value(self.eb_prefix_to)
-        mel.eval('mirrorJoint -mirrorXZ -mirrorBehavior -searchReplace "%s" "%s";' % (prefix_from, prefix_to))
+        self._mirrorJoint(axis="y")
 
     def onMirrorJointZ(self, *args):
+        self._mirrorJoint(axis="z")
+
+    def _mirrorJoint(self, axis="x", *args):
+        if axis == "x":
+            mirror_dir = "mirrorYZ"
+        elif axis == "y":
+            mirror_dir = "mirrorXZ"
+        elif axis == "z":
+            mirror_dir = "mirrorXY"
+        else:
+            raise("unkown axis")
+
         prefix_from = ui.get_value(self.eb_prefix_from)
         prefix_to = ui.get_value(self.eb_prefix_to)
-        mel.eval('mirrorJoint -mirrorXY -mirrorBehavior -searchReplace "%s" "%s";' % (prefix_from, prefix_to))
+        mel.eval('mirrorJoint -%s -mirrorBehavior -searchReplace "%s" "%s";' % (mirror_dir, prefix_from, prefix_to))
+
+    def onMirrorJointXWorld(self, *args):
+        self._mirrorJointWorld(axis="x")
+
+    def onMirrorJointYWorld(self, *args):
+        self._mirrorJointWorld(axis="y")
+
+    def onMirrorJointZWorld(self, *args):
+        self._mirrorJointWorld(axis="z")
+
+    def _mirrorJointWorld(self, axis="x", *args):
+        if axis == "x":
+            mirror_dir = "mirrorYZ"
+        elif axis == "y":
+            mirror_dir = "mirrorXZ"
+        elif axis == "z":
+            mirror_dir = "mirrorXY"
+        else:
+            raise("unkown axis")
+
+        current_selections = pm.selected()
+
+        joints = pm.selected(type="joint")
+
+        pm.select(clear=True)
+        root_joint = pm.joint(p=[0, 0, 0])
+
+        for joint in joints:
+            current_parent = joint.getParent()
+            pm.parent(joint, root_joint)
+            prefix_from = ui.get_value(self.eb_prefix_from)
+            prefix_to = ui.get_value(self.eb_prefix_to)
+            pm.select(joint)
+            opposite_joint = mel.eval('mirrorJoint -%s -mirrorBehavior -searchReplace "%s" "%s";' % (mirror_dir, prefix_from, prefix_to))[0]
+            print(opposite_joint)
+            pm.parent(opposite_joint, None)
+            pm.parent(joint, current_parent)
+
+        pm.delete(root_joint)
+        pm.select(current_selections)
 
     def onMirrorJointOp(self, *args):
         mel.eval('MirrorJointOptions')
