@@ -417,11 +417,11 @@ class NN_ToolWindow(object):
 
     def onTearOff(self, *args):
         """"""
-        active_panel = pm.getPanel(wf=True)
-        panel_type = pm.getPanel(typeOf=active_panel)
+        active_panel = cmds.getPanel(wf=True)
+        panel_type = cmds.getPanel(typeOf=active_panel)
 
         if panel_type == "modelPanel":
-            pm.modelPanel(tearOffCopy=active_panel)
+            cmds.modelPanel(tearOffCopy=active_panel)
 
 
 def showNNToolWindow():
