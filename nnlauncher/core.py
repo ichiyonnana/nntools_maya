@@ -42,6 +42,7 @@ class NN_ToolWindow(object):
         "nnsubdiv",
         "nnanim",
         "nntransform",
+        "nnsweep",
         ]
 
     def __init__(self):
@@ -98,6 +99,7 @@ class NN_ToolWindow(object):
         ui.button(label="Lattice", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onLattice)
         ui.button(label="Normal", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onNormal)
         ui.button(label="VColor", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onVColor)
+        ui.button(label="Sweep", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onSweep)
         ui.end_layout()
 
         ui.row_layout()
@@ -190,6 +192,13 @@ class NN_ToolWindow(object):
         """"""
         import nnvcolor.core
         nnvcolor.core.main()
+        if not ui.is_shift():
+            pm.deleteUI(self.window, window=True)
+
+    def onSweep(self, *args):
+        """"""
+        import nnsweep.core
+        nnsweep.core.main()        
         if not ui.is_shift():
             pm.deleteUI(self.window, window=True)
 
