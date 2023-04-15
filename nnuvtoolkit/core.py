@@ -1,6 +1,8 @@
 #! python
 # coding:utf-8
 
+import re
+
 import maya.cmds as cmds
 import pymel.core as pm
 import maya.mel as mel
@@ -344,7 +346,7 @@ def set_edge_texel(target_texel, mapsize, mode):
     isUVSelection = cmds.selectType(q=True, puv=True)
     isEdgeSelection = cmds.selectType(q=True, pe=True)
 
-    targetUVsList = []
+    targetUVsList = []  # UVコンポーネント文字列のリストのリスト list[list[str, str]]
     uvComponents = []
 
     # エッジ選択モードならエッジを構成する 2 頂点の UV をペアとして targetUVsList に追加する
@@ -360,10 +362,29 @@ def set_edge_texel(target_texel, mapsize, mode):
             else:
                 pass
 
-    # UV選択モードなら選択UVの先頭 2 要素をペアとして targetUVsList に追加する
+    # UV選択モードならエッジを共有する UV 同士をペアにして targetUVsList に追加する
     elif isUVSelection:
+        edge_uv_dict = dict()
         uvComponents = cmds.filterExpand(cmds.ls(os=True), sm=35)
-        targetUVsList.append(uvComponents)
+
+        for uvCompStr in uvComponents:
+            edgeCompStrList = cmds.filterExpand(cmds.polyListComponentConversion(uvCompStr, fuv=True, te=True), sm=32)
+            faceCompStrList = cmds.filterExpand(cmds.polyListComponentConversion(uvCompStr, fuv=True, tf=True), sm=34)
+
+            for edgeCompStr in edgeCompStrList:
+                for faceCompStr in faceCompStrList:
+                    ei = re.search(r"\[(\d+)\]", edgeCompStr).groups()[0]
+                    fi = re.search(r"\[(\d+)\]", faceCompStr).groups()[0]
+                    key = "e%sf%s" % (ei, fi)
+
+                    if key not in edge_uv_dict.keys():
+                        edge_uv_dict[key] = []
+
+                    edge_uv_dict[key].append(uvCompStr)
+
+        for uvPair in edge_uv_dict.values():
+            if len(set(uvPair)) == 2:
+                targetUVsList.append(uvPair)
 
     if not isEdgeSelection and not isUVSelection:
         return
@@ -746,7 +767,7 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='Optimize')
         ui.button(label='Get', c=self.onGetTexel)
-        self.texel = ui.eb_float(cc=self.onChangeTexel, width=ui.button_width2)
+        self.texel = ui.eb_float(cc=self.onChangeTexel, v=10, width=ui.button_width2)
         self.mapSize = ui.eb_int(cc=self.onChangeMapSize, width=ui.button_width1_5)
         ui.text(label='px')
         ui.end_layout()
