@@ -110,21 +110,22 @@ def set_z_zero():
 
 def extract_transform():
     """ 選択オブジェクトの親に作成したトランスフォームノードに自身のトランスフォームを逃がして TRS を基準値にする """
-    cmd = """
-    $selection = `ls -selection`;
-    string $group = `group -empty`;
-    select -cl;
-    matchTransform $group $selection[0];
-    parent $group $selection[0];
-    select $group;
-    AriUnparentOne();
-    parent $selection[0] $group;
+    selections = pm.ls(selection=True, type="transform")
 
-    string $msg = "extract transform";
-    inViewMessage -smg $msg -pos topCenter -bkc 0x00000000 -fade;
-    """
+    for obj in selections:
+        parent = obj.getParent()
+        group = pm.group(empty=True)
 
-    mel.eval(cmd)
+        if parent:
+            pm.parent(group, parent)
+
+        group.setTranslation(obj.getTranslation())
+        group.setRotation(obj.getRotation())
+        group.setScale(obj.getScale())
+
+        pm.parent(obj, group)
+
+    pm.inViewMessage(smg="extract transform", pos="topCenter", bkc="0x00000000", fade=True)
 
 
 def create_set_with_name():
