@@ -667,9 +667,20 @@ class NN_ToolWindow(object):
         else:
             raise("unkown axis")
 
-        prefix_from = ui.get_value(self.eb_prefix_from)
-        prefix_to = ui.get_value(self.eb_prefix_to)
-        mel.eval('mirrorJoint -%s -mirrorBehavior -searchReplace "%s" "%s";' % (mirror_dir, prefix_from, prefix_to))
+        current_selections = pm.selected()
+
+        joints = pm.selected(type="joint")
+
+        pm.select(clear=True)
+        root_joint = pm.joint(p=[0, 0, 0])
+
+        for joint in joints:
+            pm.select(joint, replace=True)
+            prefix_from = ui.get_value(self.eb_prefix_from)
+            prefix_to = ui.get_value(self.eb_prefix_to)
+            mel.eval('mirrorJoint -%s -mirrorBehavior -searchReplace "%s" "%s";' % (mirror_dir, prefix_from, prefix_to))
+
+        pm.select(current_selections)
 
     def onMirrorJointXWorld(self, *args):
         self._mirrorJointWorld(axis="x")
@@ -702,7 +713,7 @@ class NN_ToolWindow(object):
             pm.parent(joint, root_joint)
             prefix_from = ui.get_value(self.eb_prefix_from)
             prefix_to = ui.get_value(self.eb_prefix_to)
-            pm.select(joint)
+            pm.select(joint, replace=True)
             opposite_joint = mel.eval('mirrorJoint -%s -mirrorBehavior -searchReplace "%s" "%s";' % (mirror_dir, prefix_from, prefix_to))[0]
             print(opposite_joint)
             pm.parent(opposite_joint, None)
