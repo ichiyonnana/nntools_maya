@@ -516,12 +516,7 @@ class NN_ToolWindow(object):
         ui.header(label='Mesh')
         ui.button(label='Extract', c=self.onExtract)
         ui.button(label='Duplicate', c=self.onDuplicate)
-        ui.end_layout()
-
-        ui.row_layout()
-        ui.header(label='')
         ui.button(label='QRemesher', c=self.onQuadRemesher)
-        ui.button(label='Simplygon', c=self.onSimplygon)
         ui.end_layout()
 
         ui.separator()
