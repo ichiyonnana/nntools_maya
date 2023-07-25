@@ -26,6 +26,7 @@ def get_window():
 
 window_width = 280
 header_width = 50
+window_height = 180
 
 
 def match_latice(from_objects=None, to_object=None):
@@ -478,6 +479,36 @@ def select_shrink():
     pm.select(selections, replace=True)
 
 
+def toggle_envelope(lattices=None):
+    # 対象ラティスの取得
+    if not lattices:
+        selected_lattice_point = [x for x in pm.selected(flatten=True) if type(x) == pm.LatticePoint]
+
+        if selected_lattice_point:
+            # ラティスポイントが選択されていた場合
+            lattices = [nu.pynode(pm.polyListComponentConversion(selected_lattice_point[0])[0])]
+
+        else:
+            lattices = [x.getShape() for x in pm.selected(flatten=True) if hasattr(x, "getShape") and type(x.getShape()) == nt.Lattice]
+
+        # ラティスもラティスポイントも選択されていなければシーン中の全てのラティス
+        lattices = lattices or pm.ls(type="lattice")
+
+        # 対象が無ければ終了
+        if not lattices:
+            print("select lattice")
+            return
+
+    # トグル後の値
+    ffd = pm.listConnections(lattices[0], type="ffd")[0]
+    envelope = 0 if ffd.envelope.get() == 1 else 1
+
+    # 各ラティスの処理
+    for lattice in lattices:
+        ffd = pm.listConnections(lattice, type="ffd")[0]
+        ffd.envelope.set(envelope)
+
+
 def apply_lattice(lattices=[]):
     """ラティスの変形をコンポーネント座標に適用し、ラティスを削除する
 
@@ -535,7 +566,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (window_width, 160)
+        self.size = (window_width, window_height)
 
         pm.selectPref(trackSelectionOrder=True)
 
@@ -604,6 +635,11 @@ class NN_ToolWindow(object):
         ui.button(label='surface', c=self.onSelectSurface)
         ui.button(label='grow', c=self.onSelectGrow)
         ui.button(label='shrink', c=self.onSelectShrink)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label='Etc')
+        ui.button(label='Toggle Env', c=self.onToggleEnvelope)
         ui.end_layout()
 
         ui.end_layout()
@@ -696,6 +732,9 @@ class NN_ToolWindow(object):
 
     def onSelectShrink(self, *args):
         select_shrink()
+
+    def onToggleEnvelope(self, *args):
+        toggle_envelope()
 
 
 def showNNToolWindow():
