@@ -51,6 +51,26 @@ def get_unmatch_part(path1, path2):
         return None
 
 
+def is_visible(obj_name):
+    """指定した名前のオブジェクトが表示されているかどうか.
+
+    そのものの visibility が true でも DAG の継承で非表示になっていれば false
+    """
+    obj = pm.PyNode(obj_name)
+
+    full_path_name = obj.fullPathName()
+    splited_path = full_path_name.split("|")
+    depth = len(splited_path)
+
+    for i in range(2, depth+1):
+        partial_path = "|".join(splited_path[0:i])
+        visible = cmds.getAttr(partial_path + ".visibility")
+        if not visible:
+            return False
+
+    return True
+
+
 class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
@@ -172,6 +192,10 @@ class NN_ToolWindow(object):
         self.camera_list_items = []
 
         for camera in cmds.ls(type="camera", long=True):
+            # 非表示ならスキップ
+            if not is_visible(camera):
+                continue
+
             item = ListItem()
             item.content = camera
             item.name = re.match(r"(.*\|)?(.+)(Shape)", camera).groups()[1]
