@@ -114,13 +114,13 @@ class NN_ToolWindow(object):
 
     def onSample(self, *args):
         selections = nu.get_selection()
-        self.sample_vts = selections
+        self.sample_vts = nu.to_vtx(selections)
         self.sample_points = [nu.get_vtx_coord(x) for x in self.sample_vts]
         nu.message("sampling %d points" % len(self.sample_vts))
 
     def onSelectSamplePointFromCamera(self, *args):
         selections = nu.get_selection()
-        self.sample_vts = selections[0:2]
+        self.sample_vts = nu.to_vtx(selections)[0:2]
         self.sample_points = [nu.get_vtx_coord(x) for x in self.sample_vts]
 
         
