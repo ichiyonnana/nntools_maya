@@ -7,6 +7,7 @@ import re
 import os
 import sys
 import traceback
+import math
 
 import pymel.core as pm
 import maya.cmds as cmds
@@ -161,14 +162,16 @@ class NN_ToolWindow(object):
             cross = nu.cross(va, vb)
             p0 = self.sample_points[0]
             # 平面方程式の係数
-            a = cross[0]
+            a = cross[0]    
             b = cross[1]
             c = cross[2]
             d = - a*p0[0] - b*p0[1] - c*p0[2]
 
             for vtx in vts:
-                p = nu.get_vtx_coord(vtx)
+                p = nu.get_vtx_coord(vtx)  # 平面状に乗せる頂点 P の座標
+                # 外積ベクトルに平行かつ P を通る直線を媒介変数表示 (x + at, y+bt, z+ct) した式を P の座標で計算した際の t の値
                 t0 = -(a*p[0] + b*p[1] + c*p[2] + d) / (a*a + b*b + c*c)
+                # 媒介変数表示の成分を平面方程式に代入して求めた Q の座標
                 q = (a*t0 + p[0], b*t0 + p[1], c*t0 + p[2])
                 nu.set_vtx_coord(vtx, q)
 
