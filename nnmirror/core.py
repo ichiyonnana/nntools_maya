@@ -393,6 +393,13 @@ class NN_ToolWindow(object):
         ui.button(label='Z', c=self.onFlipZ, bgc=ui.color_z, width=ui.width2)
         ui.end_layout()
 
+        ui.row_layout()
+        ui.header(label='Flatten')
+        ui.button(label='X', c=self.onFlattenX, bgc=ui.color_x, width=ui.width2)
+        ui.button(label='Y', c=self.onFlattenY, bgc=ui.color_y, width=ui.width2)
+        ui.button(label='Z', c=self.onFlattenZ, bgc=ui.color_z, width=ui.width2)
+        ui.end_layout()
+
         ui.separator()
 
         ui.row_layout()
@@ -626,6 +633,15 @@ class NN_ToolWindow(object):
             new_point = [p[0], p[1], -p[2]]
             cmds.xform(vtx, os=True, t=new_point)
         cmds.polyNormal(normalMode=0, userNormalMode=0, ch=1)
+
+    def onFlattenX(self, *args):
+        nm.align_horizontally(each_polyline=True, axis="x")
+
+    def onFlattenY(self, *args):
+        nm.align_horizontally(each_polyline=True, axis="y")
+
+    def onFlattenZ(self, *args):
+        nm.align_horizontally(each_polyline=True, axis="z")
 
     def onMirrorWeightXPosi(self, *args):
         mel.eval('copySkinWeights -ss  -ds  -mirrorMode YZ -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation closestJoint;')
