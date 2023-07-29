@@ -4,9 +4,13 @@
 import re
 
 import maya.cmds as cmds
+import maya.mel as mel
+import pymel.core as pm
+import maya.OpenMaya as om
 
 import nnutil.ui as ui
 import nnutil.misc as nm
+import nnutil.decorator as nd
 
 
 def extract_transform_as_locator(objects=None):
@@ -190,7 +194,7 @@ def spin_or_triangulate(targets=None):
     elif is_edge_mode:
         for comp in current_selections:
             cmds.polySpinEdge(comp, offset=1)
-        
+
         cmds.select(current_selections)
 
 
@@ -227,3 +231,98 @@ def snap_to_pixels(targets=None, texture_resolution=1024, snap_pixels=1):
             new_v = round(uv[1] / snap_uv, 0) * snap_uv
 
         cmds.polyEditUV(uv_str, relative=False, uValue=new_u, vValue=new_v)
+
+
+@nd.undo_chunk
+def extrude_edges():
+    """UV･頂点カラー等が設定されたエッジのextrude."""
+    selected_edges = cmds.ls(selection=True, flatten=True)
+
+    extrude_node = cmds.polyExtrudeEdge(
+        selected_edges,
+        constructionHistory=True,
+        keepFacesTogether=True,
+        divisions=1,
+        offset=0.1,
+        thickness=0)
+
+    extruded_edges = cmds.ls(selection=True, flatten=True)
+    extruded_faces = cmds.filterExpand(cmds.polyListComponentConversion(extruded_edges, fe=True, tf=True), selectionMask=34)
+    perimeter_faces = cmds.filterExpand(cmds.polyListComponentConversion(selected_edges, fe=True, tf=True), selectionMask=34)
+    all_bace_faces = list(set(perimeter_faces) - set(extruded_faces))
+    all_bace_vfaces = list(set(cmds.filterExpand(cmds.polyListComponentConversion(all_bace_faces, ff=True, tvf=True), selectionMask=70)))
+
+    saw_edges = []
+
+    # 押し出されたフェース毎に反復
+    for extruded_face in extruded_faces:
+        perimeter_edges = cmds.filterExpand(cmds.polyListComponentConversion(extruded_face, ff=True, te=True), selectionMask=32)
+        selected_edge = [x for x in perimeter_edges if x in selected_edges]
+        extruded_edge = [x for x in perimeter_edges if x in extruded_edges]
+        side_edges = [x for x in perimeter_edges if x not in extruded_edges + selected_edges]
+        base_face = cmds.filterExpand(cmds.polyListComponentConversion(selected_edge, fe=True, tf=True), selectionMask=34)
+        base_face.remove(extruded_face)
+        ext_vfaces = cmds.filterExpand(cmds.polyListComponentConversion(extruded_face, ff=True, tvf=True), selectionMask=70)
+        base_vfaces = cmds.filterExpand(cmds.polyListComponentConversion(base_face, ff=True, tvf=True), selectionMask=70)
+        sel_vfaces = cmds.filterExpand(cmds.polyListComponentConversion(selected_edge, fe=True, tvf=True), selectionMask=70)
+
+        # 押し出しで作成されたフェース同士の境界エッジごとの反復
+        for side_edge in side_edges:
+            side_vts = cmds.filterExpand(cmds.polyListComponentConversion(side_edge, fe=True, tv=True), selectionMask=31)
+            side_vfaces = cmds.filterExpand(cmds.polyListComponentConversion(side_vts, fv=True, tvf=True), selectionMask=70)
+
+            vf_src = list(set(side_vfaces) & set(base_vfaces))[0]
+            vf_dst_list = list(set(side_vfaces) & set(ext_vfaces))
+
+            has_uv = cmds.polyListComponentConversion(vf_src, fvf=True, tuv=True)
+            has_vcolor = cmds.polyColorSet(q=True, allColorSets=True)
+
+            for vf_dst in vf_dst_list:
+
+                if has_uv:
+                    uv_src = cmds.polyListComponentConversion(vf_src, fvf=True, tuv=True)[0]
+                    uv_dst = cmds.polyListComponentConversion(vf_dst, fvf=True, tuv=True)[0]
+
+                    uv = cmds.polyEditUV(uv_src, q=True)
+                    cmds.polyEditUV(uv_dst, u=uv[0], v=uv[1], relative=False)
+
+                if has_vcolor:
+                    rgb = cmds.polyColorPerVertex(vf_src, q=True, colorRGB=True)
+                    a = cmds.polyColorPerVertex(vf_src, q=True, alpha=True)[0]
+                    cmds.polyColorPerVertex(vf_dst, colorRGB=rgb, alpha=a)
+
+            # 根元のUVが分離していなければ Saw 対象リストへ追加
+            vf = list(set(all_bace_vfaces) & set(side_vfaces))
+            uv = cmds.filterExpand(cmds.polyListComponentConversion(vf, fvf=True, tuv=True), selectionMask=35)
+
+            if len(set(uv)) == 1:
+                saw_edges.append(side_edge)
+
+    # 押し出しで新規作成されたボーダーエッジの Saw
+    cmds.u3dUnfold(extruded_edges, ite=2, p=0, bi=1, tf=1, ms=1024, rs=0)
+
+    # 押し出したフェース同士の境界の Saw
+    if saw_edges:
+        cmds.polyMapSew(saw_edges)
+
+    # 最初に選択していたエッジの Saw
+    cmds.polyMapSew(selected_edges)
+
+    # 選択復帰
+    cmds.select(extruded_edges)
+
+
+def smart_extrude():
+    """選択物のタイプによって適切に extrude する."""
+    selections = cmds.ls(selection=True)
+
+    if selections:
+        if cmds.objectType(selections[0], isType="joint"):
+            extrude_joint()
+
+        elif (cmds.objectType(selections[0], isType="mesh")
+              and cmds.selectType(q=True, polymeshEdge=True)):
+            extrude_edges()
+
+        else:
+            mel.eval("performPolyExtrude 0")
