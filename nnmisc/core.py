@@ -311,3 +311,18 @@ def extrude_edges():
     # 選択復帰
     cmds.select(extruded_edges)
 
+
+def smart_extrude():
+    """選択物のタイプによって適切に extrude する."""
+    selections = cmds.ls(selection=True)
+
+    if selections:
+        if cmds.objectType(selections[0], isType="joint"):
+            extrude_joint()
+
+        elif (cmds.objectType(selections[0], isType="mesh")
+              and cmds.selectType(q=True, polymeshEdge=True)):
+            extrude_edges()
+
+        else:
+            mel.eval("performPolyExtrude 0")
