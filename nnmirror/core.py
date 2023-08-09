@@ -384,6 +384,7 @@ class NN_ToolWindow(object):
         ui.button(label='Y = ', c=self.onSetYOS, dgc=self.onSetYWS, bgc=ui.color_y, width=ui.width1)
         ui.button(label='Z = ', c=self.onSetZOS, dgc=self.onSetZWS, bgc=ui.color_z, width=ui.width1)
         self.coord_value = ui.eb_float(v=0, width=ui.width2)
+        self.cb_set_position_relative = ui.check_box(label="Relative", v=False)
         ui.end_layout()
 
         ui.row_layout()
@@ -558,27 +559,33 @@ class NN_ToolWindow(object):
 
     def onSetXOS(self, *args):
         v = ui.get_value(self.coord_value)
-        nm.set_coord('x', v, space="object")
+        relative = ui.get_value(self.cb_set_position_relative)
+        nm.set_coord('x', v, space="object", relative=relative)
 
     def onSetYOS(self, *args):
         v = ui.get_value(self.coord_value)
-        nm.set_coord('y', v, space="object")
+        relative = ui.get_value(self.cb_set_position_relative)
+        nm.set_coord('y', v, space="object", relative=relative)
 
     def onSetZOS(self, *args):
         v = ui.get_value(self.coord_value)
-        nm.set_coord('z', v, space="object")
+        relative = ui.get_value(self.cb_set_position_relative)
+        nm.set_coord('z', v, space="object", relative=relative)
 
     def onSetXWS(self, *args):
         v = ui.get_value(self.coord_value)
-        nm.set_coord('x', v, space="world")
+        relative = ui.get_value(self.cb_set_position_relative)
+        nm.set_coord('x', v, space="world", relative=relative)
 
     def onSetYWS(self, *args):
         v = ui.get_value(self.coord_value)
-        nm.set_coord('y', v, space="world")
+        relative = ui.get_value(self.cb_set_position_relative)
+        nm.set_coord('y', v, space="world", relative=relative)
 
     def onSetZWS(self, *args):
         v = ui.get_value(self.coord_value)
-        nm.set_coord('z', v, space="world")
+        relative = ui.get_value(self.cb_set_position_relative)
+        nm.set_coord('z', v, space="world", relative=relative)
 
     def onSetZeroCenter(objects, axis):
         """

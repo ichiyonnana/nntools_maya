@@ -55,42 +55,69 @@ def disable_all_maintain_max_inf():
         cmds.setAttr(sc + ".maintainMaxInfluences", 0)
 
 
-def set_coord(axis, v, space="object"):
+def set_coord(axis, v, space="object", relative=False):
     """ [cmds] 選択頂点の指定した軸の座標値を設定する
 
     Args:
         axis (str): "x", "y", "z"
         v (str): 頂点を表すコンポーネント文字列
         space (str): 座標系｡ "object" or "world"｡ デフォルトは world
+        relative (bool): True なら相対的な移動になる｡デフォルトは False
     """
     selection = cmds.ls(selection=True, flatten=True)
 
     for vtx in selection:
         if space == "object":
-            x, y, z = cmds.xform(vtx, q=True, a=True, os=True, t=True)
+            if relative:
+                t = (0, 0, 0)
+                if axis == "x":
+                    t = (v, 0, 0)
+                if axis == "y":
+                    t = (0, v, 0)
+                if axis == "z":
+                    t = (0, 0, v)
 
-            t = (0, 0, 0)
-            if axis == "x":
-                t = (v, y, z)
-            if axis == "y":
-                t = (x, v, z)
-            if axis == "z":
-                t = (x, y, v)
+                cmds.xform(vtx, relative=True, os=True, t=t)
+            else:
+                # 現在の座標
+                x, y, z = cmds.xform(vtx, q=True, a=True, os=True, t=True)
 
-            cmds.xform(vtx, a=True, os=True, t=t)
+                t = (0, 0, 0)
+                if axis == "x":
+                    t = (v, y, z)
+                if axis == "y":
+                    t = (x, v, z)
+                if axis == "z":
+                    t = (x, y, v)
+
+                # 新しい座標の設定
+                cmds.xform(vtx, absolute=True, os=True, t=t)
 
         else:
-            x, y, z = cmds.xform(vtx, q=True, a=True, ws=True, t=True)
+            if relative:
+                t = (0, 0, 0)
+                if axis == "x":
+                    t = (v, 0, 0)
+                if axis == "y":
+                    t = (0, v, 0)
+                if axis == "z":
+                    t = (0, 0, v)
 
-            t = (0, 0, 0)
-            if axis == "x":
-                t = (v, y, z)
-            if axis == "y":
-                t = (x, v, z)
-            if axis == "z":
-                t = (x, y, v)
+                cmds.xform(vtx, relative=True, ws=True, t=t)
+            else:
+                # 現在の座標
+                x, y, z = cmds.xform(vtx, q=True, a=True, ws=True, t=True)
 
-            cmds.xform(vtx, a=True, ws=True, t=t)
+                t = (0, 0, 0)
+                if axis == "x":
+                    t = (v, y, z)
+                if axis == "y":
+                    t = (x, v, z)
+                if axis == "z":
+                    t = (x, y, v)
+
+                # 新しい座標の設定
+                cmds.xform(vtx, absolute=True, ws=True, t=t)
 
 
 def set_x_zero():
