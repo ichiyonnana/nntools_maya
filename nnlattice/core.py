@@ -639,7 +639,8 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Etc')
-        ui.button(label='Toggle Env', c=self.onToggleEnvelope)
+        ui.button(label='Toggle Envelope', c=self.onToggleEnvelope)
+        ui.button(label='Hide Deformers', c=self.onHideDeformers)
         ui.end_layout()
 
         ui.end_layout()
@@ -735,6 +736,19 @@ class NN_ToolWindow(object):
 
     def onToggleEnvelope(self, *args):
         toggle_envelope()
+
+    def onHideDeformers(self, *args):
+        """"""
+        all_model_panels = cmds.getPanel(type="modelPanel")
+
+        if not all_model_panels:
+            raise
+
+        current_value = cmds.modelEditor(all_model_panels[0], q=True, deformers=True)
+        new_value = not current_value
+
+        for panel in all_model_panels:
+            pm.modelEditor(panel, e=True, deformers=new_value)
 
 
 def showNNToolWindow():
