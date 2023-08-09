@@ -223,7 +223,8 @@ class NN_ToolWindow(object):
 
             item = ListItem()
             item.content = camera
-            item.name = re.match(r"(.*\|)?(.+)(Shape)", camera).groups()[1]
+            m = re.match(r"(.*\|)?(.+)(Shape)(\d+)?", camera)
+            item.name = m.groups()[1] + str(m.groups()[3])
             basename = re.sub(r"^.*\|", "", camera)
 
             # 名前の重複があればパスの差異を付与
