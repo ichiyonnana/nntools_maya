@@ -71,6 +71,32 @@ def is_visible(obj_name):
     return True
 
 
+def get_parent_camera(pm_object):
+    """指定したオブジェクトより上の階層にある camera ノードを返す.
+
+    指定したオブジェクトからルートの間にある camera ノードを子に持つトランスフォームノードを探し
+    オブジェクトに一番階層が近いカメラオブジェクトを返す
+
+    Args:
+        pm_object (PyNode): カメラを親に持つオブジェクト
+
+    Returns:
+        PyNode: camera ノード
+    """
+    full_path_name = pm_object.fullPathName()
+    splited_path = full_path_name.split("|")
+    depth = len(splited_path)
+
+    for i in reversed(range(1, depth-1)):
+        partial_path = "|".join(splited_path[0:i])
+        pm_node = pm.PyNode(partial_path)
+
+        if isinstance(pm_node.getShape(), nt.Camera):
+            return pm_node
+
+    return None
+
+
 class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
@@ -164,7 +190,6 @@ class NN_ToolWindow(object):
         ui.button(label="LookThrough Parent", c=self.onLookThroughParent)
         ui.button(label="Create ImagePlane", c=self.onCreateImageplane)
         ui.end_layout()
-
 
         ui.end_layout()
 
@@ -424,12 +449,12 @@ class NN_ToolWindow(object):
         ips = pm.ls(type="imagePlane")
 
         for ip_shape in ips:
-            ip_trs = ip_shape.getParent()
-            camera_shape = ip_trs.getParent().getShape()
+            camera_shape = get_parent_camera(ip_shape)
 
-            ip_shape.lookThroughCamera.disconnect()
-            ip_shape.displayOnlyIfCurrent.set(True)
-            camera_shape.message.connect(ip_shape.lookThroughCamera)
+            if camera_shape:
+                ip_shape.lookThroughCamera.disconnect()
+                ip_shape.displayOnlyIfCurrent.set(True)
+                camera_shape.message.connect(ip_shape.lookThroughCamera)
 
             pm.imagePlane(ip_shape, e=True, lookThrough=camera_shape, showInAllViews=False)
 
