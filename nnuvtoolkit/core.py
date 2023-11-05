@@ -11,6 +11,8 @@ import nnutil.core as nu
 import nnutil.ui as ui
 import nnutil.decorator as nd
 
+from . import rectilinearize 
+
 window_name = "NN_UVToolkit"
 window = None
 
@@ -270,6 +272,10 @@ def linear_align():
 def ari_gridding():
     mel.eval("AriUVGridding")
 
+
+@nd.repeatable
+def _rectilinearize(corner_uv_comps=None, target_texel=15, map_size=1024):
+    rectilinearize.main(corner_uv_comps=corner_uv_comps, target_texel=target_texel, map_size=map_size)
 
 @nd.repeatable
 def change_uvtk_texel_value(texel):
@@ -733,6 +739,7 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='')
         ui.button(label='AriGridding', c=self.onGridding)
+        ui.button(label='Rectilinearize', c=self.onRectilinearize)
         ui.button(label='MatchUV', c=self.onMatchUV, dgc=self.onMatchUVOptions)
         ui.end_layout()
 
@@ -977,6 +984,12 @@ class NN_ToolWindow(object):
     @nd.undo_chunk
     def onGridding(self, *args):
         ari_gridding()
+
+    @nd.undo_chunk
+    def onRectilinearize(self, *args):
+        target_texel = ui.get_value(self.texel)
+        map_size = ui.get_value(self.mapSize)
+        _rectilinearize(target_texel=target_texel, map_size=map_size)
 
     @nd.undo_chunk
     def onChangeTexel(self, *args):
