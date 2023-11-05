@@ -7,11 +7,14 @@ import maya.cmds as cmds
 import maya.mel as mel
 import pymel.core as pm
 import maya.api.OpenMaya as om
+import maya.OpenMayaUI as omui
 
 import nnutil.ui as ui
 import nnutil.misc as nm
 import nnutil.decorator as nd
 
+from PySide2 import QtWidgets
+import shiboken2
 
 def extract_transform_as_locator(objects=None):
     """指定したオブジェクトのトランスフォームをロケーターとして抽出する."""
@@ -413,3 +416,34 @@ def set_manipulater_to_active_camera():
         cmds.manipMoveContext("Move", e=True, mode=6, orientObject=active_camera)
         mel.eval('setTRSPinPivot true')
 
+
+def get_maya_window():
+    """Mayaのメインウィンドウを取得するヘルパー関数."""
+    ptr = omui.MQtUtil.mainWindow()
+    if ptr is not None:
+        return shiboken2.wrapInstance(int(ptr), QtWidgets.QWidget)
+
+
+def resize_editor(window_title, x=-1, y=-1, width=-1, height=-1):
+    """指定した名前のウィンドウの位置とサイズを設定する.
+
+    Args:
+        window_title (str): タイトルバーに表示されているウィンドウ名
+        x (int): 左上の x 座標｡負数で移動しない｡
+        y (int): 左上の y 座標｡負数で移動しない｡
+        width (int): ウィンドウ幅｡負数でリサイズしない｡
+        height (int): ウィンドウ高｡負数でリサイズしない｡
+    """
+    maya_window = get_maya_window()
+
+    # 全ての子ウィジェットに対して反復
+    for child in maya_window.children():
+        # ウィジェットが windowTitle 属性を持ち､引数 window_title に位置した場合に配置･リサイズする
+        if hasattr(child, "windowTitle") and child.windowTitle() == window_title:
+            if x >= 0 and y >= 0:
+                child.move(x, y)
+
+            if width >= 0 and height >= 0:
+                child.resize(width, height)
+
+            break
