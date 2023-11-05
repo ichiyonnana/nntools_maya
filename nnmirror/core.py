@@ -25,7 +25,7 @@ def get_window():
     return window
 
 
-def mirror_objects(objects=None, axis=0, direction=1, cut=False):
+def mirror_objects(objects=None, axis=0, direction=1, cut=False, center_tolerance=0.001):
     if cut:
         merge_mode = 0
     else:
@@ -34,9 +34,25 @@ def mirror_objects(objects=None, axis=0, direction=1, cut=False):
     objects = pm.selected(flatten=True)
 
     if isinstance(objects[0], (nt.Mesh, nt.Transform)):
-        # オブジェクト
+        # オブジェクトで反復
         for obj in objects:
             if obj.getShape():
+                # シンメトリ面から誤差範囲内にある頂点の座標を 0 にする
+                points = nu.get_points(obj, space=om.MSpace.kObject)
+
+                for point in points:
+                    if axis == 0 and abs(point.x) <= 0.001:
+                        point.x = 0
+
+                    if axis == 1 and abs(point.y) <= 0.001:
+                        point.y = 0
+
+                    if axis == 2 and abs(point.z) <= 0.001:
+                        point.z = 0
+
+                nu.set_points(obj, points=points, space=om.MSpace.kObject)
+
+                # ミラーの実行
                 pm.polyMirrorFace(obj, cutMesh=1, axis=axis, axisDirection=direction, mergeMode=merge_mode, mergeThresholdType=1, mergeThreshold=0.01, mirrorAxis=1, mirrorPosition=0, smoothingAngle=180, flipUVs=0, ch=1)
                 pm.bakePartialHistory(obj, ppt=True)
     else:
