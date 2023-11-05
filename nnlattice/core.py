@@ -561,6 +561,18 @@ def apply_lattice(lattices=[]):
         shape.setPoints(points)
 
 
+def reset_lattice(lattices=[]):    
+    # 引数が無効なら選択オブジェクトからラティスを取得する
+    if not lattices:
+        lattices = [x for sel in pm.selected(flatten=True) for x in pm.listRelatives(sel, ad=True) if isinstance(x, nt.Lattice)]
+
+        if not lattices:
+            raise(Exception)
+        
+    for lattice in lattices:
+        pm.lattice(e=True, latticeReset=True)
+
+
 class NN_ToolWindow(object):
 
     def __init__(self):
@@ -627,6 +639,7 @@ class NN_ToolWindow(object):
         ui.header(label="")
         ui.button(label='Apply Lattice', c=self.onApplyLattice)
         ui.button(label='Match Lattice', c=self.onMatchLattice)
+        ui.button(label='Reset', c=self.onResetLattice)
         ui.end_layout()
 
         ui.row_layout()
@@ -657,6 +670,9 @@ class NN_ToolWindow(object):
 
     def onApplyLattice(self, *args):
         apply_lattice()
+
+    def onResetLattice(self, *args):
+        reset_lattice()
 
     def onDiv2(self, *args):
         s = ui.get_value(self.rebuild_s)
