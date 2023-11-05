@@ -14,6 +14,7 @@ import pymel.core.nodetypes as nt
 
 import nnutil as nu
 import nnutil.ui as ui
+import nnutil.display as nd
 
 
 window_name = "NN_Lattice"
@@ -499,14 +500,20 @@ def toggle_envelope(lattices=None):
             print("select lattice")
             return
 
-    # トグル後の値
+    # トグル後の値の決定
     ffd = pm.listConnections(lattices[0], type="ffd")[0]
-    envelope = 0 if ffd.envelope.get() == 1 else 1
+    new_state = 0 if ffd.nodeState.get() == 1 else 1
 
     # 各ラティスの処理
     for lattice in lattices:
         ffd = pm.listConnections(lattice, type="ffd")[0]
-        ffd.envelope.set(envelope)
+        ffd.nodeState.set(new_state)
+    
+    # 新しくセットされた状態をインビューメッセージで表示
+    if new_state == 0:
+        nd.message("lattice state: Normal")
+    else:        
+        nd.message("lattice state: No Effect")
 
 
 def apply_lattice(lattices=[]):
