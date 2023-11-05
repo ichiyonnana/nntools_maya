@@ -3,6 +3,7 @@
 
 import math
 import re
+import random
 
 import maya.cmds as cmds
 import maya.mel as mel
@@ -250,11 +251,15 @@ def rectilinearize_uvshell(corner_uv_comps, target_texel=15, map_size=1024):
         cmds.u3dUnfold(inner_uvs, ite=1, p=0, bi=1, tf=1, ms=1024, rs=0)
 
     # 裏表の修正
-    representative_face = cmds.filterExpand(cmds.polyListComponentConversion(shell_uvs, tf=True), sm=34)[0]
-    is_flip = not is_frontfacing_uvshell(representative_face)
+    all_faces = cmds.filterExpand(cmds.polyListComponentConversion(shell_uvs, tf=True), sm=34)
+    sample_count = min(len(all_faces), 10)
+    representative_faces = random.sample(all_faces, sample_count)
+    front_face_count = len([x for x in representative_faces if is_frontfacing_uvshell(x)])
+    is_flip = front_face_count < sample_count/2
+
     if is_flip:
         cmds.polyEditUV(shell_uvs, su=-1)
-
+    
     # 内部の optimize
     if inner_uvs:
         cmds.u3dOptimize(inner_uvs, ite=1, pow=1, sa=1, bi=0, tf=1, ms=1024, rs=0)
