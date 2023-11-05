@@ -867,7 +867,7 @@ def set_radius_constant(joints=[], radius=0.001):
         j.setRadius(radius)
 
 
-def divide_without_history():
+def divide_without_history(delete_history=True):
     selection = pm.selected(flatten=True)
 
     if selection:
@@ -882,7 +882,8 @@ def divide_without_history():
         else:
             pass
 
-        pm.bakePartialHistory(ppt=True)
+        if delete_history:
+            pm.bakePartialHistory(ppt=True)
 
 
 def soft_connect(edge_flow=0):
