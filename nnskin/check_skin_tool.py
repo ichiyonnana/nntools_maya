@@ -75,7 +75,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = dialog_name
         self.title = dialog_name
-        self.size = (300, 125)
+        self.size = (ui.width(11.5), ui.height(13.5))
 
         self.root_joint = None
         self.joints = []
@@ -86,15 +86,24 @@ class NN_ToolWindow(object):
         self.meshes = []
 
     def create(self):
-        if cmds.window(self.window, exists=True):
-            cmds.deleteUI(self.window, window=True)
-        self.window = cmds.window(
-            self.window,
-            t=self.title,
-            widthHeight=self.size
-        )
+        if pm.window(self.window, exists=True):
+            pm.deleteUI(self.window, window=True)
+
+        # プリファレンスの有無による分岐
+        if pm.windowPref(self.window, exists=True):
+            # ウィンドウのプリファレンスがあれば位置だけ保存して削除
+            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
+            pm.windowPref(self.window, remove=True)
+
+            # 前回位置に指定したサイズで表示
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+
+        else:
+            # プリファレンスがなければデフォルト位置に指定サイズで表示
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+
         self.layout()
-        cmds.showWindow()
+        pm.showWindow(self.window)
 
     def layout(self):
         ui.column_layout()
@@ -179,6 +188,11 @@ class NN_ToolWindow(object):
         ui.button(label="Gradation", c=self.onGradation)
         ui.button(label="Animation", c=self.onAnimation)
         ui.button(label="PaintMode", c=self.onPaintMode)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label="")
+        ui.button(label="SelHilight 0 [1]", c=self.onSelHilightingFalse, dgc=self.onSelHilightingTrue)
         ui.end_layout()
 
         ui.row_layout()
@@ -375,6 +389,30 @@ class NN_ToolWindow(object):
         import nnutil.misc as nm
 
         weight_paint_mode_with_selected_joint()
+
+    @staticmethod
+    def _set_sel_hilighting_to(visibility):
+        """全パネルの Selection Hilighting を切り替える.
+
+        Args:
+            visibility (bool): 新しい Selection Hilighting の値｡
+        """
+        def is_model_panel(panel):
+            return cmds.getPanel(typeOf=panel) == "modelPanel"
+
+        all_panels = cmds.getPanel(all=True)
+        all_model_panels = [x for x in all_panels if is_model_panel(x)]
+
+        for panel in all_model_panels:
+            cmds.modelEditor(panel, e=True, sel=visibility)
+
+    def onSelHilightingFalse(self, *args):
+        """全てのモデルパネルの SelectionHilighting を無効にする."""
+        self._set_sel_hilighting_to(False)
+
+    def onSelHilightingTrue(self, *args):
+        """全てのモデルパネルの SelectionHilighting を有効にする."""
+        self._set_sel_hilighting_to(True)
 
 
 def showNNToolWindow():
