@@ -6,7 +6,7 @@ import re
 import maya.cmds as cmds
 import maya.mel as mel
 import pymel.core as pm
-import maya.OpenMaya as om
+import maya.api.OpenMaya as om
 
 import nnutil.ui as ui
 import nnutil.misc as nm
@@ -326,3 +326,90 @@ def smart_extrude():
 
         else:
             mel.eval("performPolyExtrude 0")
+
+
+def orient_object_from_edges():
+    """選択されているエッジを元にローカル座標軸を設定する.
+
+    頂点を共有する 2 エッジのみの対応
+    """
+    # 選択エッジ
+    edges = cmds.ls(orderedSelection=True, flatten=True)
+
+    # 2エッジ以下なら終了
+    if len(edges) < 2:
+        print("select 2 edges")
+        print(edges)
+        raise
+
+    # コンポーネントを持つオブジェクト
+    obj = cmds.listRelatives(cmds.polyListComponentConversion(edges[0])[0], parent=True, fullPath=True)[0]
+
+    # エッジの構成頂点
+    basis0_vts = cmds.filterExpand(cmds.polyListComponentConversion(edges[0], fe=True, tv=True), sm=31)
+    basis1_vts = cmds.filterExpand(cmds.polyListComponentConversion(edges[1], fe=True, tv=True), sm=31)
+
+    # 2 エッジの共有頂点のリスト
+    intersection_vts = list(set(basis0_vts) & set(basis1_vts))
+
+    # 2 エッジが 1 点で接していなければ終了
+    if len(intersection_vts) != 1:
+        print("splited edges is not supported.")
+        raise
+
+    # 2 エッジの共有頂点
+    intersection_vtx = intersection_vts[0]
+
+    # 各選択エッジの終点
+    basis0_end_vtx = list(set(basis0_vts) - {intersection_vtx})[0]
+    basis1_end_vtx = list(set(basis1_vts) - {intersection_vtx})[0]
+
+    # 共有頂点のワールド座標
+    p0 = cmds.xform(intersection_vtx, q=True, translation=True, worldSpace=True)
+
+    # X 軸のベクトル
+    p1 = cmds.xform(basis0_end_vtx, q=True, translation=True, worldSpace=True)
+    basis0 = om.MVector([p1[0]-p0[0], p1[1]-p0[1], p1[2]-p0[2]])
+    basis0.normalize()
+
+    # Y 軸のベクトル
+    p2 = cmds.xform(basis1_end_vtx, q=True, translation=True, worldSpace=True)
+    basis1 = om.MVector([p2[0]-p0[0], p2[1]-p0[1], p2[2]-p0[2]])
+    basis1.normalize()
+
+    # Z 軸のベクトル
+    basis2 = basis0 ^ basis1
+    basis2.normalize()
+
+    # 新しいワールドマトリックス
+    m = [
+        basis0.x, basis0.y, basis0.z, 0,
+        basis1.x, basis1.y, basis1.z, 0,
+        basis2.x, basis2.y, basis2.z, 0,
+        p0[0], p0[1], p0[2], 1]
+
+    # 現在の頂点座標を保存
+    sel = om.MSelectionList()
+    sel.add(obj)
+    dag = sel.getDagPath(0)
+    fn_mesh = om.MFnMesh(dag)
+
+    current_points = fn_mesh.getPoints(space=om.MSpace.kWorld)
+
+    # ワールドマトリックスの上書き
+    cmds.xform(obj, matrix=m, worldSpace=True)
+
+    # 頂点座標の復帰
+    fn_mesh.setPoints(current_points, space=om.MSpace.kWorld)
+    fn_mesh.updateSurface()
+
+
+def set_manipulater_to_active_camera():
+    """マニピュレーターの方向をアクティブなカメラのローカル軸に設定する."""
+    active_panel = cmds.getPanel(withFocus=True)
+    active_camera = cmds.modelPanel(active_panel, q=True, camera=True)
+
+    if active_camera:
+        cmds.manipMoveContext("Move", e=True, mode=6, orientObject=active_camera)
+        mel.eval('setTRSPinPivot true')
+
