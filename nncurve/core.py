@@ -109,7 +109,7 @@ def makeCurve(edges, n=4):
     if not len(end_vts) == 2:
         raise(Exception)
 
-    sorted_vts = nu.sortVtx(edge_set, vtx_set)
+    sorted_vts = nu.sortVtx(edge_set, end_vts[0])
 
     # カーブの始点終点と頂点リストお始点終点が逆なら頂点リストを反転する
     if not nu.isStart(sorted_vts[0], curve):
@@ -145,7 +145,7 @@ def alignEdgesOnCurve(edges, curve, keep_ratio_mode=True, n=4):
     if not len(end_vts) == 2:
         raise(Exception)
 
-    sorted_vts = nu.sortVtx(edge_set, vtx_set)
+    sorted_vts = nu.sortVtx(edge_set, end_vts[0])
 
     # カーブの始点終点と頂点リストお始点終点が逆なら頂点リストを反転する
     if not nu.isStart(sorted_vts[0], target_curve):
