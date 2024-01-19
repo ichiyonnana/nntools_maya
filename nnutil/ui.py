@@ -106,6 +106,7 @@ def ui_func(component):
         pm.uitypes.Text: [pm.text, "l"],
         pm.uitypes.RadioButton: [pm.radioButton, "sl"],
         pm.uitypes.TextField: [pm.textField, "text"],
+        pm.uitypes.OptionMenu: [pm.optionMenu, "v"],
     }
 
     return handle_method[get_component_type(component)]
@@ -288,6 +289,39 @@ def radio_collection(*args, **kwargs):
 
 def radio_button(label, width=button_width2, *args, **kwargs):
     return pm.radioButton(label=label, width=width, *args, **kwargs)
+
+
+def option_menu(label, items, bsp=any_handler, cc=any_handler, width=button_width2, *args, **kwargs):
+    component = pm.optionMenu(label=label, bsp=bsp, cc=cc)
+    
+    for item in items:
+        pm.menuItem(label=item)
+
+    return component
+
+
+def delete_all_items(ui_object):
+    """optionMenu のアイテムを全て削除する."""
+    pm.optionMenu(ui_object, e=True, deleteAllItems=True)
+
+
+def add_items(ui_object, items):
+    """指定の optionMenu にアイテムを追加する."""
+    for item in items:
+        pm.menuItem(label=item, parent=ui_object)
+
+def replace_items(ui_object, items, keep_selection=True):
+    """指定の optionMenu のアイテムを全て置き換える.
+    
+    置き換え後のアイテムに置き換え前に選択されていたアイテムと同一の物があれば選択を維持する｡
+    """
+    selected_value = pm.optionMenu(ui_object, q=True, value=True)
+
+    delete_all_items(ui_object=ui_object)
+    add_items(ui_object=ui_object, items=items)
+
+    if keep_selection and selected_value in items:
+        pm.optionMenu(option_menu, e=True, value=selected_value)
 
 
 def get_value(component):
