@@ -858,6 +858,7 @@ class NN_ToolWindow(object):
         ui.button(label=u'→', c=self.onTranslateUAdd, bgc=ui.color_u)
         ui.button(label=u'↑', c=self.onTranslateVAdd, bgc=ui.color_v)
         ui.button(label=u'↓', c=self.onTranslateVDiff, bgc=ui.color_v)
+        self.cb_transform_in_pixel = ui.check_box(label="px")
         ui.end_layout()
 
         ui.row_layout()
@@ -898,21 +899,37 @@ class NN_ToolWindow(object):
     @nd.undo_chunk
     def onTranslateUAdd(self, *args):
         v = ui.get_value(self.translateValue)
+
+        if ui.get_value(self.cb_transform_in_pixel):
+            v *= 1.0 / ui.get_value(self.mapSize)
+
         translate_uv(pivot=(0, 0), translate=(v, 0))
 
     @nd.undo_chunk
     def onTranslateUDiff(self, *args):
         v = ui.get_value(self.translateValue)
+
+        if ui.get_value(self.cb_transform_in_pixel):
+            v *= 1.0 / ui.get_value(self.mapSize)
+
         translate_uv(pivot=(0, 0), translate=(-v, 0))
 
     @nd.undo_chunk
     def onTranslateVAdd(self, *args):
         v = ui.get_value(self.translateValue)
+
+        if ui.get_value(self.cb_transform_in_pixel):
+            v *= 1.0 / ui.get_value(self.mapSize)
+
         translate_uv(pivot=(0, 0), translate=(0, v))
 
     @nd.undo_chunk
     def onTranslateVDiff(self, *args):
         v = ui.get_value(self.translateValue)
+
+        if ui.get_value(self.cb_transform_in_pixel):
+            v *= 1.0 / ui.get_value(self.mapSize)
+
         translate_uv(pivot=(0, 0), translate=(0, -v))
 
     @nd.undo_chunk
