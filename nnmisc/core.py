@@ -236,6 +236,70 @@ def snap_to_pixels(targets=None, texture_resolution=1024, snap_pixels=1):
         cmds.polyEditUV(uv_str, relative=False, uValue=new_u, vValue=new_v)
 
 
+@nd.repeatable
+def snap_to_ordinal_in_block(targets=None, texture_resolution=1024, block_width=8, ordinal=5, nearest=False):
+    """指定した UV をテクスチャのピクセル境界にスナップさせる."""
+
+    def calc_coord_to_snap(coord):
+        uv_per_pixel = 1.0 / texture_resolution
+        uv_per_block = uv_per_pixel * block_width
+
+        current_ordinal = (coord % uv_per_block) / uv_per_pixel
+
+        # nearest オプションが有効な場合は ordinal を反対側から数えた場合と比較して近い方にスナップする
+        if nearest:
+            if current_ordinal < block_width / 2:
+                actual_ordinal = min(ordinal, block_width - ordinal)
+            else:
+                actual_ordinal = max(ordinal, block_width - ordinal)
+
+        else:
+            actual_ordinal = ordinal
+
+        # 現在 UV が存在するブロック内のスナップ座標
+        block_index = coord // uv_per_block
+
+        new_coord = block_index * uv_per_block + uv_per_pixel * actual_ordinal
+
+        return new_coord
+
+    # tagets が未指定なら選択 UV を使用
+    targets = targets or cmds.ls(selection=True, flatten=True)
+
+    if not targets:
+        return
+
+    # UV 座標取得
+    uvs = cmds.filterExpand(targets, selectionMask=35)
+    uv_coords = {}
+
+    for uv_str in uvs:
+        u, v = cmds.polyEditUV(uv_str, q=True)
+        uv_coords[uv_str] = [u, v]
+
+    # 揃えるのが U か V かの判定
+    max_u = max([uv[0] for uv in uv_coords.values()])
+    min_u = min([uv[0] for uv in uv_coords.values()])
+    max_v = max([uv[1] for uv in uv_coords.values()])
+    min_v = min([uv[1] for uv in uv_coords.values()])
+
+    is_snap_u = (max_u - min_u) < (max_v - min_v)
+
+    # 各 UV ごとにスナップ処理
+    for uv_str, uv in uv_coords.items():
+        new_v = uv[1]
+        new_u = uv[0]
+
+        # スナップ後の座標
+        if is_snap_u:
+            new_u = calc_coord_to_snap(uv[0])
+        else:
+            new_v = calc_coord_to_snap(uv[1])
+
+        # 座標の更新
+        cmds.polyEditUV(uv_str, relative=False, uValue=new_u, vValue=new_v)
+
+
 @nd.undo_chunk
 def extrude_edges():
     """UV･頂点カラー等が設定されたエッジのextrude."""
