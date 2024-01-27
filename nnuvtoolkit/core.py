@@ -11,7 +11,7 @@ import nnutil.core as nu
 import nnutil.ui as ui
 import nnutil.decorator as nd
 
-from . import rectilinearize 
+from . import rectilinearize
 
 window_name = "NN_UVToolkit"
 window = None
@@ -665,7 +665,7 @@ def uv_snapshot_options():
 
 @nd.repeatable
 def set_checker_density(n):
-    texWinName = cmds.getPanel(sty='polyTexturePlacementPanel')[0]
+    texWinName = cmds.getPanel(sty="polyTexturePlacementPanel")[0]
     cmds.textureWindow(texWinName, e=True, checkerDensity=n)
 
 
