@@ -694,7 +694,13 @@ class NN_ToolWindow(object):
 
     def create(self):
         if pm.window(self.window, exists=True):
-            pm.deleteUI(self.window, window=True)
+            pm.deleteUI(self.window)
+
+        # UV エディターのウィンドウ名を取得
+        all_uv_panels = cmds.getPanel(scriptType="polyTexturePlacementPanel")
+        uv_panel = all_uv_panels[0] if all_uv_panels else None
+        uv_window = cmds.panel(uv_panel, q=True, control=True)
+        parent_window = uv_window.split("|")[0] if uv_window else None
 
         # プリファレンスの有無による分岐
         if pm.windowPref(self.window, exists=True):
@@ -703,11 +709,16 @@ class NN_ToolWindow(object):
             pm.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
-
+            if parent_window:
+                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False, parent=parent_window)
+            else:
+                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+            if parent_window:
+                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False, parent=parent_window)
+            else:
+                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
 
         self.layout()
         pm.showWindow(self.window)
