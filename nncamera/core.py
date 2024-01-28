@@ -141,7 +141,7 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.button(label="Update", c=self.onUpdateCameraList)
         ui.button(label="Select", c=self.onSelectCameraObject)
-        ui.button(label="Lock", c=self.onLockCamera, dgc=self.onUnLockCamera)
+        ui.button(label="Lock", c=self.onLockCamera, dgc=self.onUnLockCamera, annotation="L: Lock\nM: Unlock")
         ui.end_layout()
         self.camera_list = pm.textScrollList(
                                                     numberOfRows=20,
@@ -158,9 +158,9 @@ class NN_ToolWindow(object):
         # 右ペイン
         ui.column_layout()
         ui.row_layout()
-        ui.button(label="Lock", c=self.onLockImageplane, dgc=self.onUnLockImageplane)
+        ui.button(label="Lock", c=self.onLockImageplane, dgc=self.onUnLockImageplane, annotation="L: Lock\nM: Unlock")
         ui.button(label="Dup", c=self.onDuplicateImageplane)
-        ui.button(label="Edit", c=self.onEditImage, dgc=self.onSetImageEditor)
+        ui.button(label="Edit", c=self.onEditImage, dgc=self.onSetImageEditor, annotation="L: Launch Editor\nM: Set Editor Path")
         ui.end_layout()
         self.item_list = pm.textScrollList(
                                                     numberOfRows=20,
