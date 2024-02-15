@@ -1,16 +1,89 @@
 #! python
 # coding:utf-8
-
-"""
-
-"""
+"""頂点カラーツール"""
 import maya.cmds as cmds
 import maya.mel as mel
+import maya.api.OpenMaya as om
 
 import nnutil.core as nu
 import nnutil.decorator as deco
 import nnutil.ui as ui
 import nnutil.display as nd
+
+
+def get_all_vertex_colors(obj_name):
+    selection = om.MGlobal.getSelectionListByName(obj_name)
+    dagPath = selection.getDagPath(0)
+    component = selection.getComponent(0)[1]
+    fnMesh = om.MFnMesh(dagPath)
+
+    # 全頂点フェースカラーを取得
+    colors = fnMesh.getFaceVertexColors()
+
+    # フェースインデックスと頂点インデックスのリストを作成
+    face_indices = om.MIntArray()
+    vertex_indices = om.MIntArray()
+
+    for i in range(fnMesh.numPolygons):
+        polygon_vertices = fnMesh.getPolygonVertices(i)
+        for j in polygon_vertices:
+            face_indices.append(i)
+            vertex_indices.append(j)
+
+    return colors
+
+
+def set_all_vertex_colors(obj_name, colors, channels=4, r=False, g=False, b=False, a=False):
+    selection = om.MGlobal.getSelectionListByName(obj_name)
+    dagPath = selection.getDagPath(0)
+    component = selection.getComponent(0)[1]
+    fnMesh = om.MFnMesh(dagPath)
+
+    # フェースインデックスと頂点インデックスのリストを作成
+    face_indices = om.MIntArray()
+    vertex_indices = om.MIntArray()
+
+    for i in range(fnMesh.numPolygons):
+        polygon_vertices = fnMesh.getPolygonVertices(i)
+        for j in polygon_vertices:
+            face_indices.append(i)
+            vertex_indices.append(j)
+
+    new_colors = get_all_vertex_colors(obj_name)
+
+    for i in range(len(new_colors)):
+        if channels > 0 and r:
+            new_colors[i][0] = colors[i][0]
+
+        if channels > 1 and g:
+            new_colors[i][1] = colors[i][1]
+
+        if channels > 2 and b:
+            new_colors[i][2] = colors[i][2]
+
+        if channels > 3 and a:
+            new_colors[i][3] = colors[i][3]
+
+    # 値の設定
+    modifier = om.MDGModifier()
+    fnMesh.setFaceVertexColors(new_colors, face_indices, vertex_indices, modifier)
+    modifier.doIt()
+
+
+def store_colors(objects):
+    colors_dict = {}
+
+    for obj in objects:
+        colors_dict[obj] = get_all_vertex_colors(obj)
+
+    return colors_dict
+
+
+def restore_colors(objects, colors_dict, r, g, b, a):
+    for obj in objects:
+        color_component_type = cmds.polyColorSet(obj, q=True, currentColorSet=True, representation=True)
+        chanells = len(color_component_type)
+        set_all_vertex_colors(obj, colors_dict[obj], channels=chanells, r=r, g=g, b=b, a=a)
 
 
 window_name = "NN_VColor"
@@ -223,8 +296,15 @@ class NN_ToolWindow(object):
         selection = cmds.ls(selection=True)
 
         if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, r=v)
+            if cmds.selectType(q=True, polymeshUV=True):
+                selection = cmds.polyListComponentConversion(selection, tvf=True)
+            elif cmds.selectType(q=True, edge=True):
+                selection = cmds.polyListComponentConversion(selection, tv=True)
+
+            objects = cmds.polyListComponentConversion(selection)
+            stored_colors = store_colors(objects)
+            cmds.polyColorPerVertex(selection, r=v)
+            restore_colors(objects, stored_colors, r=False, g=True, b=True, a=True)
 
     def onSetColorG(self, *args):
         """G をスライダーの値に設定する"""
@@ -232,8 +312,15 @@ class NN_ToolWindow(object):
         selection = cmds.ls(selection=True)
 
         if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, g=v)
+            if cmds.selectType(q=True, polymeshUV=True):
+                selection = cmds.polyListComponentConversion(selection, tvf=True)
+            elif cmds.selectType(q=True, edge=True):
+                selection = cmds.polyListComponentConversion(selection, tv=True)
+
+            objects = cmds.polyListComponentConversion(selection)
+            stored_colors = store_colors(objects)
+            cmds.polyColorPerVertex(selection, g=v)
+            restore_colors(objects, stored_colors, r=True, g=False, b=True, a=True)
 
     def onSetColorB(self, *args):
         """B をスライダーの値に設定する"""
@@ -241,8 +328,15 @@ class NN_ToolWindow(object):
         selection = cmds.ls(selection=True)
 
         if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, b=v)
+            if cmds.selectType(q=True, polymeshUV=True):
+                selection = cmds.polyListComponentConversion(selection, tvf=True)
+            elif cmds.selectType(q=True, edge=True):
+                selection = cmds.polyListComponentConversion(selection, tv=True)
+
+            objects = cmds.polyListComponentConversion(selection)
+            stored_colors = store_colors(objects)
+            cmds.polyColorPerVertex(selection, b=v)
+            restore_colors(objects, stored_colors, r=True, g=True, b=False, a=True)
 
     def onSetColorA(self, *args):
         """A をスライダーの値に設定する"""
@@ -250,210 +344,138 @@ class NN_ToolWindow(object):
         selection = cmds.ls(selection=True)
 
         if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, a=v)
+            if cmds.selectType(q=True, polymeshUV=True):
+                selection = cmds.polyListComponentConversion(selection, tvf=True)
+            elif cmds.selectType(q=True, edge=True):
+                selection = cmds.polyListComponentConversion(selection, tv=True)
+
+            objects = cmds.polyListComponentConversion(selection)
+            stored_colors = store_colors(objects)
+            cmds.polyColorPerVertex(selection, a=v)
+            restore_colors(objects, stored_colors, r=True, g=True, b=True, a=False)
 
     def onSetColorR000(self, *args):
         """R を 0.00 に設定する"""
         v = 0.0
         ui.set_value(self.fs_red, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, r=v)
+        self.onSetColorR()
 
     def onSetColorR025(self, *args):
         """R を 0.25 に設定する"""
         v = 0.25
         ui.set_value(self.fs_red, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, r=v)
+        self.onSetColorR()
 
     def onSetColorR050(self, *args):
         """R を 0.50 に設定する"""
         v = 0.5
         ui.set_value(self.fs_red, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, r=v)
+        self.onSetColorR()
 
     def onSetColorR075(self, *args):
         """R を 0.75 に設定する"""
         v = 0.75
         ui.set_value(self.fs_red, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, r=v)
+        self.onSetColorR()
 
     def onSetColorR100(self, *args):
         """R を 1.00 に設定する"""
         v = 1.0
         ui.set_value(self.fs_red, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, r=v)
+        self.onSetColorR()
 
     def onSetColorG000(self, *args):
         """G を 0.00 に設定する"""
         v = 0.0
         ui.set_value(self.fs_green, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, g=v)
+        self.onSetColorG()
 
     def onSetColorG025(self, *args):
         """G を 0.25 に設定する"""
         v = 0.25
         ui.set_value(self.fs_green, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, g=v)
+        self.onSetColorG()
 
     def onSetColorG050(self, *args):
         """G を 0.50 に設定する"""
         v = 0.5
         ui.set_value(self.fs_green, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, g=v)
+        self.onSetColorG()
 
     def onSetColorG075(self, *args):
         """G を 0.75 に設定する"""
         v = 0.75
         ui.set_value(self.fs_green, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, g=v)
+        self.onSetColorG()
 
     def onSetColorG100(self, *args):
         """G を 1.00 に設定する"""
         v = 1.0
         ui.set_value(self.fs_green, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, g=v)
+        self.onSetColorG()
 
     def onSetColorB000(self, *args):
         """B を 0.00 に設定する"""
         v = 0.0
         ui.set_value(self.fs_blue, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, b=v)
+        self.onSetColorB()
 
     def onSetColorB025(self, *args):
         """B を 0.25 に設定する"""
         v = 0.25
         ui.set_value(self.fs_blue, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, b=v)
+        self.onSetColorB()
 
     def onSetColorB050(self, *args):
         """B を 0.50 に設定する"""
         v = 0.5
         ui.set_value(self.fs_blue, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, b=v)
+        self.onSetColorB()
 
     def onSetColorB075(self, *args):
         """B を 0.75 に設定する"""
         v = 0.75
         ui.set_value(self.fs_blue, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, b=v)
+        self.onSetColorB()
 
     def onSetColorB100(self, *args):
         """B を 1.00 に設定する"""
         v = 1.0
         ui.set_value(self.fs_blue, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, b=v)
+        self.onSetColorB()
 
     def onSetColorA000(self, *args):
         """A を 0.00 に設定する"""
         v = 0.0
         ui.set_value(self.fs_alpha, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, a=v)
+        self.onSetColorA()
 
     def onSetColorA025(self, *args):
         """A を 0.25 に設定する"""
         v = 0.25
         ui.set_value(self.fs_alpha, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, a=v)
+        self.onSetColorA()
 
     def onSetColorA050(self, *args):
         """A を 0.50 に設定する"""
         v = 0.5
         ui.set_value(self.fs_alpha, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, a=v)
+        self.onSetColorA()
 
     def onSetColorA075(self, *args):
         """A を 0.75 に設定する"""
         v = 0.75
         ui.set_value(self.fs_alpha, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, a=v)
+        self.onSetColorA()
 
     def onSetColorA100(self, *args):
         """A を 1.00 に設定する"""
         v = 1.0
         ui.set_value(self.fs_alpha, value=v)
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, a=v)
+        self.onSetColorA()
 
     def onDragRed(self, *args):
+        """R ドラッグ中の処理"""
         selection = cmds.ls(selection=True)        
 
         if selection:
@@ -461,11 +483,10 @@ class NN_ToolWindow(object):
                 cmds.undoInfo(openChunk=True)
                 self.is_chunk_open = True
 
-            v = ui.get_value(self.fs_red)
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, r=v)
+            self.onSetColorR()
 
     def onDragGreen(self, *args):
+        """G ドラッグ中の処理"""
         selection = cmds.ls(selection=True)        
 
         if selection:
@@ -473,11 +494,10 @@ class NN_ToolWindow(object):
                 cmds.undoInfo(openChunk=True)
                 self.is_chunk_open = True
 
-            v = ui.get_value(self.fs_green)
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, g=v)
+            self.onSetColorG()
 
     def onDragBlue(self, *args):
+        """B ドラッグ中の処理"""
         selection = cmds.ls(selection=True)        
 
         if selection:
@@ -485,11 +505,10 @@ class NN_ToolWindow(object):
                 cmds.undoInfo(openChunk=True)
                 self.is_chunk_open = True
 
-            v = ui.get_value(self.fs_blue)
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, b=v)
+            self.onSetColorB()
 
     def onDragAlpha(self, *args):
+        """A ドラッグ中の処理"""
         selection = cmds.ls(selection=True)        
 
         if selection:
@@ -497,11 +516,10 @@ class NN_ToolWindow(object):
                 cmds.undoInfo(openChunk=True)
                 self.is_chunk_open = True
 
-            v = ui.get_value(self.fs_alpha)
-            targets = cmds.polyListComponentConversion(selection, tvf=True)
-            cmds.polyColorPerVertex(targets, a=v)
+            self.onSetColorA()
 
     def onCloseChunk(self, *args):
+        """スライダー確定時の処理｡ Undo チャンクを閉じる｡"""
         if self.is_chunk_open:
             cmds.undoInfo(closeChunk=True)
             self.is_chunk_open = False
