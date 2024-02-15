@@ -477,8 +477,43 @@ def set_manipulater_to_active_camera():
     active_camera = cmds.modelPanel(active_panel, q=True, camera=True)
 
     if active_camera:
-        cmds.manipMoveContext("Move", e=True, mode=6, orientObject=active_camera)
+        current_context = cmds.currentCtx()
+
+        if current_context == "moveSuperContext":
+            cmds.manipMoveContext("Move", e=True, mode=6, orientObject=active_camera)
+
+        if current_context == "RotateSuperContext":
+            cmds.manipRotateContext("Rotate", e=True, mode=6, orientObject=active_camera)
+
+        if current_context == "scaleSuperContext":
+            cmds.manipScaleContext("Scale", e=True, mode=6, orientObject=active_camera)
+
+        # コンポーネント再選択で方向が解除されないためのピン
         mel.eval('setTRSPinPivot true')
+
+
+def unpin_maniplator_pivot():
+    """マニピュレーターのピンを解除する."""
+    current_pin = cmds.manipPivot(q=True, pin=True)
+    current_pos = [0, 0, 0]
+
+    current_context = cmds.currentCtx()
+
+    if current_context == "moveSuperContext":
+        current_pos = cmds.manipMoveContext("Move", q=True, p=True)
+
+    if current_context == "RotateSuperContext":
+        current_pos = cmds.manipRotateContext("Rotate", q=True, p=True)
+
+    if current_context == "scaleSuperContext":
+        current_pos = cmds.manipScaleContext("Scale", q=True, p=True)
+
+    # ピンされているならピン解除する｡ピンされていないなら現在のピボット位置でピンする
+    if current_pin:
+        cmds.manipPivot(pin=False, reset=True)
+
+    else:
+        cmds.manipPivot(pin=True, p=current_pos)
 
 
 def get_maya_window():
