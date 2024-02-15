@@ -45,7 +45,7 @@ def set_project_from_scene():
     currentScene = cmds.file(q=True, sn=True, l=True)[0]
     newProject = re.sub(r'/scenes/.+$', '', currentScene, 1)
     cmds.workspace(newProject, openWorkspace=True)
-    cmds.inViewMessage(smg=newProject, pos="topCenter", bkc="0x00000000", fade=True)
+    cmds.inViewMessage(amg=newProject, pos="topCenter", fade=True)
 
 
 def disable_all_maintain_max_inf():
