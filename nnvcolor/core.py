@@ -5,10 +5,7 @@ import maya.cmds as cmds
 import maya.mel as mel
 import maya.api.OpenMaya as om
 
-import nnutil.core as nu
-import nnutil.decorator as deco
 import nnutil.ui as ui
-import nnutil.display as nd
 
 
 def get_all_vertex_colors(obj_name):
