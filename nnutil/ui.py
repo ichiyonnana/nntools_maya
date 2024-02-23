@@ -5,9 +5,13 @@ https://help.autodesk.com/cloudhelp/2020/JPN/Maya-Tech-Docs/CommandsPython/cat_W
 http://www.not-enough.org/abe/manual/maya/pymel-quick.html
 """
 import re
+import ctypes
+
+from . import windows_vk as vk
 
 import pymel.core as pm
 import pymel.core.nodetypes as nt
+
 
 window_width = 300
 header_width = 50
@@ -384,6 +388,18 @@ def is_ctrl():
 def is_alt():
     """ Alt キーが押されているときに True """
     return bool(pm.getModifiers() & 8)
+
+
+def is_key_pressed(keycode):
+    """キーが押し下げられているかどうか｡
+
+    仮想キーの定数はこのモジュールに定義されている｡ A キーは vk.VK_A
+
+    Args:
+        keycode (int): Windows の仮想キーコード
+    """
+    GetAsyncKeyState = ctypes.windll.user32.GetAsyncKeyState
+    return bool(GetAsyncKeyState(keycode) & 0x8000)
 
 
 def input_dialog(title="title", message=""):

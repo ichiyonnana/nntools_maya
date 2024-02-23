@@ -452,6 +452,7 @@ class NN_ToolWindow(object):
         ui.button(label='OrientOp', c=self.onOrientJointOp)
         ui.button(label='JointTool', c=self.onJointTool, bgc=ui.color_joint, width=ui.width2)
         ui.button(label='SetRadius', c=self.onSetRadius, width=ui.width2)
+        ui.button(label="Add Inf", c=self.onAddInfluence, width=ui.width(2))
         ui.end_layout()
 
         ui.separator()
@@ -773,6 +774,29 @@ class NN_ToolWindow(object):
 
     def onSetRadius(self, *args):
         nm.set_radius_auto()
+
+    def onAddInfluence(self, *args):
+        """"選択された全てのジョイントを選択された全てのメッシュのスキンクラスターにインフルエンスとして追加する｡"""
+        joints = cmds.ls(selection=True, exactType="joint")
+        transforms = cmds.ls(selection=True, exactType="transform")
+        target_skinclusters = []
+
+        if not joints or not transforms:
+            return
+
+        for transform in transforms:
+            all_meshes = cmds.listRelatives(transform, shapes=True, noIntermediate=False, type="mesh") or []
+
+            for mesh in all_meshes:
+                skinclusters = cmds.listConnections(mesh, source=True, type="skinCluster") or []
+                target_skinclusters.extend(skinclusters)
+
+        for skincluster in target_skinclusters:
+            current_influences = cmds.skinCluster(skincluster, q=True, influence=True)
+            additional_influences = list(set(joints) - set(current_influences))
+            cmds.skinCluster(skincluster, e=True, addInfluence=additional_influences, weight=0)
+
+            print("added joints to ", skincluster, additional_influences)
 
     def onExportWeight(self, *args):
         is_specify_name = ui.get_value(self.cb_specify_name)
