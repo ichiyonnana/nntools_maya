@@ -9,6 +9,14 @@ import nnutil.ui as ui
 
 
 def get_all_vertex_colors(obj_name):
+    """指定オブジェクトの全てのフェース頂点カラーを取得してリストで返す｡
+
+    Args:
+        obj_name (str): オブジェクト名
+
+    Returns:
+        list[MColor]: API が返す頂点カラーのリスト
+    """
     selection = om.MGlobal.getSelectionListByName(obj_name)
     dagPath = selection.getDagPath(0)
     component = selection.getComponent(0)[1]
@@ -31,6 +39,17 @@ def get_all_vertex_colors(obj_name):
 
 
 def set_all_vertex_colors(obj_name, colors, channels=4, r=False, g=False, b=False, a=False):
+    """オブジェクトの頂点カラーを指定チャンネルのみ上書きする
+
+    Args:
+        obj_name (str): オブジェクト名
+        colors (list[MColor]): 頂点カラーのリスト
+        channels (int, optional): 頂点カラーのチャンネル数. Defaults to 4.
+        r (bool, optional): Rチャンネルを上書きするか. Defaults to False.
+        g (bool, optional): Gチャンネルを上書きするか. Defaults to False.
+        b (bool, optional): Bチャンネルを上書きするか. Defaults to False.
+        a (bool, optional): Aチャンネルを上書きするか. Defaults to False.
+    """
     selection = om.MGlobal.getSelectionListByName(obj_name)
     dagPath = selection.getDagPath(0)
     component = selection.getComponent(0)[1]
@@ -287,69 +306,122 @@ class NN_ToolWindow(object):
         if color:
             ui.set_value(self.fs_alpha, value=color[3])
 
+    @staticmethod
+    def _set_unified_color_via_cmds(targets, channel, value):
+        """指定頂点カラーに同一値を設定する｡最終的な設定は cmds経由で Undo 可能｡同一色での塗りつぶし1回なので早い｡
+
+        Args:
+            targets (list[str]): 対象コンポーネント
+            channel (str): 上書きするチャンネル
+            value (float): 上書きする値
+        """
+        if targets:
+            # UV選択なら vf 変換､エッジ選択なら vtx 変換する
+            if cmds.selectType(q=True, polymeshUV=True):
+                targets = cmds.polyListComponentConversion(targets, tvf=True)
+
+            elif cmds.selectType(q=True, edge=True):
+                targets = cmds.polyListComponentConversion(targets, tv=True)
+
+            # オブジェクト全体の現在の頂点カラーを保存する
+            objects = cmds.polyListComponentConversion(targets)
+            stored_colors = store_colors(objects)
+
+            # 指定のチャンネルを上書きする｡ polyColorPerVertex の仕様で他チャンネルが崩れるので
+            # 保存した頂点カラーで復帰する
+            if channel == "r":
+                cmds.polyColorPerVertex(targets, r=value)
+                restore_colors(objects, stored_colors, r=False, g=True, b=True, a=True)
+
+            if channel == "g":
+                cmds.polyColorPerVertex(targets, g=value)
+                restore_colors(objects, stored_colors, r=True, g=False, b=True, a=True)
+
+            if channel == "b":
+                cmds.polyColorPerVertex(targets, b=value)
+                restore_colors(objects, stored_colors, r=True, g=True, b=False, a=True)
+
+            if channel == "a":
+                cmds.polyColorPerVertex(targets, a=value)
+                restore_colors(objects, stored_colors, r=True, g=True, b=True, a=False)
+
+            else:
+                pass
+
+    @staticmethod
+    def _set_each_colors_via_cmds(targets, colors, channels):
+        """頂点カラーそれぞれに指定した値を設定する｡最終的な設定は cmds経由で Undo 可能｡コンポーネント反復するので遅い｡
+
+        Args:
+            targets (list[str]): 対象コンポーネント
+            channel (str): 上書きするチャンネル
+            value (float): 上書きする値
+        """
+        for i in range(len(targets)):
+            if channels == 4:
+                r, g, b, a = (colors + [0])[i*channels:(i+1)*channels]
+                cmds.polyColorPerVertex(targets[i], r=r, g=g, b=b, a=a)
+
+            elif channels == 3:
+                r, g, b, a = (colors + [0])[i*channels:(i+1)*channels]
+                cmds.polyColorPerVertex(targets[i], r=r, g=g, b=b)
+
+            else:
+                pass
+
+    @staticmethod
+    def _set_each_colors_via_api(target_indices, colors):
+        """頂点カラーを設定する｡最終的な設定は API 経由で Undo 不可｡早いがあくまで一時的な表示用"""
+        set_all_vertex_colors
+
+        if cmds.softSelect(q=True, softSelectEnabled=True):
+            # MRichSeleciton オブジェクト構築
+            rich_selection = om.MGlobal.getRichSelection()
+            slist = rich_selection.getSelection()
+            slist_sym = rich_selection.getSymmetry()
+
+            # オブジェクト毎の処理
+            for sl in [slist, slist_sym]:
+                for i in range(sl.length()):
+                    obj, comp = sl.getComponent(i)
+                    fn_comp = om.MFnSingleIndexedComponent(comp)
+                    selected_vi = fn_comp.getElements()
+
+                    fn_mesh = om.MFnMesh(obj)
+
+                    for i in range(len(selected_vi)):
+                        vi = selected_vi[i]
+                        w = fn_comp.weight(i).influence
+                        name = obj.fullPathName()
+                        cmds.polyColorPerVertex(name + f".vtx[{vi}]", r=1.0-w)
+
     def onSetColorR(self, *args):
         """R をスライダーの値に設定する"""
         v = ui.get_value(self.fs_red)
         selection = cmds.ls(selection=True)
 
-        if selection:
-            if cmds.selectType(q=True, polymeshUV=True):
-                selection = cmds.polyListComponentConversion(selection, tvf=True)
-            elif cmds.selectType(q=True, edge=True):
-                selection = cmds.polyListComponentConversion(selection, tv=True)
-
-            objects = cmds.polyListComponentConversion(selection)
-            stored_colors = store_colors(objects)
-            cmds.polyColorPerVertex(selection, r=v)
-            restore_colors(objects, stored_colors, r=False, g=True, b=True, a=True)
+        self._set_unified_color_via_cmds(selection, "r", v)
 
     def onSetColorG(self, *args):
         """G をスライダーの値に設定する"""
         v = ui.get_value(self.fs_green)
         selection = cmds.ls(selection=True)
 
-        if selection:
-            if cmds.selectType(q=True, polymeshUV=True):
-                selection = cmds.polyListComponentConversion(selection, tvf=True)
-            elif cmds.selectType(q=True, edge=True):
-                selection = cmds.polyListComponentConversion(selection, tv=True)
-
-            objects = cmds.polyListComponentConversion(selection)
-            stored_colors = store_colors(objects)
-            cmds.polyColorPerVertex(selection, g=v)
-            restore_colors(objects, stored_colors, r=True, g=False, b=True, a=True)
+        self._set_unified_color_via_cmds(selection, "g", v)
 
     def onSetColorB(self, *args):
         """B をスライダーの値に設定する"""
         v = ui.get_value(self.fs_blue)
         selection = cmds.ls(selection=True)
 
-        if selection:
-            if cmds.selectType(q=True, polymeshUV=True):
-                selection = cmds.polyListComponentConversion(selection, tvf=True)
-            elif cmds.selectType(q=True, edge=True):
-                selection = cmds.polyListComponentConversion(selection, tv=True)
-
-            objects = cmds.polyListComponentConversion(selection)
-            stored_colors = store_colors(objects)
-            cmds.polyColorPerVertex(selection, b=v)
-            restore_colors(objects, stored_colors, r=True, g=True, b=False, a=True)
+        self._set_unified_color_via_cmds(selection, "b", v)
 
     def onSetColorA(self, *args):
         """A をスライダーの値に設定する"""
         v = ui.get_value(self.fs_alpha)
         selection = cmds.ls(selection=True)
 
-        if selection:
-            if cmds.selectType(q=True, polymeshUV=True):
-                selection = cmds.polyListComponentConversion(selection, tvf=True)
-            elif cmds.selectType(q=True, edge=True):
-                selection = cmds.polyListComponentConversion(selection, tv=True)
-
-            objects = cmds.polyListComponentConversion(selection)
-            stored_colors = store_colors(objects)
-            cmds.polyColorPerVertex(selection, a=v)
-            restore_colors(objects, stored_colors, r=True, g=True, b=True, a=False)
+        self._set_unified_color_via_cmds(selection, "a", v)
 
     def onSetColorR000(self, *args):
         """R を 0.00 に設定する"""
