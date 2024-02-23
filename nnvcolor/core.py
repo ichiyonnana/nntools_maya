@@ -473,7 +473,7 @@ class NN_ToolWindow(object):
 
     def onDragRed(self, *args):
         """R ドラッグ中の処理"""
-        selection = cmds.ls(selection=True)        
+        selection = cmds.ls(selection=True)
 
         if selection:
             if not self.is_chunk_open:
@@ -484,7 +484,7 @@ class NN_ToolWindow(object):
 
     def onDragGreen(self, *args):
         """G ドラッグ中の処理"""
-        selection = cmds.ls(selection=True)        
+        selection = cmds.ls(selection=True)
 
         if selection:
             if not self.is_chunk_open:
@@ -495,7 +495,7 @@ class NN_ToolWindow(object):
 
     def onDragBlue(self, *args):
         """B ドラッグ中の処理"""
-        selection = cmds.ls(selection=True)        
+        selection = cmds.ls(selection=True)
 
         if selection:
             if not self.is_chunk_open:
@@ -506,7 +506,7 @@ class NN_ToolWindow(object):
 
     def onDragAlpha(self, *args):
         """A ドラッグ中の処理"""
-        selection = cmds.ls(selection=True)        
+        selection = cmds.ls(selection=True)
 
         if selection:
             if not self.is_chunk_open:
