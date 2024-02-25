@@ -49,7 +49,7 @@ class NnSnapshotState(om.MPxCommand):
                 self.positions = fn_mesh.getPoints()
 
             if self.to_store_colors:
-                self.colors = fn_mesh.getColors()
+                self.colors = fn_mesh.getFaceVertexColors()
 
     def parseArguments(self, args):
         """引数の解析"""
@@ -98,7 +98,7 @@ class NnSnapshotState(om.MPxCommand):
                 fn_mesh.setPoints(self.positions)
 
             if self.to_store_colors:
-                fn_mesh.setColors(self.colors)
+                fn_mesh.setFaceVertexColor(self.colors)
 
             fn_mesh.updateSurface()
 
@@ -122,7 +122,7 @@ class NnSnapshotState(om.MPxCommand):
                 fn_mesh.setPoints(self.positions)
 
             if self.to_store_colors:
-                fn_mesh.setColors(self.colors)
+                fn_mesh.setFaceVertexColor(self.colors)
 
             fn_mesh.updateSurface()
 
