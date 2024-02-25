@@ -1,6 +1,8 @@
 #! python
 # coding:utf-8
 """頂点カラーツール"""
+import re
+
 import maya.cmds as cmds
 import maya.mel as mel
 import maya.api.OpenMaya as om
@@ -11,6 +13,10 @@ import nnutil.ui as ui
 class InvalidArgumentCombinationError(Exception):
     """引数の値の組み合わせが不正な場合の例外｡"""
     pass
+
+
+def lerp(a, b, t):
+    return (1.0 - t) * a + t * b
 
 
 def get_all_vertex_colors(obj_name):
@@ -107,6 +113,24 @@ def restore_colors(objects, colors_dict, r, g, b, a):
         set_all_vertex_colors(obj, colors_dict[obj], channels=chanells, r=r, g=g, b=b, a=a)
 
 
+def str_to_vfi(vf_comp_string):
+    """頂点フェースを表すコンポーネント文字列からインデックスのタプル (fi, vi) を返す｡"""
+    match = re.search(r"\[(\d+)\]\[(\d+)\]", vf_comp_string)
+
+    if match:
+        vi, fi = match.groups()
+
+        return (fi, vi)
+
+    else:
+        return None
+
+
+def vfi_to_str(obj, fi, vi):
+    """オブジェクト名とインデックスから頂点フェースを表すコンポーネント文字列を返す｡"""
+    return "%s.vtxFace[%s][%s]" % (obj, vi, fi)
+
+
 window_name = "NN_VColor"
 window = None
 
@@ -123,6 +147,7 @@ class NN_ToolWindow(object):
 
         self.is_chunk_open = False
         self.editbox_precision = 4
+        self.vf_color_caches = dict()  # スライド開始時の頂点カラーキャッシュ dict[obj_name, list[MColor]]
 
     def create(self):
         if cmds.window(self.window, exists=True):
@@ -168,7 +193,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         self.eb_red = ui.eb_float(min=0.0, max=1.0, v=1.0, precision=self.editbox_precision, width=ui.width(2), height=row_height2, dc=self.onDragEditBoxRed, cc=self.onChangeEditBoxRed)
-        self.fs_red = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), height=row_height2, dc=self.onDragRed, cc=self.onCloseChunk)
+        self.fs_red = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), height=row_height2, dc=self.onDragRed, cc=self.onChangeSliderRed)
         ui.end_layout()
 
         ui.separator(width=1, height=5)
@@ -184,7 +209,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         self.eb_green = ui.eb_float(min=0.0, max=1.0, v=1.0, precision=self.editbox_precision, width=ui.width(2), dc=self.onDragEditBoxGreen, cc=self.onChangeEditBoxGreen)
-        self.fs_green = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragGreen, cc=self.onCloseChunk)
+        self.fs_green = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragGreen, cc=self.onChangeSliderGreen)
         ui.end_layout()
 
         ui.separator(width=1, height=5)
@@ -200,7 +225,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         self.eb_blue = ui.eb_float(min=0.0, max=1.0, v=1.0, precision=self.editbox_precision, width=ui.width(2), dc=self.onDragEditBoxBlue, cc=self.onChangeEditBoxBlue)
-        self.fs_blue = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragBlue, cc=self.onCloseChunk)
+        self.fs_blue = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragBlue, cc=self.onChangeSliderBlue)
         ui.end_layout()
 
         ui.separator(width=1, height=5)
@@ -216,7 +241,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         self.eb_alpha = ui.eb_float(min=0.0, max=1.0, v=1.0, precision=self.editbox_precision, width=ui.width(2), dc=self.onDragEditBoxAlpha, cc=self.onChangeEditBoxAlpha)
-        self.fs_alpha = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragAlpha, cc=self.onCloseChunk)
+        self.fs_alpha = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragAlpha, cc=self.onChangeSliderAlpha)
         ui.end_layout()
 
         ui.row_layout()
@@ -347,14 +372,15 @@ class NN_ToolWindow(object):
 
             self._sync_slider_and_editbox(from_slider=True)
 
-    @staticmethod
-    def _set_unified_color_via_cmds(targets, channel, value):
+    def _set_unified_color(self, targets, channel, value, via_api):
         """指定頂点カラーに同一値を設定する｡最終的な設定は cmds経由で Undo 可能｡同一色での塗りつぶし1回なので早い｡
 
         Args:
             targets (list[str]): 対象コンポーネント
             channel (str): 上書きするチャンネル
             value (float): 上書きする値
+
+        TODO: 高速化が必要な場合は via_api で分岐して API での処理を書く
         """
         if targets:
             # UV選択なら vf 変換､エッジ選択なら vtx 変換する
@@ -389,220 +415,360 @@ class NN_ToolWindow(object):
             else:
                 pass
 
-    @staticmethod
-    def _set_each_colors_via_cmds(targets, colors, channels):
+    def _blend_color(self, vf_color_caches, channel, v, weight_mul=1.0, mode="copy", via_api=False):
         """頂点カラーそれぞれに指定した値を設定する｡最終的な設定は cmds経由で Undo 可能｡コンポーネント反復するので遅い｡
 
         Args:
-            targets (list[str]): 対象コンポーネント
+            vf_color_caches (dict[str, list[MColor]]): オブジェクト毎の全頂点カラー
             channel (str): 上書きするチャンネル
-            value (float): 上書きする値
         """
-        for i in range(len(targets)):
-            if channels == 4:
-                r, g, b, a = (colors + [0])[i*channels:(i+1)*channels]
-                cmds.polyColorPerVertex(targets[i], r=r, g=g, b=b, a=a)
+        if not cmds.softSelect(q=True, softSelectEnabled=True):
+            return None
 
-            elif channels == 3:
-                r, g, b, a = (colors + [0])[i*channels:(i+1)*channels]
-                cmds.polyColorPerVertex(targets[i], r=r, g=g, b=b)
+        # MRichSeleciton 構築
+        rich_selection = om.MGlobal.getRichSelection()
+        sl_rich_sel = rich_selection.getSelection()
+        sl_rich_sel_sym = rich_selection.getSymmetry()
 
+        # オブジェクト毎の処理
+        for i in range(sl_rich_sel.length()):
+            # MRichSeleciton からウェイト取得
+            obj, comp = sl_rich_sel.getComponent(i)
+            fn_comp = om.MFnSingleIndexedComponent(comp)
+            obj_name = obj.fullPathName()
+            fn_mesh = om.MFnMesh(obj)
+
+            # 頂点毎のウェイト
+            vi_to_weight = dict()
+
+            # ウェイトの取得
+            selected_vis = fn_comp.getElements()
+
+            for j in range(len(selected_vis)):
+                vi = selected_vis[j]
+                vi_to_weight[vi] = fn_comp.weight(j).influence
+
+            # シンメトリ側に同一のオブジェクトがあればウェイト取得してマージする
+            # 同一オブジェクトを別々に処理する (sl_rich_sel と sl_rich_sel_sym をそれぞれ for する等) と
+            # スライド中にお互いがお互いをキャッシュで上書きされて使い勝手悪い
+            for j in range(sl_rich_sel_sym.length()):
+                sym_obj, sym_comp = sl_rich_sel_sym.getComponent(j)
+                sym_obj_name = sym_obj.fullPathName()
+
+                if obj_name == sym_obj_name:
+                    fn_sym_comp = om.MFnSingleIndexedComponent(sym_comp)
+
+                    selected_vis = fn_sym_comp.getElements()
+
+                    for k in range(len(selected_vis)):
+                        vi = selected_vis[k]
+                        vi_to_weight[vi] = fn_sym_comp.weight(k).influence
+
+                    fn_comp.addElements(fn_sym_comp.getElements())
+                    selected_vis = fn_comp.getElements()
+                    break
+
+            # 選択コンポーネントを VF に分解
+            target_fivi_indices = []  # list[tuple(fi, vi)]
+
+            if comp.apiType() == om.MFn.kMeshVertComponent:
+                # 頂点は所属フェース取得して (fi,vi) 構築
+                v_itr = om.MItMeshVertex(obj, comp)
+
+                while not v_itr.isDone():
+                    vi = v_itr.index()
+                    fis = v_itr.getConnectedFaces()
+
+                    target_fivi_indices.extend([(fi, vi) for fi in fis])
+
+                    v_itr.next()
             else:
+                # MRichSeleciton が kMeshVertComponent 以外を返すようになったら修正が必要
+                print("unknown comptype")
                 pass
 
-    @staticmethod
-    def _set_each_colors_via_api(target_indices, colors):
-        """頂点カラーを設定する｡最終的な設定は API 経由で Undo 不可｡早いがあくまで一時的な表示用"""
-        set_all_vertex_colors
+            # ブレンド元の頂点カラーが渡されていればそれを使用する｡なければ現在の頂点フェースカラーを取得
+            if obj_name in vf_color_caches.keys():
+                current_vf_colors = [om.MColor(x) for x in vf_color_caches[obj_name]]
+            else:
+                current_vf_colors = fn_mesh.getFaceVertexColors()
 
-        if cmds.softSelect(q=True, softSelectEnabled=True):
-            # MRichSeleciton オブジェクト構築
-            rich_selection = om.MGlobal.getRichSelection()
-            slist = rich_selection.getSelection()
-            slist_sym = rich_selection.getSymmetry()
+            # 頂点インデックス･フェースインデックスと 頂点フェースインデックス (1次元) の相互変換辞書
+            vfi_to_fivi = [None] * len(current_vf_colors)
+            fivi_to_vfi = dict()
 
-            # オブジェクト毎の処理
-            for sl in [slist, slist_sym]:
-                for i in range(sl.length()):
-                    obj, comp = sl.getComponent(i)
-                    fn_comp = om.MFnSingleIndexedComponent(comp)
-                    selected_vi = fn_comp.getElements()
+            for fi in range(fn_mesh.numPolygons):
+                vertex_indices = fn_mesh.getPolygonVertices(fi)
 
-                    fn_mesh = om.MFnMesh(obj)
+                for lvi, gvi in enumerate(vertex_indices):
+                    vfi = fn_mesh.getFaceVertexIndex(fi, lvi)
+                    vfi_to_fivi[vfi] = (fi, gvi)
+                    fivi_to_vfi[(fi, gvi)] = vfi
 
-                    for i in range(len(selected_vi)):
-                        vi = selected_vi[i]
-                        w = fn_comp.weight(i).influence
-                        name = obj.fullPathName()
-                        cmds.polyColorPerVertex(name + ".vtx[%s]" % vi, r=1.0-w)
+            # 現在の色と引数で指定された色をブレンドしたリストを作成
+            new_vf_colors = [om.MColor(x) for x in current_vf_colors]
+
+            for fi, vi in target_fivi_indices:
+                vfi = fivi_to_vfi[(fi, vi)]
+                w = vi_to_weight[vi] * weight_mul
+
+                new_vf_colors[vfi] = om.MColor(current_vf_colors[vfi])
+
+                if channel == "r":
+                    ci = 0
+                elif channel == "g":
+                    ci = 1
+                elif channel == "b":
+                    ci = 2
+                elif channel == "a":
+                    ci = 3
+                else:
+                    print("unknown channel")
+                    ci = 0
+
+                if mode == "copy":
+                    new_vf_colors[vfi][ci] = current_vf_colors[vfi][ci] * (1.0 - w) + v * w
+
+                elif mode == "mul":
+                    new_vf_colors[vfi][ci] = current_vf_colors[vfi][ci] * lerp(1.0, v, w)
+
+                elif mode == "div":
+                    safe_v = 1e-9 if v == 0 else v
+                    new_vf_colors[vfi][ci] = current_vf_colors[vfi][ci] / lerp(1.0, safe_v, w)
+
+                else:
+                    print("unknown mode")
+
+            if via_api:
+                # API はそのまま全VFに適用
+                fis = [fi for fi, vi in vfi_to_fivi]
+                vis = [vi for fi, vi in vfi_to_fivi]
+                fn_mesh.setFaceVertexColors(new_vf_colors, fis, vis)
+
+            else:
+                # 一度キャッシュの内容に戻して cmds が作る Undo にドラッグ前の値を記憶させる
+                fis = [fi for fi, vi in vfi_to_fivi]
+                vis = [vi for fi, vi in vfi_to_fivi]
+                fn_mesh.setFaceVertexColors(current_vf_colors, fis, vis)
+
+                # cmds はインデックスで反復して適用
+                for vfi, fivi in enumerate(vfi_to_fivi):
+                    fi = fivi[0]
+                    vi = fivi[1]
+
+                    # ウェイトが無ければスキップ
+                    if vi not in selected_vis:
+                        continue
+
+                    # 合成後の色を cmds で上書き
+                    color = new_vf_colors[vfi]
+
+                    target = vfi_to_str(obj_name, fi, vi)
+
+                    if len(color) == 4:
+                        r, g, b, a = list(color)
+                        cmds.polyColorPerVertex(target, r=r, g=g, b=b, a=a)
+
+                    elif len(color) == 3:
+                        r, g, b = list(color)
+                        cmds.polyColorPerVertex(target, r=r, g=g, b=b)
+
+    def _on_set_color(self, channel, drag):
+        """スライダーを元に頂点カラーを設定する
+
+        Args:
+            channel (str): 設定するチャンネル. "r" or "g" or "b" or "a"
+            drag (bool): ドラッグ中なら True ､確定時なら False を指定する｡
+        """
+        # スライダーの値取得
+        if channel == "r":
+            v = ui.get_value(self.fs_red)
+
+        if channel == "g":
+            v = ui.get_value(self.fs_green)
+
+        if channel == "b":
+            v = ui.get_value(self.fs_blue)
+
+        if channel == "a":
+            v = ui.get_value(self.fs_alpha)
+
+        selection = cmds.ls(selection=True)
+
+        if selection:
+            # ソフト有効ならコンポーネント毎に色計算､無効なら単色を設定する｡
+            # 頂点カラーの変更はドラッグ中は API を使用し､確定時は cmds を使用する｡
+            if cmds.softSelect(q=True, softSelectEnabled=True) and not cmds.selectMode(q=True, object=True):
+                mode = "mul" if ui.is_alt() else "copy"
+
+                if drag:
+                    self._blend_color(self.vf_color_caches, channel, v, mode=mode, via_api=True)
+
+                else:
+                    self._blend_color(self.vf_color_caches, channel, v, mode=mode, via_api=False)
+
+            else:
+                if drag:
+                    self._set_unified_color(selection, channel, v, via_api=True)
+
+                else:
+                    self._set_unified_color(selection, channel, v, via_api=False)
 
     def onSetColorR(self, *args):
-        """R をスライダーの値に設定する"""
-        v = ui.get_value(self.fs_red)
-        selection = cmds.ls(selection=True)
-
-        self._set_unified_color_via_cmds(selection, "r", v)
+        """[R] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
+        self._on_set_color(channel="r", drag=False)
 
     def onSetColorG(self, *args):
-        """G をスライダーの値に設定する"""
-        v = ui.get_value(self.fs_green)
-        selection = cmds.ls(selection=True)
-
-        self._set_unified_color_via_cmds(selection, "g", v)
+        """[G] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
+        self._on_set_color(channel="g", drag=False)
 
     def onSetColorB(self, *args):
-        """B をスライダーの値に設定する"""
-        v = ui.get_value(self.fs_blue)
-        selection = cmds.ls(selection=True)
-
-        self._set_unified_color_via_cmds(selection, "b", v)
+        """[B] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
+        self._on_set_color(channel="b", drag=False)
 
     def onSetColorA(self, *args):
-        """A をスライダーの値に設定する"""
-        v = ui.get_value(self.fs_alpha)
-        selection = cmds.ls(selection=True)
-
-        self._set_unified_color_via_cmds(selection, "a", v)
+        """[A] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
+        self._on_set_color(channel="a", drag=False)
 
     def onSetColorR000(self, *args):
         """R を 0.00 に設定する"""
         v = 0.0
         ui.set_value(self.fs_red, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorR()
+        self._on_set_color(channel="r", drag=False)
 
     def onSetColorR025(self, *args):
         """R を 0.25 に設定する"""
         v = 0.25
         ui.set_value(self.fs_red, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorR()
+        self._on_set_color(channel="r", drag=False)
 
     def onSetColorR050(self, *args):
         """R を 0.50 に設定する"""
         v = 0.5
         ui.set_value(self.fs_red, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorR()
+        self._on_set_color(channel="r", drag=False)
 
     def onSetColorR075(self, *args):
         """R を 0.75 に設定する"""
         v = 0.75
         ui.set_value(self.fs_red, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorR()
+        self._on_set_color(channel="r", drag=False)
 
     def onSetColorR100(self, *args):
         """R を 1.00 に設定する"""
         v = 1.0
         ui.set_value(self.fs_red, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorR()
+        self._on_set_color(channel="r", drag=False)
 
     def onSetColorG000(self, *args):
         """G を 0.00 に設定する"""
         v = 0.0
         ui.set_value(self.fs_green, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorG()
+        self._on_set_color(channel="g", drag=False)
 
     def onSetColorG025(self, *args):
         """G を 0.25 に設定する"""
         v = 0.25
         ui.set_value(self.fs_green, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorG()
+        self._on_set_color(channel="g", drag=False)
 
     def onSetColorG050(self, *args):
         """G を 0.50 に設定する"""
         v = 0.5
         ui.set_value(self.fs_green, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorG()
+        self._on_set_color(channel="g", drag=False)
 
     def onSetColorG075(self, *args):
         """G を 0.75 に設定する"""
         v = 0.75
         ui.set_value(self.fs_green, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorG()
+        self._on_set_color(channel="g", drag=False)
 
     def onSetColorG100(self, *args):
         """G を 1.00 に設定する"""
         v = 1.0
         ui.set_value(self.fs_green, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorG()
+        self._on_set_color(channel="g", drag=False)
 
     def onSetColorB000(self, *args):
         """B を 0.00 に設定する"""
         v = 0.0
         ui.set_value(self.fs_blue, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorB()
+        self._on_set_color(channel="b", drag=False)
 
     def onSetColorB025(self, *args):
         """B を 0.25 に設定する"""
         v = 0.25
         ui.set_value(self.fs_blue, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorB()
+        self._on_set_color(channel="b", drag=False)
 
     def onSetColorB050(self, *args):
         """B を 0.50 に設定する"""
         v = 0.5
         ui.set_value(self.fs_blue, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorB()
+        self._on_set_color(channel="b", drag=False)
 
     def onSetColorB075(self, *args):
         """B を 0.75 に設定する"""
         v = 0.75
         ui.set_value(self.fs_blue, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorB()
+        self._on_set_color(channel="b", drag=False)
 
     def onSetColorB100(self, *args):
         """B を 1.00 に設定する"""
         v = 1.0
         ui.set_value(self.fs_blue, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorB()
+        self._on_set_color(channel="b", drag=False)
 
     def onSetColorA000(self, *args):
         """A を 0.00 に設定する"""
         v = 0.0
         ui.set_value(self.fs_alpha, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorA()
+        self._on_set_color(channel="a", drag=False)
 
     def onSetColorA025(self, *args):
         """A を 0.25 に設定する"""
         v = 0.25
         ui.set_value(self.fs_alpha, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorA()
+        self._on_set_color(channel="a", drag=False)
 
     def onSetColorA050(self, *args):
         """A を 0.50 に設定する"""
         v = 0.5
         ui.set_value(self.fs_alpha, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorA()
+        self._on_set_color(channel="a", drag=False)
 
     def onSetColorA075(self, *args):
         """A を 0.75 に設定する"""
         v = 0.75
         ui.set_value(self.fs_alpha, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorA()
+        self._on_set_color(channel="a", drag=False)
 
     def onSetColorA100(self, *args):
         """A を 1.00 に設定する"""
         v = 1.0
         ui.set_value(self.fs_alpha, value=v)
         self._sync_slider_and_editbox(from_slider=True)
-        self.onSetColorA()
+        self._on_set_color(channel="a", drag=False)
 
     def _sync_slider_and_editbox(self, from_slider=False, from_editbox=False):
         """スライダーとエディットボックスの内容を同期する｡
@@ -643,104 +809,117 @@ class NN_ToolWindow(object):
             v = ui.get_value(self.eb_alpha)
             ui.set_value(self.fs_alpha, v)
 
+    def _on_drag_editbox(self, channel):
+        """エディットボックスのスライド時の処理"""
+        # エディットボックスの値をスライダーの値に反映させてスライダードラッグ時の関数を呼ぶ
+        self._sync_slider_and_editbox(from_editbox=True)
+        self._on_drag_slider(channel=channel)
+
     def onDragEditBoxRed(self, *args):
         """Red エディットボックスのスライド操作"""
-        self._sync_slider_and_editbox(from_editbox=True)
-        self.onDragRed()
+        self._on_drag_editbox(channel="r")
 
     def onDragEditBoxGreen(self, *args):
         """Green エディットボックスのスライド操作"""
-        self._sync_slider_and_editbox(from_editbox=True)
-        self.onDragGreen()
+        self._on_drag_editbox(channel="g")
 
     def onDragEditBoxBlue(self, *args):
         """Blue エディットボックスのスライド操作"""
-        self._sync_slider_and_editbox(from_editbox=True)
-        self.onDragBlue()
+        self._on_drag_editbox(channel="b")
 
     def onDragEditBoxAlpha(self, *args):
         """Alpha エディットボックスのスライド操作"""
+        self._on_drag_editbox(channel="a")
+
+    def _on_change_editbox(self, channel):
+        """エディットボックス確定時の処理 (Ctrl スライド含む) """
         self._sync_slider_and_editbox(from_editbox=True)
-        self.onDragAlpha()
+        self._on_set_color(channel=channel, drag=False)
+        self._close_chunk()
 
     def onChangeEditBoxRed(self, *args):
-        """Red エディットボックスの確定操作"""
-        self._sync_slider_and_editbox(from_editbox=True)
-        self.onSetColorR()
-        self.onCloseChunk()
+        """Red エディットボックス確定時のハンドラ"""
+        self._on_change_editbox(channel="r")
 
     def onChangeEditBoxGreen(self, *args):
-        """Green エディットボックスの確定操作"""
-        self._sync_slider_and_editbox(from_editbox=True)
-        self.onSetColorG()
-        self.onCloseChunk()
+        """Green エディットボックス確定時のハンドラ"""
+        self._on_change_editbox(channel="g")
 
     def onChangeEditBoxBlue(self, *args):
-        """Blue エディットボックスの確定操作"""
-        self._sync_slider_and_editbox(from_editbox=True)
-        self.onSetColorB()
-        self.onCloseChunk()
+        """Blue エディットボックス確定時のハンドラ"""
+        self._on_change_editbox(channel="b")
 
     def onChangeEditBoxAlpha(self, *args):
-        """Alpha エディットボックスの確定操作"""
-        self._sync_slider_and_editbox(from_editbox=True)
-        self.onSetColorA()
-        self.onCloseChunk()
+        """Alpha エディットボックス確定時のハンドラ"""
+        self._on_change_editbox(channel="a")
+
+    def _on_drag_slider(self, channel):
+        """スライダードラッグ中の処理"""
+        selection = cmds.ls(selection=True)
+
+        if selection:
+            # スライド開始時の処理
+            if not self.is_chunk_open:
+                # チャンクのオープン
+                cmds.undoInfo(openChunk=True)
+                self.is_chunk_open = True
+
+                # スライド開始時の頂点カラーをキャッシュ
+                obj_names = cmds.polyListComponentConversion(selection)
+                for obj_name in obj_names:
+                    full_path = cmds.ls(obj_name, long=True)[0]
+                    self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)
+
+            self._on_set_color(channel=channel, drag=True)
+
+        self._sync_slider_and_editbox(from_slider=True)
 
     def onDragRed(self, *args):
-        """R スライダードラッグ中の処理"""
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            if not self.is_chunk_open:
-                cmds.undoInfo(openChunk=True)
-                self.is_chunk_open = True
-
-            self.onSetColorR()
-
-        self._sync_slider_and_editbox(from_slider=True)
+        """R スライダードラッグ中のハンドラ"""
+        self._on_drag_slider(channel="r")
 
     def onDragGreen(self, *args):
-        """G スライダードラッグ中の処理"""
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            if not self.is_chunk_open:
-                cmds.undoInfo(openChunk=True)
-                self.is_chunk_open = True
-
-            self.onSetColorG()
-
-        self._sync_slider_and_editbox(from_slider=True)
+        """G スライダードラッグ中のハンドラ"""
+        self._on_drag_slider(channel="g")
 
     def onDragBlue(self, *args):
-        """B スライダードラッグ中の処理"""
-        selection = cmds.ls(selection=True)
-
-        if selection:
-            if not self.is_chunk_open:
-                cmds.undoInfo(openChunk=True)
-                self.is_chunk_open = True
-
-            self.onSetColorB()
-
-        self._sync_slider_and_editbox(from_slider=True)
+        """B スライダードラッグ中のハンドラ"""
+        self._on_drag_slider(channel="b")
 
     def onDragAlpha(self, *args):
-        """A スライダードラッグ中の処理"""
+        """A スライダードラッグ中のハンドラ"""
+        self._on_drag_slider(channel="a")
+
+    def _on_change_slider(self, channel):
+        """スライダー確定時の処理"""
         selection = cmds.ls(selection=True)
 
         if selection:
-            if not self.is_chunk_open:
-                cmds.undoInfo(openChunk=True)
-                self.is_chunk_open = True
+            # Undo 用の API を使用しない確定処理
+            self._on_set_color(channel=channel, drag=False)
 
-            self.onSetColorA()
+        # キャッシュの削除とチャンクのクローズ
+        self.vf_color_caches = dict()
+        self._close_chunk()
 
-        self._sync_slider_and_editbox(from_slider=True)
+    def onChangeSliderRed(self, *args):
+        """ R スライダー確定時のハンドラ"""
+        self._on_change_slider(channel="r")
 
-    def onCloseChunk(self, *args):
-        """スライダー確定時の処理｡ Undo チャンクを閉じる｡"""
+    def onChangeSliderGreen(self, *args):
+        """ G スライダー確定時のハンドラ"""
+        self._on_change_slider(channel="g")
+
+    def onChangeSliderBlue(self, *args):
+        """ B スライダー確定時のハンドラ"""
+        self._on_change_slider(channel="b")
+
+    def onChangeSliderAlpha(self, *args):
+        """ A スライダー確定時のハンドラ"""
+        self._on_change_slider(channel="a")
+
+    def _close_chunk(self):
+        """チャンクのクローズ処理"""
         if self.is_chunk_open:
             cmds.undoInfo(closeChunk=True)
             self.is_chunk_open = False
