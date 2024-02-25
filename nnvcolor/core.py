@@ -3,6 +3,8 @@
 """頂点カラーツール"""
 import re
 
+from ctypes import windll, Structure, c_long, byref
+
 import maya.cmds as cmds
 import maya.mel as mel
 import maya.api.OpenMaya as om
@@ -13,6 +15,16 @@ import nnutil.ui as ui
 class InvalidArgumentCombinationError(Exception):
     """引数の値の組み合わせが不正な場合の例外｡"""
     pass
+
+
+class POINT(Structure):
+    _fields_ = [("x", c_long), ("y", c_long)]
+
+
+def get_cursor_pos():
+    pt = POINT()
+    windll.user32.GetCursorPos(byref(pt))
+    return (pt.x, pt.y)
 
 
 def lerp(a, b, t):
@@ -148,6 +160,11 @@ class NN_ToolWindow(object):
         self.is_chunk_open = False
         self.editbox_precision = 4
         self.vf_color_caches = dict()  # スライド開始時の頂点カラーキャッシュ dict[obj_name, list[MColor]]
+
+        self.brush_size_mode = False
+        self.cached_value = 1.0
+        self.start_pos = (0, 0)
+        self.cached_size = 0.1
 
     def create(self):
         if cmds.window(self.window, exists=True):
@@ -869,6 +886,55 @@ class NN_ToolWindow(object):
                 for obj_name in obj_names:
                     full_path = cmds.ls(obj_name, long=True)[0]
                     self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)
+
+            # b キー押し下げでソフト選択半径変更モードにする
+            b_down = ui.is_key_pressed(ui.vk.VK_B)
+
+            if channel == "r":
+                current_v = ui.get_value(self.fs_red)
+            elif channel == "g":
+                current_v = ui.get_value(self.fs_green)
+            elif channel == "b":
+                current_v = ui.get_value(self.fs_blue)
+            elif channel == "a":
+                current_v = ui.get_value(self.fs_alpha)
+            else:
+                pass
+
+            if b_down and not self.brush_size_mode:
+                # 押し下げ時
+                self.brush_size_mode = True
+                self.cached_value = current_v
+                self.cached_size = cmds.softSelect(q=True, ssd=True)
+                self.start_pos = get_cursor_pos()
+
+            elif b_down and self.brush_size_mode:
+                # 押し下げ継続時
+                mul = 0.1
+                lower_limit = 0.0001
+                new_size = (self.start_pos[1] - get_cursor_pos()[1]) * mul
+                new_size = max(new_size, lower_limit)
+                cmds.softSelect(ssd=new_size)
+
+                # スライドで動いた分を戻す
+                if channel == "r":
+                    current_v = ui.set_value(self.fs_red, value=self.cached_value)
+                elif channel == "g":
+                    current_v = ui.set_value(self.fs_green, value=self.cached_value)
+                elif channel == "b":
+                    current_v = ui.set_value(self.fs_blue, value=self.cached_value)
+                elif channel == "a":
+                    current_v = ui.set_value(self.fs_alpha, value=self.cached_value)
+                else:
+                    pass
+
+            elif not b_down and self.brush_size_mode:
+                # 押し上げ時
+                self.brush_size_mode = False
+
+            else:
+                pass
+
 
             self._on_set_color(channel=channel, drag=True)
 
