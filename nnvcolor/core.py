@@ -2,29 +2,100 @@
 # coding:utf-8
 """頂点カラーツール"""
 import re
+import math
 
-from ctypes import windll, Structure, c_long, byref
+from shiboken2 import wrapInstance
 
 import maya.cmds as cmds
 import maya.mel as mel
 import maya.api.OpenMaya as om
 
+import maya.OpenMayaUI as omui
+
+from PySide2.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QSlider, QFrame
+from PySide2.QtCore import Qt, QEvent, Signal, QPoint
+from PySide2.QtGui import QDoubleValidator, QCursor
+
+from maya.app.general.mayaMixin import MayaQWidgetBaseMixin
+
 import nnutil.ui as ui
+
+
+def to_real_text(v, precision):
+    """エディットボックス用の実数のフォーマッティング"""
+    format_string = "{:.%sf}" % precision
+
+    return format_string.format(v)
+
+
+class PushButtonLRM(QPushButton):
+    middleClicked = Signal()
+    rightClicked = Signal()
+
+    def __init__(self, parent=None):
+        super(PushButtonLRM, self).__init__(parent)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MiddleButton:
+            self.middleClicked.emit()
+
+        elif event.button() == Qt.RightButton:
+            self.rightClicked.emit()
+
+        super(PushButtonLRM, self).mouseReleaseEvent(event)
+
+
+class EditBoxFloatDraggable(QLineEdit):
+    dragged = Signal()
+
+    def __init__(self, parent=None):
+        super(EditBoxFloatDraggable, self).__init__(parent)
+        self.installEventFilter(self)
+
+        self.is_dragging = False
+        self.cached_value = 0.0
+        self.cached_pos = QPoint(0, 0)
+        self.precision = 4
+        self.diff_scale = 1.0
+
+    def is_met_drag_condtion(self, event):
+        """"ドラッグ操作の条件を満たしていれば True"""
+        return event.buttons() & Qt.LeftButton and event.modifiers() == Qt.ControlModifier
+
+    def eventFilter(self, source, event):
+        """イベントフィルター"""
+        if event.type() == QEvent.MouseMove:
+            if self.is_met_drag_condtion(event):  # ドラッグ継続中処理
+                if not self.is_dragging:  # ドラッグ開始フレーム
+                    self.cached_value = float(self.text())
+                    self.cached_pos = QCursor.pos()
+                    self.is_dragging = True
+
+                # ドラッグ開始時のカーソル位置との差分をドラッグ開始時の値に加算する
+                current_pos = QCursor.pos()
+                diff_pos = round(float(current_pos.x() - self.cached_pos.x()) / 10**self.precision / self.diff_scale, 4)
+                diff_sign = math.copysign(1.0, diff_pos)
+                diff_abs = max(0.1**self.precision, abs(diff_pos))
+                new_value = self.cached_value + diff_abs * diff_sign
+                self.setText(to_real_text(new_value, self.precision))
+                self.dragged.emit()
+
+            elif not self.is_met_drag_condtion(event) and self.is_dragging:
+                # ドラッグ完了フレーム
+                self.is_dragging = False
+                self.dragged.emit()
+
+            else:
+                pass
+
+            return False
+
+        return False
 
 
 class InvalidArgumentCombinationError(Exception):
     """引数の値の組み合わせが不正な場合の例外｡"""
     pass
-
-
-class POINT(Structure):
-    _fields_ = [("x", c_long), ("y", c_long)]
-
-
-def get_cursor_pos():
-    pt = POINT()
-    windll.user32.GetCursorPos(byref(pt))
-    return (pt.x, pt.y)
 
 
 def lerp(a, b, t):
@@ -148,126 +219,406 @@ window = None
 
 
 def get_window():
+    global window
+
     return window
 
 
-class NN_ToolWindow(object):
-    def __init__(self):
-        self.window = window_name
-        self.title = window_name
-        self.size = (250, 240)
+class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
+    singleton_instance = None
+
+    def __init__(self, parent=None):
+        super(NN_ToolWindow, self).__init__(parent=parent)
 
         self.is_chunk_open = False
         self.editbox_precision = 4
         self.vf_color_caches = dict()  # スライド開始時の頂点カラーキャッシュ dict[obj_name, list[MColor]]
 
         self.brush_size_mode = False
-        self.cached_value = 1.0
-        self.start_pos = (0, 0)
-        self.cached_size = 0.1
+        self.cached_value = 1.0  # ブラシサイズ変更開始時のスライダーの値
+        self.start_pos = 0
+        self.cached_size = 0.1  # ブラシサイズ変更開始時のブラシサイズ
+
+        # UI の初期化
+        self.setWindowFlags(Qt.Window | Qt.CustomizeWindowHint | Qt.WindowCloseButtonHint)
+        self.setWindowTitle(window_name)
+
+    def to_inner_value(self, v):
+        """実際の値 [0.0, 1.0] を内部のスケールされた値に変換する"""
+        if isinstance(v, list):
+            return [int(x * 10 ** self.editbox_precision) for x in v]
+        else:
+            return int(v * 10 ** self.editbox_precision)
+
+    def to_actual_value(self, v):
+        """内部のスケールされた値を実際の値 [0.0, 1.0] に変換する"""
+        if isinstance(v, list):
+            return [x / 10 ** self.editbox_precision for x in v]
+        else:
+            return v / 10 ** self.editbox_precision
+
+    def to_real_text(self, v):
+        """エディットボックス用の実数のフォーマッティング"""
+        return to_real_text(v, self.editbox_precision)
 
     def create(self):
-        if cmds.window(self.window, exists=True):
-            cmds.deleteUI(self.window, window=True)
+        """ウィンドウの作成と表示"""
+        if NN_ToolWindow.singleton_instance:
+            NN_ToolWindow.singleton_instance.close()
 
-        # プリファレンスの有無による分岐
+        self.layout()
+        self.setFixedSize(self.sizeHint())  # コントロール配置後に推奨最小サイズでウィンドウサイズ固定
+
+        # ウィンドウのプリファレンスで起動位置指定する
         if cmds.windowPref(self.window, exists=True):
-            # ウィンドウのプリファレンスがあれば位置だけ保存して削除
             position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
             cmds.windowPref(self.window, remove=True)
 
-            cmds.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+            self.move(position[0], position[1])
 
-        else:
-            # プリファレンスがなければデフォルト位置に指定サイズで表示
-            cmds.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
-
-        self.layout()
-        cmds.showWindow(self.window)
+        self.show()
+        NN_ToolWindow.singleton_instance = self
 
     def layout(self):
-        row_height1 = ui.height(1.0)
-        row_height2 = ui.height(0.9)
+        row_height1 = 36
+        row_height2 = 30
+        button_width1 = 80
+        button_width2 = 54
+        edit_box_width = button_width1
+        separater_height1 = 4
+        separater_height2 = 8
+        outer_margin = 2
+        spacing = 3
 
-        ui.column_layout()
+        # レウアウト枠組み
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
 
-        ui.row_layout()
-        ui.button(label="RGBA", c=self.onSetColorRGBA, dgc=self.onGetColorRGBA)
-        ui.button(label="Create Set [Op]", c=self.onCreateColorSet, dgc=self.onColorSetEditor, width=ui.width(3.75))
-        ui.button(label="Toggle Disp", c=self.onToggleDisplay, width=ui.width(3.75))
-        ui.end_layout()
+        column1 = QVBoxLayout(central_widget)
+        column1.setSpacing(0)
+        column1.setContentsMargins(outer_margin, outer_margin, outer_margin, outer_margin)
 
-        ui.separator(width=1, height=5)
+        rows = [QHBoxLayout() for _ in range(10)]
+        for row in rows:
+            row.setSpacing(spacing)
+            row.setContentsMargins(0, 0, 0, 0)
 
-        ui.row_layout()
-        ui.button(label="R", c=self.onSetColorR, dgc=self.onGetColorR, width=ui.width(2), height=row_height1)
-        ui.button(label="0.00", c=self.onSetColorR000, bgc=(0, 0, 0), width=ui.width1_5, height=row_height1)
-        ui.button(label="0.25", c=self.onSetColorR025, bgc=(0.25, 0, 0), width=ui.width1_5, height=row_height1)
-        ui.button(label="0.50", c=self.onSetColorR050, bgc=(0.5, 0, 0), width=ui.width1_5, height=row_height1)
-        ui.button(label="0.75", c=self.onSetColorR075, bgc=(0.75, 0, 0), width=ui.width1_5, height=row_height1)
-        ui.button(label="1.00", c=self.onSetColorR100, bgc=(1.0, 0, 0), width=ui.width1_5, height=row_height1)
-        ui.end_layout()
+            column1.addLayout(row)
 
-        ui.row_layout()
-        self.eb_red = ui.eb_float(min=0.0, max=1.0, v=1.0, precision=self.editbox_precision, width=ui.width(2), height=row_height2, dc=self.onDragEditBoxRed, cc=self.onChangeEditBoxRed)
-        self.fs_red = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), height=row_height2, dc=self.onDragRed, cc=self.onChangeSliderRed)
-        ui.end_layout()
+        # UI コントロ-ル定義
+        c = PushButtonLRM("RGBA")
+        c.clicked.connect(self.onSetColorRGBA)
+        c.middleClicked.connect(self.onGetColorRGBA)
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width1)
+        rows[0].addWidget(c)
 
-        ui.separator(width=1, height=5)
+        c = PushButtonLRM("Create Set [Op]")
+        c.clicked.connect(self.onCreateColorSet)
+        c.middleClicked.connect(self.onColorSetEditor)
+        c.setFixedHeight(row_height1)
+        rows[0].addWidget(c)
 
-        ui.row_layout()
-        ui.button(label="G", c=self.onSetColorG, dgc=self.onGetColorG, width=ui.width(2))
-        ui.button(label="0.00", c=self.onSetColorG000, bgc=(0, 0, 0), width=ui.width1_5)
-        ui.button(label="0.25", c=self.onSetColorG025, bgc=(0, 0.25, 0), width=ui.width1_5)
-        ui.button(label="0.50", c=self.onSetColorG050, bgc=(0, 0.5, 0), width=ui.width1_5)
-        ui.button(label="0.75", c=self.onSetColorG075, bgc=(0, 0.75, 0), width=ui.width1_5)
-        ui.button(label="1.00", c=self.onSetColorG100, bgc=(0, 1.0, 0), width=ui.width1_5)
-        ui.end_layout()
+        c = PushButtonLRM("Toggle Disp")
+        c.clicked.connect(self.onToggleDisplay)
+        c.setFixedHeight(row_height1)
+        rows[0].addWidget(c)
 
-        ui.row_layout()
-        self.eb_green = ui.eb_float(min=0.0, max=1.0, v=1.0, precision=self.editbox_precision, width=ui.width(2), dc=self.onDragEditBoxGreen, cc=self.onChangeEditBoxGreen)
-        self.fs_green = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragGreen, cc=self.onChangeSliderGreen)
-        ui.end_layout()
+        rows[0].setContentsMargins(0, 0, 0, separater_height2)
 
-        ui.separator(width=1, height=5)
+        # Red
+        c = PushButtonLRM("R")
+        c.clicked.connect(self.onSetColorR)
+        c.middleClicked.connect(self.onGetColorR)
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width1)
+        rows[2].addWidget(c)
 
-        ui.row_layout()
-        ui.button(label="B", c=self.onSetColorB, dgc=self.onGetColorB, width=ui.width(2))
-        ui.button(label="0.00", c=self.onSetColorB000, bgc=(0, 0, 0), width=ui.width1_5)
-        ui.button(label="0.25", c=self.onSetColorB025, bgc=(0, 0, 0.25), width=ui.width1_5)
-        ui.button(label="0.50", c=self.onSetColorB050, bgc=(0, 0, 0.5), width=ui.width1_5)
-        ui.button(label="0.75", c=self.onSetColorB075, bgc=(0, 0, 0.75), width=ui.width1_5)
-        ui.button(label="1.00", c=self.onSetColorB100, bgc=(0, 0, 1.0), width=ui.width1_5)
-        ui.end_layout()
+        c = PushButtonLRM("0.00")
+        c.clicked.connect(self.onSetColorR000)
+        c.setStyleSheet("background-color: #000000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[2].addWidget(c)
 
-        ui.row_layout()
-        self.eb_blue = ui.eb_float(min=0.0, max=1.0, v=1.0, precision=self.editbox_precision, width=ui.width(2), dc=self.onDragEditBoxBlue, cc=self.onChangeEditBoxBlue)
-        self.fs_blue = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragBlue, cc=self.onChangeSliderBlue)
-        ui.end_layout()
+        c = PushButtonLRM("0.25")
+        c.clicked.connect(self.onSetColorR025)
+        c.setStyleSheet("background-color: #400000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[2].addWidget(c)
 
-        ui.separator(width=1, height=5)
+        c = PushButtonLRM("0.50")
+        c.clicked.connect(self.onSetColorR050)
+        c.setStyleSheet("background-color: #800000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[2].addWidget(c)
 
-        ui.row_layout()
-        ui.button(label="A", c=self.onSetColorA, dgc=self.onGetColorA, width=ui.width(2))
-        ui.button(label="0.00", c=self.onSetColorA000, bgc=(0, 0, 0), width=ui.width1_5)
-        ui.button(label="0.25", c=self.onSetColorA025, bgc=(0.25, 0.25, 0.25), width=ui.width1_5)
-        ui.button(label="0.50", c=self.onSetColorA050, bgc=(0.5, 0.5, 0.5), width=ui.width1_5)
-        ui.button(label="0.75", c=self.onSetColorA075, bgc=(0.75, 0.75, 0.75), width=ui.width1_5)
-        ui.button(label="1.00", c=self.onSetColorA100, bgc=(1.0, 1.0, 1.0), width=ui.width1_5)
-        ui.end_layout()
+        c = PushButtonLRM("0.75")
+        c.clicked.connect(self.onSetColorR075)
+        c.setStyleSheet("background-color: #c00000; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[2].addWidget(c)
 
-        ui.row_layout()
-        self.eb_alpha = ui.eb_float(min=0.0, max=1.0, v=1.0, precision=self.editbox_precision, width=ui.width(2), dc=self.onDragEditBoxAlpha, cc=self.onChangeEditBoxAlpha)
-        self.fs_alpha = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragAlpha, cc=self.onChangeSliderAlpha)
-        ui.end_layout()
+        c = PushButtonLRM("1.00")
+        c.clicked.connect(self.onSetColorR100)
+        c.setStyleSheet("background-color: #FF0000; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[2].addWidget(c)
 
-        ui.row_layout()
-        ui.end_layout()
+        rows[2].setContentsMargins(0, 0, 0, separater_height1)
 
-        ui.row_layout()
-        ui.end_layout()
+        c = EditBoxFloatDraggable()
+        c.setValidator(QDoubleValidator())
+        c.validator().setDecimals(self.editbox_precision)
+        c.setText(self.to_real_text(1.0))
+        c.dragged.connect(self.onDragEditBoxRed)
+        c.editingFinished.connect(self.onChangeEditBoxRed)
+        c.installEventFilter(self)
+        c.setFixedHeight(row_height2)
+        c.setFixedWidth(edit_box_width)
+        rows[3].addWidget(c)
+        self.eb_red = c
 
-        ui.end_layout()
+        c = QSlider(Qt.Horizontal)
+        c.setRange(self.to_inner_value(0.0), self.to_inner_value(1.0))
+        c.setValue(self.to_inner_value(1.0))
+        c.sliderMoved.connect(self.onDragRed)
+        c.sliderReleased.connect(self.onChangeSliderRed)
+        c.installEventFilter(self)
+        c.setFixedHeight(row_height2)
+        rows[3].addWidget(c)
+        self.fs_red = c
+
+        rows[3].setContentsMargins(0, 0, 0, separater_height2)
+
+        # Green
+        c = PushButtonLRM("G")
+        c.clicked.connect(self.onSetColorG)
+        c.middleClicked.connect(self.onGetColorG)
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width1)
+        rows[4].addWidget(c)
+
+        c = PushButtonLRM("0.00")
+        c.clicked.connect(self.onSetColorG000)
+        c.setStyleSheet("background-color: #000000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[4].addWidget(c)
+
+        c = PushButtonLRM("0.25")
+        c.clicked.connect(self.onSetColorG025)
+        c.setStyleSheet("background-color: #004000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[4].addWidget(c)
+
+        c = PushButtonLRM("0.50")
+        c.clicked.connect(self.onSetColorG050)
+        c.setStyleSheet("background-color: #008000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[4].addWidget(c)
+
+        c = PushButtonLRM("0.75")
+        c.clicked.connect(self.onSetColorG075)
+        c.setStyleSheet("background-color: #00c000; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[4].addWidget(c)
+
+        c = PushButtonLRM("1.00")
+        c.clicked.connect(self.onSetColorG100)
+        c.setStyleSheet("background-color: #00FF00; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[4].addWidget(c)
+
+        rows[4].setContentsMargins(0, 0, 0, separater_height1)
+
+        c = EditBoxFloatDraggable()
+        c.setValidator(QDoubleValidator())
+        c.validator().setDecimals(self.editbox_precision)
+        c.setText(self.to_real_text(1.0))
+        c.dragged.connect(self.onDragEditBoxGreen)
+        c.editingFinished.connect(self.onChangeEditBoxGreen)
+        c.installEventFilter(self)
+        c.setFixedHeight(row_height2)
+        c.setFixedWidth(edit_box_width)
+        rows[5].addWidget(c)
+        self.eb_green = c
+
+        c = QSlider(Qt.Horizontal)
+        c.setRange(self.to_inner_value(0.0), self.to_inner_value(1.0))
+        c.setValue(self.to_inner_value(1.0))
+        c.sliderMoved.connect(self.onDragGreen)
+        c.sliderReleased.connect(self.onChangeSliderGreen)
+        c.installEventFilter(self)
+        c.setFixedHeight(row_height2)
+        rows[5].addWidget(c)
+        self.fs_green = c
+
+        rows[5].setContentsMargins(0, 0, 0, separater_height2)
+
+        # Blue
+        c = PushButtonLRM("B")
+        c.clicked.connect(self.onSetColorB)
+        c.middleClicked.connect(self.onGetColorB)
+        rows[6].addWidget(c)
+
+        c = PushButtonLRM("0.00")
+        c.clicked.connect(self.onSetColorB000)
+        c.setStyleSheet("background-color: #000000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[6].addWidget(c)
+
+        c = PushButtonLRM("0.25")
+        c.clicked.connect(self.onSetColorB025)
+        c.setStyleSheet("background-color: #000040; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[6].addWidget(c)
+
+        c = PushButtonLRM("0.50")
+        c.clicked.connect(self.onSetColorB050)
+        c.setStyleSheet("background-color: #000080; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[6].addWidget(c)
+
+        c = PushButtonLRM("0.75")
+        c.clicked.connect(self.onSetColorB075)
+        c.setStyleSheet("background-color: #0000c0; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[6].addWidget(c)
+
+        c = PushButtonLRM("1.00")
+        c.clicked.connect(self.onSetColorB100)
+        c.setStyleSheet("background-color: #0000FF; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[6].addWidget(c)
+
+        rows[6].setContentsMargins(0, 0, 0, separater_height1)
+
+        c = EditBoxFloatDraggable()
+        c.setValidator(QDoubleValidator())
+        c.validator().setDecimals(self.editbox_precision)
+        c.setText(self.to_real_text(1.0))
+        c.dragged.connect(self.onDragEditBoxBlue)
+        c.editingFinished.connect(self.onChangeEditBoxBlue)
+        c.installEventFilter(self)
+        c.setFixedHeight(row_height2)
+        c.setFixedWidth(edit_box_width)
+        rows[7].addWidget(c)
+        self.eb_blue = c
+
+        c = QSlider(Qt.Horizontal)
+        c.setRange(self.to_inner_value(0.0), self.to_inner_value(1.0))
+        c.setValue(self.to_inner_value(1.0))
+        c.sliderMoved.connect(self.onDragBlue)
+        c.sliderReleased.connect(self.onChangeSliderBlue)
+        c.installEventFilter(self)
+        c.setFixedHeight(row_height2)
+        rows[7].addWidget(c)
+        self.fs_blue = c
+
+        rows[7].setContentsMargins(0, 0, 0, separater_height2)
+
+        # Alpha
+        c = PushButtonLRM("A")
+        c.clicked.connect(self.onSetColorA)
+        c.middleClicked.connect(self.onGetColorA)
+        rows[8].addWidget(c)
+
+        c = PushButtonLRM("0.00")
+        c.clicked.connect(self.onSetColorA000)
+        c.setStyleSheet("background-color: #000000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[8].addWidget(c)
+
+        c = PushButtonLRM("0.25")
+        c.clicked.connect(self.onSetColorA025)
+        c.setStyleSheet("background-color: #404040; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[8].addWidget(c)
+
+        c = PushButtonLRM("0.50")
+        c.clicked.connect(self.onSetColorA050)
+        c.setStyleSheet("background-color: #808080; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[8].addWidget(c)
+
+        c = PushButtonLRM("0.75")
+        c.clicked.connect(self.onSetColorA075)
+        c.setStyleSheet("background-color: #c0c0c0; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[8].addWidget(c)
+
+        c = PushButtonLRM("1.00")
+        c.clicked.connect(self.onSetColorA100)
+        c.setStyleSheet("background-color: #FFFFFF; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[8].addWidget(c)
+
+        rows[8].setContentsMargins(0, 0, 0, separater_height1)
+
+        c = EditBoxFloatDraggable()
+        c.setValidator(QDoubleValidator())
+        c.validator().setDecimals(self.editbox_precision)
+        c.setText(self.to_real_text(1.0))
+        c.dragged.connect(self.onDragEditBoxAlpha)
+        c.editingFinished.connect(self.onChangeEditBoxAlpha)
+        c.installEventFilter(self)
+        c.setFixedHeight(row_height2)
+        c.setFixedWidth(edit_box_width)
+        rows[9].addWidget(c)
+        self.eb_alpha = c
+
+        c = QSlider(Qt.Horizontal)
+        c.setRange(self.to_inner_value(0.0), self.to_inner_value(1.0))
+        c.setValue(self.to_inner_value(1.0))
+        c.sliderMoved.connect(self.onDragAlpha)
+        c.sliderReleased.connect(self.onChangeSliderAlpha)
+        c.installEventFilter(self)
+        c.setFixedHeight(row_height2)
+        rows[9].addWidget(c)
+        self.fs_alpha = c
+
+        rows[9].setContentsMargins(0, 0, 0, separater_height2)
+
+    def eventFilter(self, source, event):
+        """イベントフィルター"""
+        if event.type() == QEvent.MouseMove:
+            if source == self.fs_red:
+                channel = "r"
+
+            elif source == self.fs_red:
+                channel = "g"
+
+            elif source == self.fs_red:
+                channel = "b"
+
+            elif source == self.fs_red:
+                channel = "a"
+
+            else:
+                return False
+
+            self._on_drag_slider(channel=channel)
+
+        return False
 
     def _get_color(self, *args):
         """選択している全ての頂点の頂点カラーを平均した値を返す"""
@@ -333,10 +684,11 @@ class NN_ToolWindow(object):
         color = self._get_color()
 
         if color:
-            ui.set_value(self.fs_red, value=color[0])
-            ui.set_value(self.fs_green, value=color[1])
-            ui.set_value(self.fs_blue, value=color[2])
-            ui.set_value(self.fs_alpha, value=color[3])
+            inner_values = [self.to_inner_value(x) for x in color]
+            self.fs_red.setValue(inner_values[0])
+            self.fs_green.setValue(inner_values[1])
+            self.fs_blue.setValue(inner_values[2])
+            self.fs_alpha.setValue(inner_values[3])
 
             self._sync_slider_and_editbox(from_slider=True)
 
@@ -345,10 +697,10 @@ class NN_ToolWindow(object):
         selection = cmds.ls(selection=True)
 
         if selection:
-            r = ui.get_value(self.fs_red)
-            g = ui.get_value(self.fs_green)
-            b = ui.get_value(self.fs_blue)
-            a = ui.get_value(self.fs_alpha)
+            r = self.to_actual_value(self.fs_red.value())
+            g = self.to_actual_value(self.fs_green.value())
+            b = self.to_actual_value(self.fs_blue.value())
+            a = self.to_actual_value(self.fs_alpha.value())
 
             targets = cmds.polyListComponentConversion(selection, tvf=True)
             cmds.polyColorPerVertex(targets, r=r, g=g, b=b, a=a)
@@ -358,7 +710,7 @@ class NN_ToolWindow(object):
         color = self._get_color()
 
         if color:
-            ui.set_value(self.fs_red, value=color[0])
+            self.fs_red.setValue(self.to_inner_value(color[0]))
 
             self._sync_slider_and_editbox(from_slider=True)
 
@@ -367,7 +719,7 @@ class NN_ToolWindow(object):
         color = self._get_color()
 
         if color:
-            ui.set_value(self.fs_green, value=color[1])
+            self.fs_green.setValue(self.to_inner_value(color[1]))
 
             self._sync_slider_and_editbox(from_slider=True)
 
@@ -376,7 +728,7 @@ class NN_ToolWindow(object):
         color = self._get_color()
 
         if color:
-            ui.set_value(self.fs_blue, value=color[2])
+            self.fs_blue.setValue(self.to_inner_value(color[2]))
 
             self._sync_slider_and_editbox(from_slider=True)
 
@@ -385,7 +737,7 @@ class NN_ToolWindow(object):
         color = self._get_color()
 
         if color:
-            ui.set_value(self.fs_alpha, value=color[3])
+            self.fs_alpha.setValue(self.to_inner_value(color[3]))
 
             self._sync_slider_and_editbox(from_slider=True)
 
@@ -598,17 +950,8 @@ class NN_ToolWindow(object):
             drag (bool): ドラッグ中なら True ､確定時なら False を指定する｡
         """
         # スライダーの値取得
-        if channel == "r":
-            v = ui.get_value(self.fs_red)
-
-        if channel == "g":
-            v = ui.get_value(self.fs_green)
-
-        if channel == "b":
-            v = ui.get_value(self.fs_blue)
-
-        if channel == "a":
-            v = ui.get_value(self.fs_alpha)
+        slider = self.get_slider(channel)
+        v = self.to_actual_value(slider.value())
 
         selection = cmds.ls(selection=True)
 
@@ -647,144 +990,112 @@ class NN_ToolWindow(object):
         """[A] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
         self._on_set_color(channel="a", drag=False)
 
+    def _set_slider_value_with_channel(self, channel, actual_value, sync=False):
+        v = self.to_inner_value(actual_value)
+        slider = self.get_slider(channel)
+        slider.setValue(v)
+
+        if sync:
+            self._sync_slider_and_editbox(from_slider=True)
+
     def onSetColorR000(self, *args):
         """R を 0.00 に設定する"""
-        v = 0.0
-        ui.set_value(self.fs_red, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("r", 0.0, sync=True)
         self._on_set_color(channel="r", drag=False)
 
     def onSetColorR025(self, *args):
         """R を 0.25 に設定する"""
-        v = 0.25
-        ui.set_value(self.fs_red, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("r", 0.25, sync=True)
         self._on_set_color(channel="r", drag=False)
 
     def onSetColorR050(self, *args):
         """R を 0.50 に設定する"""
-        v = 0.5
-        ui.set_value(self.fs_red, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("r", 0.5, sync=True)
         self._on_set_color(channel="r", drag=False)
 
     def onSetColorR075(self, *args):
         """R を 0.75 に設定する"""
-        v = 0.75
-        ui.set_value(self.fs_red, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("r", 0.75, sync=True)
         self._on_set_color(channel="r", drag=False)
 
     def onSetColorR100(self, *args):
         """R を 1.00 に設定する"""
-        v = 1.0
-        ui.set_value(self.fs_red, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("r", 1.0, sync=True)
         self._on_set_color(channel="r", drag=False)
 
     def onSetColorG000(self, *args):
         """G を 0.00 に設定する"""
-        v = 0.0
-        ui.set_value(self.fs_green, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("g", 0.0, sync=True)
         self._on_set_color(channel="g", drag=False)
 
     def onSetColorG025(self, *args):
         """G を 0.25 に設定する"""
-        v = 0.25
-        ui.set_value(self.fs_green, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("g", 0.25, sync=True)
         self._on_set_color(channel="g", drag=False)
 
     def onSetColorG050(self, *args):
         """G を 0.50 に設定する"""
-        v = 0.5
-        ui.set_value(self.fs_green, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("g", 0.5, sync=True)
         self._on_set_color(channel="g", drag=False)
 
     def onSetColorG075(self, *args):
         """G を 0.75 に設定する"""
-        v = 0.75
-        ui.set_value(self.fs_green, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("g", 0.75, sync=True)
         self._on_set_color(channel="g", drag=False)
 
     def onSetColorG100(self, *args):
         """G を 1.00 に設定する"""
-        v = 1.0
-        ui.set_value(self.fs_green, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("g", 1.0, sync=True)
         self._on_set_color(channel="g", drag=False)
 
     def onSetColorB000(self, *args):
         """B を 0.00 に設定する"""
-        v = 0.0
-        ui.set_value(self.fs_blue, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("b", 0.0, sync=True)
         self._on_set_color(channel="b", drag=False)
 
     def onSetColorB025(self, *args):
         """B を 0.25 に設定する"""
-        v = 0.25
-        ui.set_value(self.fs_blue, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("b", 0.25, sync=True)
         self._on_set_color(channel="b", drag=False)
 
     def onSetColorB050(self, *args):
         """B を 0.50 に設定する"""
-        v = 0.5
-        ui.set_value(self.fs_blue, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("b", 0.5, sync=True)
         self._on_set_color(channel="b", drag=False)
 
     def onSetColorB075(self, *args):
         """B を 0.75 に設定する"""
-        v = 0.75
-        ui.set_value(self.fs_blue, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("b", 0.75, sync=True)
         self._on_set_color(channel="b", drag=False)
 
     def onSetColorB100(self, *args):
         """B を 1.00 に設定する"""
-        v = 1.0
-        ui.set_value(self.fs_blue, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("b", 1.0, sync=True)
         self._on_set_color(channel="b", drag=False)
 
     def onSetColorA000(self, *args):
         """A を 0.00 に設定する"""
-        v = 0.0
-        ui.set_value(self.fs_alpha, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("a", 0.0, sync=True)
         self._on_set_color(channel="a", drag=False)
 
     def onSetColorA025(self, *args):
         """A を 0.25 に設定する"""
-        v = 0.25
-        ui.set_value(self.fs_alpha, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("a", 0.25, sync=True)
         self._on_set_color(channel="a", drag=False)
 
     def onSetColorA050(self, *args):
         """A を 0.50 に設定する"""
-        v = 0.5
-        ui.set_value(self.fs_alpha, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("a", 0.5, sync=True)
         self._on_set_color(channel="a", drag=False)
 
     def onSetColorA075(self, *args):
         """A を 0.75 に設定する"""
-        v = 0.75
-        ui.set_value(self.fs_alpha, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("a", 0.75, sync=True)
         self._on_set_color(channel="a", drag=False)
 
     def onSetColorA100(self, *args):
         """A を 1.00 に設定する"""
-        v = 1.0
-        ui.set_value(self.fs_alpha, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("a", 1.0, sync=True)
         self._on_set_color(channel="a", drag=False)
 
     def _sync_slider_and_editbox(self, from_slider=False, from_editbox=False):
@@ -800,31 +1111,31 @@ class NN_ToolWindow(object):
 
         # スライダーを元にエディットボックスを変更
         if from_slider:
-            v = ui.get_value(self.fs_red)
-            ui.set_value(self.eb_red, v)
+            v = self.to_actual_value(self.fs_red.value())
+            self.eb_red.setText(self.to_real_text(v))
 
-            v = ui.get_value(self.fs_green)
-            ui.set_value(self.eb_green, v)
+            v = self.to_actual_value(self.fs_green.value())
+            self.eb_green.setText(self.to_real_text(v))
 
-            v = ui.get_value(self.fs_blue)
-            ui.set_value(self.eb_blue, v)
+            v = self.to_actual_value(self.fs_blue.value())
+            self.eb_blue.setText(self.to_real_text(v))
 
-            v = ui.get_value(self.fs_alpha)
-            ui.set_value(self.eb_alpha, v)
+            v = self.to_actual_value(self.fs_alpha.value())
+            self.eb_alpha.setText(self.to_real_text(v))
 
         # エディットボックスを元にスライダーを変更
         if from_editbox:
-            v = ui.get_value(self.eb_red)
-            ui.set_value(self.fs_red, v)
+            v = self.to_inner_value(float(self.eb_red.text()))
+            self.fs_red.setValue(v)
 
-            v = ui.get_value(self.eb_green)
-            ui.set_value(self.fs_green, v)
+            v = self.to_inner_value(float(self.eb_green.text()))
+            self.fs_green.setValue(v)
 
-            v = ui.get_value(self.eb_blue)
-            ui.set_value(self.fs_blue, v)
+            v = self.to_inner_value(float(self.eb_blue.text()))
+            self.fs_blue.setValue(v)
 
-            v = ui.get_value(self.eb_alpha)
-            ui.set_value(self.fs_alpha, v)
+            v = self.to_inner_value(float(self.eb_alpha.text()))
+            self.fs_alpha.setValue(v)
 
     def _on_drag_editbox(self, channel):
         """エディットボックスのスライド時の処理"""
@@ -870,6 +1181,30 @@ class NN_ToolWindow(object):
         """Alpha エディットボックス確定時のハンドラ"""
         self._on_change_editbox(channel="a")
 
+    def get_slider(self, channel):
+        if channel == "r":
+            return self.fs_red
+        elif channel == "g":
+            return self.fs_green
+        elif channel == "b":
+            return self.fs_blue
+        elif channel == "a":
+            return self.fs_alpha
+        else:
+            return None
+
+    def get_editbox(self, channel):
+        if channel == "r":
+            return self.eb_red
+        elif channel == "g":
+            return self.eb_green
+        elif channel == "b":
+            return self.eb_blue
+        elif channel == "a":
+            return self.eb_alpha
+        else:
+            return None
+
     def _on_drag_slider(self, channel):
         """スライダードラッグ中の処理"""
         selection = cmds.ls(selection=True)
@@ -888,53 +1223,37 @@ class NN_ToolWindow(object):
                     self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)
 
             # b キー押し下げでソフト選択半径変更モードにする
+            # TODO: Qt に置き換えてドラッグのメッセージ来る方向が違うのでこの辺は書き換えて
             b_down = ui.is_key_pressed(ui.vk.VK_B)
 
-            if channel == "r":
-                current_v = ui.get_value(self.fs_red)
-            elif channel == "g":
-                current_v = ui.get_value(self.fs_green)
-            elif channel == "b":
-                current_v = ui.get_value(self.fs_blue)
-            elif channel == "a":
-                current_v = ui.get_value(self.fs_alpha)
-            else:
-                pass
+            slider = self.get_slider(channel)
+            current_v = self.to_actual_value(slider.value())
 
             if b_down and not self.brush_size_mode:
                 # 押し下げ時
                 self.brush_size_mode = True
                 self.cached_value = current_v
                 self.cached_size = cmds.softSelect(q=True, ssd=True)
-                self.start_pos = get_cursor_pos()
+                self.start_pos = QCursor.pos().y()
 
             elif b_down and self.brush_size_mode:
                 # 押し下げ継続時
                 mul = 0.1
                 lower_limit = 0.0001
-                new_size = (self.start_pos[1] - get_cursor_pos()[1]) * mul
+                current_pos = QCursor.pos().y()
+                new_size = self.cached_size + (self.start_pos - current_pos) * mul
                 new_size = max(new_size, lower_limit)
                 cmds.softSelect(ssd=new_size)
 
-                # スライドで動いた分を戻す
-                if channel == "r":
-                    current_v = ui.set_value(self.fs_red, value=self.cached_value)
-                elif channel == "g":
-                    current_v = ui.set_value(self.fs_green, value=self.cached_value)
-                elif channel == "b":
-                    current_v = ui.set_value(self.fs_blue, value=self.cached_value)
-                elif channel == "a":
-                    current_v = ui.set_value(self.fs_alpha, value=self.cached_value)
-                else:
-                    pass
+                slider.setValue(self.to_inner_value(self.cached_value))
 
             elif not b_down and self.brush_size_mode:
                 # 押し上げ時
                 self.brush_size_mode = False
+                slider.setValue(self.to_inner_value(self.cached_value))
 
             else:
                 pass
-
 
             self._on_set_color(channel=channel, drag=True)
 
@@ -942,19 +1261,27 @@ class NN_ToolWindow(object):
 
     def onDragRed(self, *args):
         """R スライダードラッグ中のハンドラ"""
-        self._on_drag_slider(channel="r")
+        if self.brush_size_mode:
+            slider = self.get_slider("r")
+            slider.setValue(self.to_inner_value(self.cached_value))
 
     def onDragGreen(self, *args):
         """G スライダードラッグ中のハンドラ"""
-        self._on_drag_slider(channel="g")
+        if self.brush_size_mode:
+            slider = self.get_slider("g")
+            slider.setValue(self.to_inner_value(self.cached_value))
 
     def onDragBlue(self, *args):
         """B スライダードラッグ中のハンドラ"""
-        self._on_drag_slider(channel="b")
+        if self.brush_size_mode:
+            slider = self.get_slider("b")
+            slider.setValue(self.to_inner_value(self.cached_value))
 
     def onDragAlpha(self, *args):
         """A スライダードラッグ中のハンドラ"""
-        self._on_drag_slider(channel="a")
+        if self.brush_size_mode:
+            slider = self.get_slider("a")
+            slider.setValue(self.to_inner_value(self.cached_value))
 
     def _on_change_slider(self, channel):
         """スライダー確定時の処理"""
@@ -991,12 +1318,17 @@ class NN_ToolWindow(object):
             self.is_chunk_open = False
 
 
-def showNNToolWindow():
-    NN_ToolWindow().create()
+def maya_main_window():
+    main_window_ptr = omui.MQtUtil.mainWindow()
+    if main_window_ptr is not None:
+        return wrapInstance(int(main_window_ptr), QMainWindow)
+    else:
+        return None
 
 
 def main():
-    showNNToolWindow()
+    window = NN_ToolWindow(parent=maya_main_window())
+    window.create()
 
 
 if __name__ == "__main__":
