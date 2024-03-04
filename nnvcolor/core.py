@@ -12,7 +12,7 @@ import maya.api.OpenMaya as om
 
 import maya.OpenMayaUI as omui
 
-from PySide2.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QSlider, QFrame
+from PySide2.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QSlider
 from PySide2.QtCore import Qt, QEvent, Signal, QPoint
 from PySide2.QtGui import QDoubleValidator, QCursor
 
