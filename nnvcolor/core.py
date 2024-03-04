@@ -956,11 +956,12 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         selection = cmds.ls(selection=True)
 
         if selection:
+            mode = "mul" if ui.is_alt() else "copy"
+
             # ソフト有効ならコンポーネント毎に色計算､無効なら単色を設定する｡
             # 頂点カラーの変更はドラッグ中は API を使用し､確定時は cmds を使用する｡
             if cmds.softSelect(q=True, softSelectEnabled=True) and not cmds.selectMode(q=True, object=True):
-                mode = "mul" if ui.is_alt() else "copy"
-
+                # ソフト選択有効
                 if drag:
                     self._blend_color(self.vf_color_caches, channel, v, mode=mode, via_api=True)
 
@@ -968,6 +969,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
                     self._blend_color(self.vf_color_caches, channel, v, mode=mode, via_api=False)
 
             else:
+                # 通常選択
                 if drag:
                     self._set_unified_color(selection, channel, v, via_api=True)
 
