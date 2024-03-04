@@ -1223,7 +1223,6 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
                     self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)
 
             # b キー押し下げでソフト選択半径変更モードにする
-            # TODO: Qt に置き換えてドラッグのメッセージ来る方向が違うのでこの辺は書き換えて
             b_down = ui.is_key_pressed(ui.vk.VK_B)
 
             slider = self.get_slider(channel)
@@ -1238,7 +1237,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
 
             elif b_down and self.brush_size_mode:
                 # 押し下げ継続時
-                mul = 0.1
+                mul = 0.1  # TODO:注視点の距離で動的に変更｡画面上での距離と一致させたい
                 lower_limit = 0.0001
                 current_pos = QCursor.pos().y()
                 new_size = self.cached_size + (self.start_pos - current_pos) * mul
