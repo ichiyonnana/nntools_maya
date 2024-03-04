@@ -58,14 +58,14 @@ class EditBoxFloatDraggable(QLineEdit):
         self.precision = 4
         self.diff_scale = 1.0
 
-    def is_met_drag_condtion(self, event):
+    def is_met_drag_condition(self, event):
         """"ドラッグ操作の条件を満たしていれば True"""
         return event.buttons() & Qt.LeftButton and event.modifiers() == Qt.ControlModifier
 
     def eventFilter(self, source, event):
         """イベントフィルター"""
         if event.type() == QEvent.MouseMove:
-            if self.is_met_drag_condtion(event):  # ドラッグ継続中処理
+            if self.is_met_drag_condition(event):  # ドラッグ継続中処理
                 if not self.is_dragging:  # ドラッグ開始フレーム
                     self.cached_value = float(self.text())
                     self.cached_pos = QCursor.pos()
@@ -80,7 +80,7 @@ class EditBoxFloatDraggable(QLineEdit):
                 self.setText(to_real_text(new_value, self.precision))
                 self.dragged.emit()
 
-            elif not self.is_met_drag_condtion(event) and self.is_dragging:
+            elif not self.is_met_drag_condition(event) and self.is_dragging:
                 # ドラッグ完了フレーム
                 self.is_dragging = False
                 self.dragged.emit()
