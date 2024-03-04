@@ -385,6 +385,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         c = QSlider(Qt.Horizontal)
         c.setRange(self.to_inner_value(0.0), self.to_inner_value(1.0))
         c.setValue(self.to_inner_value(1.0))
+        c.sliderPressed.connect(self.onSliderPressed)
         c.sliderMoved.connect(self.onDragRed)
         c.sliderReleased.connect(self.onChangeSliderRed)
         c.installEventFilter(self)
@@ -453,6 +454,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         c = QSlider(Qt.Horizontal)
         c.setRange(self.to_inner_value(0.0), self.to_inner_value(1.0))
         c.setValue(self.to_inner_value(1.0))
+        c.sliderPressed.connect(self.onSliderPressed)
         c.sliderMoved.connect(self.onDragGreen)
         c.sliderReleased.connect(self.onChangeSliderGreen)
         c.installEventFilter(self)
@@ -519,6 +521,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         c = QSlider(Qt.Horizontal)
         c.setRange(self.to_inner_value(0.0), self.to_inner_value(1.0))
         c.setValue(self.to_inner_value(1.0))
+        c.sliderPressed.connect(self.onSliderPressed)
         c.sliderMoved.connect(self.onDragBlue)
         c.sliderReleased.connect(self.onChangeSliderBlue)
         c.installEventFilter(self)
@@ -585,6 +588,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         c = QSlider(Qt.Horizontal)
         c.setRange(self.to_inner_value(0.0), self.to_inner_value(1.0))
         c.setValue(self.to_inner_value(1.0))
+        c.sliderPressed.connect(self.onSliderPressed)
         c.sliderMoved.connect(self.onDragAlpha)
         c.sliderReleased.connect(self.onChangeSliderAlpha)
         c.installEventFilter(self)
@@ -1305,6 +1309,13 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
     def onChangeSliderAlpha(self, *args):
         """ A スライダー確定時のハンドラ"""
         self._on_change_slider(channel="a")
+
+    def onSliderPressed(self, *args):
+        """スライダーが押された瞬間のハンドラ"""
+        if not self.is_chunk_open:
+            # チャンクのオープン
+            cmds.undoInfo(openChunk=True)
+            self.is_chunk_open = True
 
     def _close_chunk(self):
         """チャンクのクローズ処理"""
