@@ -604,13 +604,13 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
             if source == self.fs_red:
                 channel = "r"
 
-            elif source == self.fs_red:
+            elif source == self.fs_green:
                 channel = "g"
 
-            elif source == self.fs_red:
+            elif source == self.fs_blue:
                 channel = "b"
 
-            elif source == self.fs_red:
+            elif source == self.fs_alpha:
                 channel = "a"
 
             else:
