@@ -139,31 +139,40 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label="Create:")
         ui.button(label="Sweep", c=self.onCreateSweep)
+        ui.text(label="mat:", width=ui.width(1))
         self.eb_material = ui.eb_text(text="", width=ui.width(5))
-        self.cb_auto_material = ui.check_box(label="Auto", v=True)
         ui.end_layout()
 
         ui.row_layout()
-        ui.header(label="Attr:")
+        ui.header(label="Type:")
+        ui.button(label="Poly", c=self.onSetTypePoly)
+        ui.button(label="Rect", c=self.onSetTypeRect)
+        ui.button(label="Line", c=self.onSetTypeLine)
+        ui.button(label="Custom", c=self.onSetTypeCustom)
+        # ui.button(label="cross section", c=self.onSetCrossSectionMesh)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label="Taper:")
         ui.button(label="=>", c=self.onSetTaperEither)
         ui.button(label="<>", c=self.onSetTaperBoth)
         ui.button(label="==", c=self.onSetTaperNeither)
-        ui.button(label="cross section", c=self.onSetCrossSectionMesh)
+        ui.button(label="Reverse", c=self.onReverse)
         ui.end_layout()
 
         ui.row_layout()
         ui.header(label="Mode")
-        ui.button(label="Precision", c=self.onSetModePrecision)
-        ui.button(label="Distance", c=self.onSetModeDistance)
-        ui.button(label="Whole", c=self.onSetModeWhole)
-        ui.button(label="Span", c=self.onSetModeSpan)
+        ui.button(label="Precision", width=ui.width(2), c=self.onSetModePrecision)
+        ui.button(label="Distance", width=ui.width(2), c=self.onSetModeDistance)
+        ui.button(label="Whole", width=ui.width(2), c=self.onSetModeWhole)
+        ui.button(label="Span", width=ui.width(2), c=self.onSetModeSpan)
         ui.end_layout()
 
         ui.row_layout()
         ui.header(label="Resolution")
-        ui.button(label="Low", c=self.onSetResolutionLow)
-        ui.button(label="High", c=self.onSetResolutionHigh)
-        ui.button(label="Optimize", c=self.onToggleOptimize)
+        ui.button(label="- Low", c=self.onSetResolutionLow)
+        ui.button(label="High +", c=self.onSetResolutionHigh)
+        ui.button(label="Optimize [dis]", c=self.onOptimizeEnable, dgc=self.onOptimizeDisable)
         ui.end_layout()
 
         ui.separator()
@@ -185,19 +194,22 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label="Curve:")
-        ui.button(label="Show", c=self.onToggleShowCurve)
-        ui.end_layout()
-
-        ui.row_layout()
-        ui.header(label="Mesh:")
-        ui.button(label="Ref", c=self.onToggleMeshType)
+        ui.button(label="Show Curve", c=self.onToggleShowCurve)
+        ui.button(label="Ref Mesh", c=self.onToggleMeshType)
         ui.end_layout()
 
         ui.separator()
 
         ui.row_layout()
-        ui.header(label="Scale:")
-        self.scale_slider = ui.float_slider(width=ui.width(5), min=0, max=5, value=1, dc=self.onUpdateScale, cc=self.onChangeScale)
+        ui.header(label="ScaleX:")
+        self.scale_slider_x = ui.float_slider(width=ui.width(5), min=0, max=5, value=1, dc=self.onUpdateScaleX, cc=self.onChangeScaleX)
+        ui.button(label="Reset", c=self.onResetScale)
+        ui.button(label="GetAttr", c=self.onGetAttr)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label="ScaleY:")
+        self.scale_slider_y = ui.float_slider(width=ui.width(5), min=0, max=5, value=1, dc=self.onUpdateScaleY, cc=self.onChangeScaleY)
         ui.button(label="Reset", c=self.onResetScale)
         ui.end_layout()
 
@@ -211,6 +223,14 @@ class NN_ToolWindow(object):
         ui.header(label="Twist:")
         self.twist_slider = ui.float_slider(width=ui.width(5), min=-2, max=2, value=0, dc=self.onUpdateTwist, cc=self.onChangeTwist)
         ui.button(label="Reset", c=self.onResetTwist)
+        ui.end_layout()
+
+        ui.separator()
+
+        ui.row_layout()
+        ui.header(label="Advanced:")
+        ui.button(label="Auto Roll [dis]", c=self.onAutomaticRollEnable, dgc=self.onAutomaticRollDisable)
+        ui.button(label="Uni Scale [dis]", c=self.onScaleProfileUniformEnable, dgc=self.onScaleProfileUniformDisable)
         ui.end_layout()
 
         ui.end_layout()
@@ -229,9 +249,6 @@ class NN_ToolWindow(object):
 
                 # マテリアルの設定
                 material = None
-
-                if ui.get_value(self.cb_auto_material):
-                    pass
 
                 if not material:
                     material_text = ui.get_value(self.eb_material)
@@ -270,11 +287,7 @@ class NN_ToolWindow(object):
                 # カーブの Draw on top 設定
                 curve_shape.alwaysDrawOnTop.set(1)
 
-    def onSelectFirstCVs(self, *args):
-        """ハンドラ
-
-        選択しているオブジェクト以下の全てのオブジェクト内のカーブの第一CVを選択する
-        """
+    def _get_selected_curves(self):
         selections = cmds.ls(selection=True)
         curves = []
 
@@ -283,6 +296,53 @@ class NN_ToolWindow(object):
             curves.extend(descendent_curves)
 
         curves = list(set(curves))
+
+        return curves
+
+    def _get_selected_smc_nodes(self):
+        curves = self._get_selected_curves()
+        smc_nodes = []
+
+        for curve in curves:
+            nodes = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")
+            if nodes:
+                smc_nodes.extend(nodes)
+
+        return smc_nodes
+
+    def onSetTypePoly(self, *args):
+        """ """
+        for smc_node in self._get_selected_smc_nodes():
+            cmds.setAttr(smc_node + ".sweepProfileType", 0)
+
+    def onSetTypeRect(self, *args):
+        """ """
+        for smc_node in self._get_selected_smc_nodes():
+            cmds.setAttr(smc_node + ".sweepProfileType", 1)
+
+            cmds.setAttr(smc_node + ".profileRectWidth", 1)
+            cmds.setAttr(smc_node + ".profileRectHeight", 1)
+            cmds.setAttr(smc_node + ".profileRectCornerRadius", 0)
+            cmds.setAttr(smc_node + ".profileRectCornerSegments", 1)
+            cmds.setAttr(smc_node + ".profileRectCornerDepth", 1)
+            cmds.setAttr(smc_node + ".capsEnable", 0)
+
+    def onSetTypeLine(self, *args):
+        """ """
+        for smc_node in self._get_selected_smc_nodes():
+            cmds.setAttr(smc_node + ".sweepProfileType", 2)
+
+    def onSetTypeCustom(self, *args):
+        """ """
+        for smc_node in self._get_selected_smc_nodes():
+            cmds.setAttr(smc_node + ".sweepProfileType", 5)
+
+    def onSelectFirstCVs(self, *args):
+        """ハンドラ
+
+        選択しているオブジェクト以下の全てのオブジェクト内のカーブの第一CVを選択する
+        """
+        curves = self._get_selected_curves()
 
         first_cvs = []
 
@@ -296,14 +356,7 @@ class NN_ToolWindow(object):
 
     def onSetTaperEither(self, *args):
         """"""
-        selections = cmds.ls(selection=True)
-        curves = []
-
-        for obj in selections:
-            descendent_curves = cmds.listRelatives(obj, allDescendents=True, type="nurbsCurve")
-            curves.extend(descendent_curves)
-
-        curves = list(set(curves))
+        curves = self._get_selected_curves()
 
         for curve in curves:
             smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
@@ -322,14 +375,7 @@ class NN_ToolWindow(object):
 
     def onSetTaperBoth(self, *args):
         """"""
-        selections = cmds.ls(selection=True)
-        curves = []
-
-        for obj in selections:
-            descendent_curves = cmds.listRelatives(obj, allDescendents=True, type="nurbsCurve")
-            curves.extend(descendent_curves)
-
-        curves = list(set(curves))
+        curves = self._get_selected_curves()
 
         for curve in curves:
             smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
@@ -348,14 +394,7 @@ class NN_ToolWindow(object):
 
     def onSetTaperNeither(self, *args):
         """"""
-        selections = cmds.ls(selection=True)
-        curves = []
-
-        for obj in selections:
-            descendent_curves = cmds.listRelatives(obj, allDescendents=True, type="nurbsCurve")
-            curves.extend(descendent_curves)
-
-        curves = list(set(curves))
+        curves = self._get_selected_curves()
 
         for curve in curves:
             smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
@@ -371,6 +410,17 @@ class NN_ToolWindow(object):
             smc_node.taperCurve[1].taperCurve_Position.set(1.0)
             smc_node.taperCurve[1].taperCurve_FloatValue.set(1.0)
             smc_node.taperCurve[1].taperCurve_Interp.set(1)
+
+    def onReverse(self, *args):
+        """選択カーブの方向を反転する"""
+        selection = cmds.ls(selection=True)
+
+        curves = self._get_selected_curves()
+
+        for curve in curves:
+            cmds.reverseCurve(curve, ch=1, rpo=1)
+
+        cmds.select(selection, replace=True)
 
     def onRebuild0(self, *args):
         """"""
@@ -430,7 +480,7 @@ class NN_ToolWindow(object):
             smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
             cmds.setAttr(smc_node_name + ".interpolationMode", 0)
             cmds.setAttr(smc_node_name + ".interpolationPrecision", 98)
-        
+
     def onSetModeDistance(self, *args):
         """補間モードを に変更する"""
         curves = get_selected_curves()
@@ -439,15 +489,15 @@ class NN_ToolWindow(object):
             smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
             cmds.setAttr(smc_node_name + ".interpolationMode", 3)
             cmds.setAttr(smc_node_name + ".interpolationDistance", 2)
-        
+
     def onSetModeWhole(self, *args):
         """補間モードを に変更する"""
         print("not impl")
-        
+
     def onSetModeSpan(self, *args):
         """補間モードを に変更する"""
         print("not impl")
-        
+
     def onSetResolutionLow(self, *args):
         """"""
         curves = get_selected_curves()
@@ -488,20 +538,21 @@ class NN_ToolWindow(object):
             else:
                 print("not impl")
 
-    def onToggleOptimize(self, *args):
+    def onOptimizeEnable(self, *args):
         """"""
         curves = get_selected_curves()
-        current_optimize = None
-        new_optimize = None
-        
-        if curves:
-            smc_node_name = cmds.listConnections(curves[0], destination=True, type="sweepMeshCreator")[0]
-            current_optimize = cmds.getAttr(smc_node_name + ".interpolationOptimize")
-            new_optimize = not current_optimize
 
         for curve in curves:
             smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
-            cmds.setAttr(smc_node_name + ".interpolationOptimize", new_optimize)
+            cmds.setAttr(smc_node_name + ".interpolationOptimize", 1)
+
+    def onOptimizeDisable(self, *args):
+        """"""
+        curves = get_selected_curves()
+
+        for curve in curves:
+            smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
+            cmds.setAttr(smc_node_name + ".interpolationOptimize", 0)
 
     def onToggleShowCurve(self, *args):
         """"""
@@ -534,32 +585,44 @@ class NN_ToolWindow(object):
         else:
             nd.message("Normal")
 
-    def onUpdateScale(self, *args):
-        """スケールスライダー変更中のハンドラ"""
+    def _on_update_scale(self, axis=""):
         if not self.is_chunk_open:
             self.is_chunk_open = True
             cmds.undoInfo(ock=True)
 
-        selections = cmds.ls(selection=True)
-        curves = []
-
-        for obj in selections:
-            descendent_curves = cmds.listRelatives(obj, allDescendents=True, type="nurbsCurve")
-            curves.extend(descendent_curves)
-
-        # スライダーの値
-        value = ui.get_value(self.scale_slider)
-
-        curves = list(set(curves))
+        curves = self._get_selected_curves()
 
         for curve in curves:
-            smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
-            cmds.setAttr(smc_node_name + ".scaleProfileX", value)
+            smc_nodes = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")
 
-    def onChangeScale(self, *args):
+            if smc_nodes:
+                smc_node_name = smc_nodes[0]
+
+                if axis == "x":
+                    scale_x = ui.get_value(self.scale_slider_x)
+                    cmds.setAttr(smc_node_name + ".scaleProfileX", scale_x)
+
+                elif axis == "y":
+                    scale_y = ui.get_value(self.scale_slider_y)
+                    cmds.setAttr(smc_node_name + ".scaleProfileY", scale_y)
+
+    def onUpdateScaleX(self, *args):
+        """スケールスライダー変更中のハンドラ"""
+        self._on_update_scale("x")
+
+    def onUpdateScaleY(self, *args):
+        """スケールスライダー変更中のハンドラ"""
+        self._on_update_scale("y")
+
+    def onChangeScaleX(self, *args):
         """スケールスライダー確定時のハンドラ"""
-        self.onUpdateScale()
+        # Undo チャンクのクローズ
+        if self.is_chunk_open:
+            cmds.undoInfo(cck=True)
+            self.is_chunk_open = False
 
+    def onChangeScaleY(self, *args):
+        """スケールスライダー確定時のハンドラ"""
         # Undo チャンクのクローズ
         if self.is_chunk_open:
             cmds.undoInfo(cck=True)
@@ -629,8 +692,19 @@ class NN_ToolWindow(object):
 
     def onResetScale(self, *args):
         """スケールのリセット"""
-        ui.set_value(self.scale_slider, value=1)
+        ui.set_value(self.scale_slider_x, value=1)
         self.onChangeScale()
+
+    def onGetAttr(self, *args):
+        """アトリビュートを取得してUIへ設定"""
+        smc_nodes = self._get_selected_smc_nodes()
+
+        if smc_nodes:
+            smc = smc_nodes[0]
+            ui.set_value(self.scale_slider_x, cmds.getAttr(smc + ".scaleProfileX"))
+            ui.set_value(self.scale_slider_y, cmds.getAttr(smc + ".scaleProfileY"))
+            ui.set_value(self.rotation_slider, cmds.getAttr(smc + ".rotateProfile"))
+            ui.set_value(self.twist_slider, cmds.getAttr(smc + ".twist"))
 
     def onResetRotation(self, *args):
         """ローテーションのリセット"""
@@ -642,6 +716,38 @@ class NN_ToolWindow(object):
         ui.set_value(self.twist_slider, value=0)
         self.onChangeTwist()
 
+    def onAutomaticRollEnable(self, *args):
+        """AutomaticRoll の有効化"""
+        curves = self._get_selected_curves()
+
+        for curve in curves:
+            smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
+            cmds.setAttr(smc_node_name + ".automaticRoll", 1)
+
+    def onAutomaticRollDisable(self, *args):
+        """AutomaticRoll の無効化"""
+        curves = self._get_selected_curves()
+
+        for curve in curves:
+            smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
+            cmds.setAttr(smc_node_name + ".automaticRoll", 0)
+
+    def onScaleProfileUniformEnable(self, *args):
+        """ScaleProfileUniform の有効化"""
+        curves = self._get_selected_curves()
+
+        for curve in curves:
+            smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
+            cmds.setAttr(smc_node_name + ".scaleProfileUniform", 1)
+
+    def onScaleProfileUniformDisable(self, *args):
+        """ScaleProfileUniform の無効化"""
+        curves = self._get_selected_curves()
+
+        for curve in curves:
+            smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
+            cmds.setAttr(smc_node_name + ".scaleProfileUniform", 0)
+
 
 def main():
     NN_ToolWindow().create()
@@ -649,4 +755,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
