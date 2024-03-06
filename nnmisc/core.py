@@ -6,12 +6,15 @@ import re
 import maya.cmds as cmds
 import maya.mel as mel
 import pymel.core as pm
-import maya.OpenMaya as om
+import maya.api.OpenMaya as om
+import maya.OpenMayaUI as omui
 
 import nnutil.ui as ui
 import nnutil.misc as nm
 import nnutil.decorator as nd
 
+from PySide2 import QtWidgets
+import shiboken2
 
 def extract_transform_as_locator(objects=None):
     """指定したオブジェクトのトランスフォームをロケーターとして抽出する."""
@@ -233,6 +236,70 @@ def snap_to_pixels(targets=None, texture_resolution=1024, snap_pixels=1):
         cmds.polyEditUV(uv_str, relative=False, uValue=new_u, vValue=new_v)
 
 
+@nd.repeatable
+def snap_to_ordinal_in_block(targets=None, texture_resolution=1024, block_width=8, ordinal=5, nearest=False):
+    """指定した UV をテクスチャのピクセル境界にスナップさせる."""
+
+    def calc_coord_to_snap(coord):
+        uv_per_pixel = 1.0 / texture_resolution
+        uv_per_block = uv_per_pixel * block_width
+
+        current_ordinal = (coord % uv_per_block) / uv_per_pixel
+
+        # nearest オプションが有効な場合は ordinal を反対側から数えた場合と比較して近い方にスナップする
+        if nearest:
+            if current_ordinal < block_width / 2:
+                actual_ordinal = min(ordinal, block_width - ordinal)
+            else:
+                actual_ordinal = max(ordinal, block_width - ordinal)
+
+        else:
+            actual_ordinal = ordinal
+
+        # 現在 UV が存在するブロック内のスナップ座標
+        block_index = coord // uv_per_block
+
+        new_coord = block_index * uv_per_block + uv_per_pixel * actual_ordinal
+
+        return new_coord
+
+    # tagets が未指定なら選択 UV を使用
+    targets = targets or cmds.ls(selection=True, flatten=True)
+
+    if not targets:
+        return
+
+    # UV 座標取得
+    uvs = cmds.filterExpand(targets, selectionMask=35)
+    uv_coords = {}
+
+    for uv_str in uvs:
+        u, v = cmds.polyEditUV(uv_str, q=True)
+        uv_coords[uv_str] = [u, v]
+
+    # 揃えるのが U か V かの判定
+    max_u = max([uv[0] for uv in uv_coords.values()])
+    min_u = min([uv[0] for uv in uv_coords.values()])
+    max_v = max([uv[1] for uv in uv_coords.values()])
+    min_v = min([uv[1] for uv in uv_coords.values()])
+
+    is_snap_u = (max_u - min_u) < (max_v - min_v)
+
+    # 各 UV ごとにスナップ処理
+    for uv_str, uv in uv_coords.items():
+        new_v = uv[1]
+        new_u = uv[0]
+
+        # スナップ後の座標
+        if is_snap_u:
+            new_u = calc_coord_to_snap(uv[0])
+        else:
+            new_v = calc_coord_to_snap(uv[1])
+
+        # 座標の更新
+        cmds.polyEditUV(uv_str, relative=False, uValue=new_u, vValue=new_v)
+
+
 @nd.undo_chunk
 def extrude_edges():
     """UV･頂点カラー等が設定されたエッジのextrude."""
@@ -326,3 +393,156 @@ def smart_extrude():
 
         else:
             mel.eval("performPolyExtrude 0")
+
+
+def orient_object_from_edges():
+    """選択されているエッジを元にローカル座標軸を設定する.
+
+    頂点を共有する 2 エッジのみの対応
+    """
+    # 選択エッジ
+    edges = cmds.ls(orderedSelection=True, flatten=True)
+
+    # 2エッジ以下なら終了
+    if len(edges) < 2:
+        print("select 2 edges")
+        print(edges)
+        raise
+
+    # コンポーネントを持つオブジェクト
+    obj = cmds.listRelatives(cmds.polyListComponentConversion(edges[0])[0], parent=True, fullPath=True)[0]
+
+    # エッジの構成頂点
+    basis0_vts = cmds.filterExpand(cmds.polyListComponentConversion(edges[0], fe=True, tv=True), sm=31)
+    basis1_vts = cmds.filterExpand(cmds.polyListComponentConversion(edges[1], fe=True, tv=True), sm=31)
+
+    # 2 エッジの共有頂点のリスト
+    intersection_vts = list(set(basis0_vts) & set(basis1_vts))
+
+    # 2 エッジが 1 点で接していなければ終了
+    if len(intersection_vts) != 1:
+        print("splited edges is not supported.")
+        raise
+
+    # 2 エッジの共有頂点
+    intersection_vtx = intersection_vts[0]
+
+    # 各選択エッジの終点
+    basis0_end_vtx = list(set(basis0_vts) - {intersection_vtx})[0]
+    basis1_end_vtx = list(set(basis1_vts) - {intersection_vtx})[0]
+
+    # 共有頂点のワールド座標
+    p0 = cmds.xform(intersection_vtx, q=True, translation=True, worldSpace=True)
+
+    # X 軸のベクトル
+    p1 = cmds.xform(basis0_end_vtx, q=True, translation=True, worldSpace=True)
+    basis0 = om.MVector([p1[0]-p0[0], p1[1]-p0[1], p1[2]-p0[2]])
+    basis0.normalize()
+
+    # Y 軸のベクトル
+    p2 = cmds.xform(basis1_end_vtx, q=True, translation=True, worldSpace=True)
+    basis1 = om.MVector([p2[0]-p0[0], p2[1]-p0[1], p2[2]-p0[2]])
+    basis1.normalize()
+
+    # Z 軸のベクトル
+    basis2 = basis0 ^ basis1
+    basis2.normalize()
+
+    # 新しいワールドマトリックス
+    m = [
+        basis0.x, basis0.y, basis0.z, 0,
+        basis1.x, basis1.y, basis1.z, 0,
+        basis2.x, basis2.y, basis2.z, 0,
+        p0[0], p0[1], p0[2], 1]
+
+    # 現在の頂点座標を保存
+    sel = om.MSelectionList()
+    sel.add(obj)
+    dag = sel.getDagPath(0)
+    fn_mesh = om.MFnMesh(dag)
+
+    current_points = fn_mesh.getPoints(space=om.MSpace.kWorld)
+
+    # ワールドマトリックスの上書き
+    cmds.xform(obj, matrix=m, worldSpace=True)
+
+    # 頂点座標の復帰
+    fn_mesh.setPoints(current_points, space=om.MSpace.kWorld)
+    fn_mesh.updateSurface()
+
+
+def set_manipulater_to_active_camera():
+    """マニピュレーターの方向をアクティブなカメラのローカル軸に設定する."""
+    active_panel = cmds.getPanel(withFocus=True)
+    active_camera = cmds.modelPanel(active_panel, q=True, camera=True)
+
+    if active_camera:
+        current_context = cmds.currentCtx()
+
+        if current_context == "moveSuperContext":
+            cmds.manipMoveContext("Move", e=True, mode=6, orientObject=active_camera)
+
+        if current_context == "RotateSuperContext":
+            cmds.manipRotateContext("Rotate", e=True, mode=6, orientObject=active_camera)
+
+        if current_context == "scaleSuperContext":
+            cmds.manipScaleContext("Scale", e=True, mode=6, orientObject=active_camera)
+
+        # コンポーネント再選択で方向が解除されないためのピン
+        mel.eval('setTRSPinPivot true')
+
+
+def unpin_maniplator_pivot():
+    """マニピュレーターのピンを解除する."""
+    current_pin = cmds.manipPivot(q=True, pin=True)
+    current_pos = [0, 0, 0]
+
+    current_context = cmds.currentCtx()
+
+    if current_context == "moveSuperContext":
+        current_pos = cmds.manipMoveContext("Move", q=True, p=True)
+
+    if current_context == "RotateSuperContext":
+        current_pos = cmds.manipRotateContext("Rotate", q=True, p=True)
+
+    if current_context == "scaleSuperContext":
+        current_pos = cmds.manipScaleContext("Scale", q=True, p=True)
+
+    # ピンされているならピン解除する｡ピンされていないなら現在のピボット位置でピンする
+    if current_pin:
+        cmds.manipPivot(pin=False, reset=True)
+
+    else:
+        cmds.manipPivot(pin=True, p=current_pos)
+
+
+def get_maya_window():
+    """Mayaのメインウィンドウを取得するヘルパー関数."""
+    ptr = omui.MQtUtil.mainWindow()
+    if ptr is not None:
+        return shiboken2.wrapInstance(int(ptr), QtWidgets.QWidget)
+
+
+def resize_editor(window_title, x=-1, y=-1, width=-1, height=-1):
+    """指定した名前のウィンドウの位置とサイズを設定する.
+
+    Args:
+        window_title (str): タイトルバーに表示されているウィンドウ名
+        x (int): 左上の x 座標｡負数で移動しない｡
+        y (int): 左上の y 座標｡負数で移動しない｡
+        width (int): ウィンドウ幅｡負数でリサイズしない｡
+        height (int): ウィンドウ高｡負数でリサイズしない｡
+    """
+    maya_window = get_maya_window()
+
+    # 全ての子ウィジェットに対して反復
+    for child in maya_window.children():
+        # ウィジェットが windowTitle 属性を持ち､引数 window_title に位置した場合に配置･リサイズする
+        if hasattr(child, "windowTitle") and child.windowTitle() == window_title:
+            if x >= 0 and y >= 0:
+                child.move(x, y)
+
+            if width >= 0 and height >= 0:
+                child.resize(width, height)
+
+            break

@@ -600,12 +600,12 @@ def get_most_distant_vts(vts):
     return most_distant_vtx_pair
 
 
-def sortVtx(edges, vts):
+def sortVtx(edges, first_vtx=None):
     """ [cmds] 指定した点から順にエッジたどって末尾まで到達する頂点の列を返す
 
     Args:
         edges(list[str]): エッジを表すcmdsコンポーネント文字列のリスト
-        vts (list[str]): 頂点を表すcmdsコンポーネント文字列のリスト
+        first_vtx (str): 頂点を表すcmdsコンポーネント文字列
 
     Returns:
         list[str]: 頂点を表すcmdsコンポーネント文字列のリスト
@@ -629,7 +629,9 @@ def sortVtx(edges, vts):
         else:
             return [startVtx]
 
-    first_vtx = get_end_vtx_e(edges)[0]
+    if not first_vtx:
+        first_vtx = get_end_vtx_e(edges)[0]
+
     return partVtxList(edges, first_vtx)
 
 

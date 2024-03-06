@@ -45,7 +45,7 @@ def set_project_from_scene():
     currentScene = cmds.file(q=True, sn=True, l=True)[0]
     newProject = re.sub(r'/scenes/.+$', '', currentScene, 1)
     cmds.workspace(newProject, openWorkspace=True)
-    cmds.inViewMessage(smg=newProject, pos="topCenter", bkc="0x00000000", fade=True)
+    cmds.inViewMessage(amg=newProject, pos="topCenter", fade=True)
 
 
 def disable_all_maintain_max_inf():
@@ -867,7 +867,7 @@ def set_radius_constant(joints=[], radius=0.001):
         j.setRadius(radius)
 
 
-def divide_without_history():
+def divide_without_history(delete_history=True):
     selection = pm.selected(flatten=True)
 
     if selection:
@@ -882,7 +882,8 @@ def divide_without_history():
         else:
             pass
 
-        pm.bakePartialHistory(ppt=True)
+        if delete_history:
+            pm.bakePartialHistory(ppt=True)
 
 
 def soft_connect(edge_flow=0):

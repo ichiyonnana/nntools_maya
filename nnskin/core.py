@@ -6,7 +6,9 @@ import maya.cmds as cmds
 import maya.mel as mel
 
 import nnutil.core as nu
+import nnutil.ui as ui
 import nnutil.decorator as deco
+
 
 
 window_name = "NN_Skin"
@@ -321,7 +323,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (200, 160)
+        self.size = (ui.width(10), ui.height(8))
 
     def create(self):
         if pm.window(self.window, exists=True):
@@ -344,44 +346,47 @@ class NN_ToolWindow(object):
         pm.showWindow(self.window)
 
     def layout(self):
-        cmds.columnLayout()
+        ui.column_layout()
 
-        cmds.rowLayout(numberOfColumns=10)
-        cmds.text(label='set')
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label="Set")
+        cmds.button(l='End (Avg)', c=self.on_set_end_point)
+        cmds.button(l='End (Multi)', c=self.on_set_multi_end_point)
+        ui.end_layout()
 
-        cmds.rowLayout(numberOfColumns=10)
-        cmds.button(l='end (avg)', c=self.on_set_end_point)
-        cmds.button(l='end (multi)', c=self.on_set_multi_end_point)
-        cmds.button(l='proxy', c=self.on_set_proxy_point)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label="Linearize")
+        cmds.button(l='Specified', c=self.on_linearize_specified)
+        cmds.button(l='End to End')
+        cmds.button(l='Farthest', c=self.on_linearize_farthest)
+        ui.end_layout()
 
-        cmds.rowLayout(numberOfColumns=10)
-        cmds.text(label='linearize')
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label="RingCopy")
+        ui.button(label="Ring Source")
+        ui.button(label="Ring Paste")
+        ui.end_layout()
 
-        cmds.rowLayout(numberOfColumns=10)
-        cmds.button(l='specified', c=self.on_linearize_specified)
-        cmds.button(l='farthest', c=self.on_linearize_farthest)
-        cmds.button(l='proxy', c=self.on_copy_proxy)
-        cmds.setParent("..")
-
-        cmds.rowLayout(numberOfColumns=10)
-        cmds.text(label='copy & paste')
-        cmds.setParent("..")
-
-        cmds.rowLayout(numberOfColumns=10)
+        ui.row_layout()
+        ui.header(label="CopyPaste")
         cmds.button(l='copy', c=self.on_copy)
         cmds.button(l='paste_p', c=self.on_paste_possible)
         cmds.button(l='paste_f', c=self.on_paste_force)
         cmds.button(l='avg', c=self.on_average)
-        cmds.setParent("..")
+        ui.end_layout()
 
-        cmds.rowLayout(numberOfColumns=10)
-        cmds.button(l='Delete Dup Orig', c=self.on_delete_non_connected_orig_mesh)
+        ui.row_layout()
+        ui.header(label="Etc")
         cmds.button(l='Checker', c=self.on_skin_checker)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header()
+        cmds.button(l='Delete Dup Orig', c=self.on_delete_non_connected_orig_mesh)
         cmds.button(l='Check Fractions', c=self.on_check_fractions)
-        cmds.setParent("..")
+        ui.end_layout()
+
+        ui.end_layout()
 
     @deco.undo_chunk
     def on_set_end_point(self, *args):

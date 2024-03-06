@@ -25,7 +25,7 @@ def get_window():
     return window
 
 
-def mirror_objects(objects=None, axis=0, direction=1, cut=False):
+def mirror_objects(objects=None, axis=0, direction=1, cut=False, center_tolerance=0.001):
     if cut:
         merge_mode = 0
     else:
@@ -34,9 +34,25 @@ def mirror_objects(objects=None, axis=0, direction=1, cut=False):
     objects = pm.selected(flatten=True)
 
     if isinstance(objects[0], (nt.Mesh, nt.Transform)):
-        # オブジェクト
+        # オブジェクトで反復
         for obj in objects:
             if obj.getShape():
+                # シンメトリ面から誤差範囲内にある頂点の座標を 0 にする
+                points = nu.get_points(obj, space=om.MSpace.kObject)
+
+                for point in points:
+                    if axis == 0 and abs(point.x) <= 0.001:
+                        point.x = 0
+
+                    if axis == 1 and abs(point.y) <= 0.001:
+                        point.y = 0
+
+                    if axis == 2 and abs(point.z) <= 0.001:
+                        point.z = 0
+
+                nu.set_points(obj, points=points, space=om.MSpace.kObject)
+
+                # ミラーの実行
                 pm.polyMirrorFace(obj, cutMesh=1, axis=axis, axisDirection=direction, mergeMode=merge_mode, mergeThresholdType=1, mergeThreshold=0.01, mirrorAxis=1, mirrorPosition=0, smoothingAngle=180, flipUVs=0, ch=1)
                 pm.bakePartialHistory(obj, ppt=True)
     else:
@@ -115,7 +131,7 @@ BM_BILINEAR = "bilinear"
 BM_OVER = "over"
 
 
-def import_weight(objects=None, method=BM_BILINEAR, specified_name=None):
+def import_weight(objects=None, method=BM_BILINEAR, specified_name=None, unbind=True):
     """ウェイトをXMLからインポートする
 
     Args:
@@ -183,21 +199,22 @@ def import_weight(objects=None, method=BM_BILINEAR, specified_name=None):
                 print(joints_not_exist)
 
             # バインド済なら一度アンバインドする
-            skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals())
-            if skincluster != "":
-                mel.eval('gotoBindPose')
-                pm.skinCluster(obj, e=True, unbind=True)
+            if unbind:
+                skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals())
+                if skincluster != "":
+                    mel.eval('gotoBindPose')
+                    pm.skinCluster(obj, e=True, unbind=True)
 
-            # ウェイトファイルに保存されていたインフルエンスだけで改めてバインドする
-            try:
-                pm.select(cl=True)
-                pm.select(obj, add=True)
-                for joint in nu.list_diff(influence_list, joints_not_exist):
-                    pm.select(joint, add=True)
-                skincluster = pm.skinCluster(tsb=True, mi=max_influence)
+                # ウェイトファイルに保存されていたインフルエンスだけで改めてバインドする
+                try:
+                    pm.select(cl=True)
+                    pm.select(obj, add=True)
+                    for joint in nu.list_diff(influence_list, joints_not_exist):
+                        pm.select(joint, add=True)
+                    skincluster = pm.skinCluster(tsb=True, mi=max_influence)
 
-            except:
-                print("bind error: " + obj.name())
+                except:
+                    print("bind error: " + obj.name())
 
             # インポート
             cmd = 'deformerWeights -import -method "%(method)s" -deformer %(skincluster)s -path "%(dir)s" "%(filename)s"' % locals()
@@ -369,20 +386,20 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Geo')
-        ui.button(label='X+', c=self.onMirrorFaceXPosi, dgc=self.onCutGeoXPosi, bgc=ui.color_x)
-        ui.button(label='X-', c=self.onMirrorFaceXNega, dgc=self.onCutGeoXNega, bgc=ui.color_x)
-        ui.button(label='Y+', c=self.onMirrorFaceYPosi, dgc=self.onCutGeoYPosi, bgc=ui.color_y)
-        ui.button(label='Y-', c=self.onMirrorFaceYNega, dgc=self.onCutGeoYNega, bgc=ui.color_y)
-        ui.button(label='Z+', c=self.onMirrorFaceZPosi, dgc=self.onCutGeoZPosi, bgc=ui.color_z)
-        ui.button(label='Z-', c=self.onMirrorFaceZNega, dgc=self.onCutGeoZNega, bgc=ui.color_z)
+        ui.button(label='X+', c=self.onMirrorFaceXPosi, dgc=self.onCutGeoXPosi, bgc=ui.color_x, annotation="L: Mirror\nM: Cut")
+        ui.button(label='X-', c=self.onMirrorFaceXNega, dgc=self.onCutGeoXNega, bgc=ui.color_x, annotation="L: Mirror\nM: Cut")
+        ui.button(label='Y+', c=self.onMirrorFaceYPosi, dgc=self.onCutGeoYPosi, bgc=ui.color_y, annotation="L: Mirror\nM: Cut")
+        ui.button(label='Y-', c=self.onMirrorFaceYNega, dgc=self.onCutGeoYNega, bgc=ui.color_y, annotation="L: Mirror\nM: Cut")
+        ui.button(label='Z+', c=self.onMirrorFaceZPosi, dgc=self.onCutGeoZPosi, bgc=ui.color_z, annotation="L: Mirror\nM: Cut")
+        ui.button(label='Z-', c=self.onMirrorFaceZNega, dgc=self.onCutGeoZNega, bgc=ui.color_z, annotation="L: Mirror\nM: Cut")
         ui.button(label='Op', c=self.onMirrorFaceOp)
         ui.end_layout()
 
         ui.row_layout()
         ui.header(label='Set')
-        ui.button(label='X = ', c=self.onSetXOS, dgc=self.onSetXWS, bgc=ui.color_x, width=ui.width1)
-        ui.button(label='Y = ', c=self.onSetYOS, dgc=self.onSetYWS, bgc=ui.color_y, width=ui.width1)
-        ui.button(label='Z = ', c=self.onSetZOS, dgc=self.onSetZWS, bgc=ui.color_z, width=ui.width1)
+        ui.button(label='X = ', c=self.onSetXOS, dgc=self.onSetXWS, bgc=ui.color_x, width=ui.width1, annotation="L: Object\nM: World")
+        ui.button(label='Y = ', c=self.onSetYOS, dgc=self.onSetYWS, bgc=ui.color_y, width=ui.width1, annotation="L: Object\nM: World")
+        ui.button(label='Z = ', c=self.onSetZOS, dgc=self.onSetZWS, bgc=ui.color_z, width=ui.width1, annotation="L: Object\nM: World")
         self.coord_value = ui.eb_float(v=0, width=ui.width2)
         self.cb_set_position_relative = ui.check_box(label="Relative", v=False)
         ui.end_layout()
@@ -418,9 +435,9 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Joint')
-        ui.button(label='X', c=self.onMirrorJointX, dgc=self.onMirrorJointXWorld, bgc=ui.color_x, width=ui.width2)
-        ui.button(label='Y', c=self.onMirrorJointY, dgc=self.onMirrorJointYWorld, bgc=ui.color_y, width=ui.width2)
-        ui.button(label='Z', c=self.onMirrorJointZ, dgc=self.onMirrorJointZWorld, bgc=ui.color_z, width=ui.width2)
+        ui.button(label='X', c=self.onMirrorJointX, dgc=self.onMirrorJointXWorld, bgc=ui.color_x, width=ui.width2, annotation="L: Object (with parent)\nM: World")
+        ui.button(label='Y', c=self.onMirrorJointY, dgc=self.onMirrorJointYWorld, bgc=ui.color_y, width=ui.width2, annotation="L: Object (with parent)\nM: World")
+        ui.button(label='Z', c=self.onMirrorJointZ, dgc=self.onMirrorJointZWorld, bgc=ui.color_z, width=ui.width2, annotation="L: Object (with parent)\nM: World")
         ui.button(label='Op', c=self.onMirrorJointOp)
         ui.end_layout()
 
@@ -435,6 +452,7 @@ class NN_ToolWindow(object):
         ui.button(label='OrientOp', c=self.onOrientJointOp)
         ui.button(label='JointTool', c=self.onJointTool, bgc=ui.color_joint, width=ui.width2)
         ui.button(label='SetRadius', c=self.onSetRadius, width=ui.width2)
+        ui.button(label="Add Inf", c=self.onAddInfluence, width=ui.width(2))
         ui.end_layout()
 
         ui.separator()
@@ -448,20 +466,20 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='')
-        ui.button(label='index', c=self.onImportWeightIndex, dgc=self.onImportWeightOptions)
-        ui.button(label='nearest', c=self.onImportWeightNearest, dgc=self.onImportWeightOptions)
-        # ui.button(label='barycentric', c=self.onImportWeightBarycentric, dgc=self.onImportWeightOptions)
-        ui.button(label='bilinear', c=self.onImportWeightBilinear, dgc=self.onImportWeightOptions)
-        ui.button(label='over', c=self.onImportWeightOver, dgc=self.onImportWeightOptions)
+        ui.button(label='index', c=self.onImportWeightIndex, dgc=self.onImportWeightIndexB, annotation="L: ReBind\nM: Keep Bind")
+        ui.button(label='nearest', c=self.onImportWeightNearest, dgc=self.onImportWeightNearestB, annotation="L: ReBind\nM: Keep Bind")
+        # ui.button(label='barycentric', c=self.onImportWeightBarycentric, dgc=self.onImportWeightOptions, annotation="L: ReBind\nM: Keep Bind")
+        ui.button(label='bilinear', c=self.onImportWeightBilinear, dgc=self.onImportWeightBilinearB, annotation="L: ReBind\nM: Keep Bind")
+        ui.button(label='over', c=self.onImportWeightOver, dgc=self.onImportWeightOverB, annotation="L: ReBind\nM: Keep Bind")
         ui.end_layout()
 
         ui.separator()
 
         ui.row_layout()
         ui.header(label='bind')
-        ui.button(label='bind Op', c=self.onBindOptions, dgc=self.onBind)
-        ui.button(label='unbind', c=self.onUnbind, dgc=self.onUnbindOptions)
-        ui.button(label='unlockTRS [lock]', c=self.onUnlockTRS, dgc=self.onLockTRS)
+        ui.button(label='bind Op', c=self.onBindOptions, dgc=self.onBind, annotation="L: Bind Options\nM: Auto")
+        ui.button(label='unbind', c=self.onUnbind, dgc=self.onUnbindOptions, annotation="L: Unbind\nM: Options")
+        ui.button(label='unlockTRS [lock]', c=self.onUnlockTRS, dgc=self.onLockTRS, annotation="L: Unlock\nM: Lock")
         ui.end_layout()
 
         ui.row_layout()
@@ -531,8 +549,8 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Etc')
-        ui.button(label='Get Pos', c=self.onGetPos)
-        ui.button(label='Set Pos', c=self.onSetPos)
+        ui.button(label='Get Pos', c=self.onGetPos, annotation=u"Shift + L: World")
+        ui.button(label='Set Pos', c=self.onSetPos, annotation=u"Shift + L: World")
         ui.button(label="GoZ", c=self.onGoZ)
         ui.end_layout()
 
@@ -757,6 +775,29 @@ class NN_ToolWindow(object):
     def onSetRadius(self, *args):
         nm.set_radius_auto()
 
+    def onAddInfluence(self, *args):
+        """"選択された全てのジョイントを選択された全てのメッシュのスキンクラスターにインフルエンスとして追加する｡"""
+        joints = cmds.ls(selection=True, exactType="joint")
+        transforms = cmds.ls(selection=True, exactType="transform")
+        target_skinclusters = []
+
+        if not joints or not transforms:
+            return
+
+        for transform in transforms:
+            all_meshes = cmds.listRelatives(transform, shapes=True, noIntermediate=False, type="mesh") or []
+
+            for mesh in all_meshes:
+                skinclusters = cmds.listConnections(mesh, source=True, type="skinCluster") or []
+                target_skinclusters.extend(skinclusters)
+
+        for skincluster in target_skinclusters:
+            current_influences = cmds.skinCluster(skincluster, q=True, influence=True)
+            additional_influences = list(set(joints) - set(current_influences))
+            cmds.skinCluster(skincluster, e=True, addInfluence=additional_influences, weight=0)
+
+            print("added joints to ", skincluster, additional_influences)
+
     def onExportWeight(self, *args):
         is_specify_name = ui.get_value(self.cb_specify_name)
         filename = ui.get_value(self.eb_tempname)
@@ -769,55 +810,44 @@ class NN_ToolWindow(object):
     def onExportWeightOptions(self, *args):
         mel.eval('ExportDeformerWeights')
 
-    def onImportWeightIndex(self, *args):
+    def import_weight(self, method, unbind):
         is_specify_name = ui.get_value(self.cb_specify_name)
         filename = ui.get_value(self.eb_tempname)
-        method = BM_INDEX
 
         if is_specify_name:
-            import_weight(specified_name=filename, method=method)
+            import_weight(specified_name=filename, method=method, unbind=unbind)
         else:
-            import_weight(method=method)
+            import_weight(method=method, unbind=unbind)
+
+    def onImportWeightIndex(self, *args):
+        self.import_weight(method=BM_INDEX, unbind=True)
 
     def onImportWeightNearest(self, *args):
-        is_specify_name = ui.get_value(self.cb_specify_name)
-        filename = ui.get_value(self.eb_tempname)
-        method = BM_NEAREST
-
-        if is_specify_name:
-            import_weight(specified_name=filename, method=method)
-        else:
-            import_weight(method=method)
+        self.import_weight(method=BM_NEAREST, unbind=True)
 
     def onImportWeightBarycentric(self, *args):
-        is_specify_name = ui.get_value(self.cb_specify_name)
-        filename = ui.get_value(self.eb_tempname)
-        method = BM_BARYCENTRIC
-
-        if is_specify_name:
-            import_weight(specified_name=filename, method=method)
-        else:
-            import_weight(method=method)
+        self.import_weight(method=BM_BARYCENTRIC, unbind=True)
 
     def onImportWeightBilinear(self, *args):
-        is_specify_name = ui.get_value(self.cb_specify_name)
-        filename = ui.get_value(self.eb_tempname)
-        method = BM_BILINEAR
-
-        if is_specify_name:
-            import_weight(specified_name=filename, method=method)
-        else:
-            import_weight(method=method)
+        self.import_weight(method=BM_BILINEAR, unbind=True)
 
     def onImportWeightOver(self, *args):
-        is_specify_name = ui.get_value(self.cb_specify_name)
-        filename = ui.get_value(self.eb_tempname)
-        method = BM_OVER
+        self.import_weight(method=BM_OVER, unbind=False)
 
-        if is_specify_name:
-            import_weight(specified_name=filename, method=method)
-        else:
-            import_weight(method=method)
+    def onImportWeightIndexB(self, *args):
+        self.import_weight(method=BM_INDEX, unbind=False)
+
+    def onImportWeightNearestB(self, *args):
+        self.import_weight(method=BM_NEAREST, unbind=False)
+
+    def onImportWeightBarycentricB(self, *args):
+        self.import_weight(method=BM_BARYCENTRIC, unbind=False)
+
+    def onImportWeightBilinearB(self, *args):
+        self.import_weight(method=BM_BILINEAR, unbind=False)
+
+    def onImportWeightOverB(self, *args):
+        self.import_weight(method=BM_OVER, unbind=False)
 
     def onImportWeightOptions(self, *args):
         mel.eval('ImportDeformerWeights')

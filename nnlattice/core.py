@@ -14,6 +14,7 @@ import pymel.core.nodetypes as nt
 
 import nnutil as nu
 import nnutil.ui as ui
+import nnutil.display as nd
 
 
 window_name = "NN_Lattice"
@@ -499,14 +500,20 @@ def toggle_envelope(lattices=None):
             print("select lattice")
             return
 
-    # トグル後の値
+    # トグル後の値の決定
     ffd = pm.listConnections(lattices[0], type="ffd")[0]
-    envelope = 0 if ffd.envelope.get() == 1 else 1
+    new_state = 0 if ffd.nodeState.get() == 1 else 1
 
     # 各ラティスの処理
     for lattice in lattices:
         ffd = pm.listConnections(lattice, type="ffd")[0]
-        ffd.envelope.set(envelope)
+        ffd.nodeState.set(new_state)
+    
+    # 新しくセットされた状態をインビューメッセージで表示
+    if new_state == 0:
+        nd.message("lattice state: Normal")
+    else:        
+        nd.message("lattice state: No Effect")
 
 
 def apply_lattice(lattices=[]):
@@ -559,6 +566,18 @@ def apply_lattice(lattices=[]):
     # シェイプにラティス削除前の座標を上書き
     for shape, points in shape_points_table.items():
         shape.setPoints(points)
+
+
+def reset_lattice(lattices=[]):    
+    # 引数が無効なら選択オブジェクトからラティスを取得する
+    if not lattices:
+        lattices = [x for sel in pm.selected(flatten=True) for x in pm.listRelatives(sel, ad=True) if isinstance(x, nt.Lattice)]
+
+        if not lattices:
+            raise(Exception)
+        
+    for lattice in lattices:
+        pm.lattice(e=True, latticeReset=True)
 
 
 class NN_ToolWindow(object):
@@ -627,6 +646,7 @@ class NN_ToolWindow(object):
         ui.header(label="")
         ui.button(label='Apply Lattice', c=self.onApplyLattice)
         ui.button(label='Match Lattice', c=self.onMatchLattice)
+        ui.button(label='Reset', c=self.onResetLattice)
         ui.end_layout()
 
         ui.row_layout()
@@ -657,6 +677,9 @@ class NN_ToolWindow(object):
 
     def onApplyLattice(self, *args):
         apply_lattice()
+
+    def onResetLattice(self, *args):
+        reset_lattice()
 
     def onDiv2(self, *args):
         s = ui.get_value(self.rebuild_s)

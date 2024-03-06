@@ -58,6 +58,48 @@ def change_paint_target_influence(joint):
     mel.eval("artSkinInflListChanged artAttrSkinPaintCtx")
 
 
+@deco.repeatable
+def move_cursor(nnskin_window, offset=0, focus=False, reset=False):
+    """現在のジョイントを変更する.
+
+    Args:
+        nnskin_window(object)
+        offset (int): カーソルの移動方向｡0で移動無し､負数で一つ前､正数で一つ後へ移動. Defaults to 0.
+        reset (bool): カーソル位置をリセットするかどうか. True でカーソルがリセットされ､その場合 offset は無視される. Defaults to False.
+        focus (bool): 選択されたジョイントをフォーカスするかどうか. Defaults to False.
+    """
+    paint_mode = is_weight_paint_mode()
+
+    # カーソルのリセット､もしくは移動
+    if reset:
+        nnskin_window.cursor = 0
+    
+    else:
+        nnskin_window.cursor += offset
+
+    # インデックス範囲外になったときにインデックスをループさせる
+    if nnskin_window.cursor < 0 or len(nnskin_window.joints) <= nnskin_window.cursor:
+        nd.message("finish")
+        if offset < 0:
+            nnskin_window.cursor = len(nnskin_window.joints) - 1
+        elif offset >0:
+            nnskin_window.cursor = 0
+
+    # UI 更新
+    ui.set_value(nnskin_window.text_current, nnskin_window.current_joint())
+
+    # ジョイントの選択､もしくはペイントモードの編集対象の変更
+    if paint_mode:
+        change_paint_target_influence(joint=nnskin_window.current_joint())
+
+    else:
+        pm.select(nnskin_window.current_joint())
+
+    # ジョイントのフォーカス
+    if focus:
+        focus_object(nnskin_window.current_joint())
+
+
 class TRS():
     def __init__(self, obj):
         self.translateX = obj.translateX.get()
@@ -75,7 +117,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = dialog_name
         self.title = dialog_name
-        self.size = (300, 125)
+        self.size = (ui.width(11.5), ui.height(13.5))
 
         self.root_joint = None
         self.joints = []
@@ -86,15 +128,24 @@ class NN_ToolWindow(object):
         self.meshes = []
 
     def create(self):
-        if cmds.window(self.window, exists=True):
-            cmds.deleteUI(self.window, window=True)
-        self.window = cmds.window(
-            self.window,
-            t=self.title,
-            widthHeight=self.size
-        )
+        if pm.window(self.window, exists=True):
+            pm.deleteUI(self.window, window=True)
+
+        # プリファレンスの有無による分岐
+        if pm.windowPref(self.window, exists=True):
+            # ウィンドウのプリファレンスがあれば位置だけ保存して削除
+            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
+            pm.windowPref(self.window, remove=True)
+
+            # 前回位置に指定したサイズで表示
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+
+        else:
+            # プリファレンスがなければデフォルト位置に指定サイズで表示
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+
         self.layout()
-        cmds.showWindow()
+        pm.showWindow(self.window)
 
     def layout(self):
         ui.column_layout()
@@ -127,7 +178,7 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label="")
         ui.button(label="Prev", c=self.onPrevNoFocus, dgc=self.onPrevFocus)
-        ui.button(label="Select", c=self.onPrevNoFocus, dgc=self.onSelect)
+        ui.button(label="Select", c=self.onSelectNoFocus, dgc=self.onSelectFocus)
         ui.button(label="Next", c=self.onNextNoFocus, dgc=self.onNextFocus)
         ui.button(label="Reset", c=self.onResetNoFocus, dgc=self.onResetFocus)
         ui.end_layout()
@@ -182,6 +233,11 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
         ui.row_layout()
+        ui.header(label="")
+        ui.button(label="SelHilight 0 [1]", c=self.onSelHilightingFalse, dgc=self.onSelHilightingTrue)
+        ui.end_layout()
+
+        ui.row_layout()
         ui.header(label="factor")
         ui.text(label="Tra", width=ui.width1)
         self.eb_translate_factor = ui.eb_int(v=default_translate_factor)
@@ -200,10 +256,15 @@ class NN_ToolWindow(object):
     def rotate_factor(self):
         return ui.get_value(self.eb_rotate_factor)
 
-    def onSetRoot(self, *args):
-        selection = pm.selected(flatten=True)[0]
-        self.root_joint = selection
-        self.joints = [pm.PyNode(x) for x in pm.listRelatives(self.root_joint, allDescendents=True, type="joint")]
+    def onSetRoot(self, *args):        
+        # 選択以下にある全てのジョイントを取得
+        current_selection = pm.selected(flatten=True)
+        pm.select(hierarchy=True)
+        all_joints = [x for x in pm.selected(flatten=True) if isinstance(x, nt.Joint)]
+        pm.select(current_selection)
+
+        self.root_joint = all_joints[0]
+        self.joints = all_joints
 
         self.neutral_trs = [None] * len(self.joints)
 
@@ -312,69 +373,57 @@ class NN_ToolWindow(object):
         pass
 
     def onPrevFocus(self, *args):
-        self.onPrevNoFocus()
-        focus_object(self.current_joint())
+        move_cursor(self, offset=-1, focus=True)
 
-    def onSelect(self, *args):
-        pm.select(self.current_joint())
+    def onSelectFocus(self, *args):
+        move_cursor(self, offset=0, focus=True)
 
     def onNextFocus(self, *args):
-        self.onNextNoFocus()
-        focus_object(self.current_joint())
+        move_cursor(self, offset=1, focus=True)
 
     def onResetFocus(self, *args):
-        self.onResetNoFocus()
-        focus_object(self.current_joint())
+        move_cursor(self, reset=True, focus=True)
 
     def onPrevNoFocus(self, *args):
-        paint_mode = is_weight_paint_mode()
-        self.cursor -= 1
+        move_cursor(self, offset=-1, focus=False)
 
-        if self.cursor < 0:
-            nd.message("finish")
-            self.cursor = len(self.joints) - 1
-
-        ui.set_value(self.text_current, self.current_joint())
-
-        if paint_mode:
-            change_paint_target_influence(joint=self.current_joint())
-
-        else:
-            pm.select(self.current_joint())
+    def onSelectNoFocus(self, *args):
+        move_cursor(self, offset=0, focus=False)
 
     def onResetNoFocus(self, *args):
-        paint_mode = is_weight_paint_mode()
-        self.cursor = 0
-
-        ui.set_value(self.text_current, self.current_joint())
-
-        if paint_mode:
-            change_paint_target_influence(joint=self.current_joint())
-
-        else:
-            pm.select(self.current_joint())
+        move_cursor(self, reset=True, focus=False)
 
     def onNextNoFocus(self, *args):
-        paint_mode = is_weight_paint_mode()
-        print(paint_mode)
-        self.cursor += 1
-
-        if self.cursor >= len(self.joints):
-            nd.message("finish")
-            self.cursor = 0
-
-        ui.set_value(self.text_current, self.current_joint())
-
-        if paint_mode:
-            change_paint_target_influence(joint=self.current_joint())
-
-        else:
-            pm.select(self.current_joint())
+        move_cursor(self, offset=1, focus=False)
 
     def onPaintMode(self, *args):
         import nnutil.misc as nm
 
         weight_paint_mode_with_selected_joint()
+
+    @staticmethod
+    def _set_sel_hilighting_to(visibility):
+        """全パネルの Selection Hilighting を切り替える.
+
+        Args:
+            visibility (bool): 新しい Selection Hilighting の値｡
+        """
+        def is_model_panel(panel):
+            return cmds.getPanel(typeOf=panel) == "modelPanel"
+
+        all_panels = cmds.getPanel(all=True)
+        all_model_panels = [x for x in all_panels if is_model_panel(x)]
+
+        for panel in all_model_panels:
+            cmds.modelEditor(panel, e=True, sel=visibility)
+
+    def onSelHilightingFalse(self, *args):
+        """全てのモデルパネルの SelectionHilighting を無効にする."""
+        self._set_sel_hilighting_to(False)
+
+    def onSelHilightingTrue(self, *args):
+        """全てのモデルパネルの SelectionHilighting を有効にする."""
+        self._set_sel_hilighting_to(True)
 
 
 def showNNToolWindow():

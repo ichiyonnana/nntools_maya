@@ -11,6 +11,8 @@ import nnutil.core as nu
 import nnutil.ui as ui
 import nnutil.decorator as nd
 
+from . import rectilinearize
+
 window_name = "NN_UVToolkit"
 window = None
 
@@ -270,6 +272,10 @@ def linear_align():
 def ari_gridding():
     mel.eval("AriUVGridding")
 
+
+@nd.repeatable
+def _rectilinearize(corner_uv_comps=None, target_texel=15, map_size=1024):
+    rectilinearize.main(corner_uv_comps=corner_uv_comps, target_texel=target_texel, map_size=map_size)
 
 @nd.repeatable
 def change_uvtk_texel_value(texel):
@@ -659,7 +665,7 @@ def uv_snapshot_options():
 
 @nd.repeatable
 def set_checker_density(n):
-    texWinName = cmds.getPanel(sty='polyTexturePlacementPanel')[0]
+    texWinName = cmds.getPanel(sty="polyTexturePlacementPanel")[0]
     cmds.textureWindow(texWinName, e=True, checkerDensity=n)
 
 
@@ -688,7 +694,13 @@ class NN_ToolWindow(object):
 
     def create(self):
         if pm.window(self.window, exists=True):
-            pm.deleteUI(self.window, window=True)
+            pm.deleteUI(self.window)
+
+        # UV エディターのウィンドウ名を取得
+        all_uv_panels = cmds.getPanel(scriptType="polyTexturePlacementPanel")
+        uv_panel = all_uv_panels[0] if all_uv_panels else None
+        uv_window = cmds.panel(uv_panel, q=True, control=True)
+        parent_window = uv_window.split("|")[0] if uv_window else None
 
         # プリファレンスの有無による分岐
         if pm.windowPref(self.window, exists=True):
@@ -697,11 +709,16 @@ class NN_ToolWindow(object):
             pm.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
-
+            if parent_window:
+                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False, parent=parent_window)
+            else:
+                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+            if parent_window:
+                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False, parent=parent_window)
+            else:
+                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
 
         self.layout()
         pm.showWindow(self.window)
@@ -733,22 +750,23 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='')
         ui.button(label='AriGridding', c=self.onGridding)
-        ui.button(label='MatchUV', c=self.onMatchUV, dgc=self.onMatchUVOptions)
+        ui.button(label='Rectilinearize', c=self.onRectilinearize)
+        ui.button(label='MatchUV', c=self.onMatchUV, dgc=self.onMatchUVOptions, annotation="L: Match UV\nM: Options")
         ui.end_layout()
 
         # MatchUV
         ui.row_layout()
         ui.text(label='MatchUV')
-        ui.button(label='to Front [back]', c=self.onOnewayMatchUVF, dgc=self.onOnewayMatchUVB, width=ui.button_width3)
-        ui.button(label='to Pin [unpin]', c=self.onOnewayMatchUVP, dgc=self.onOnewayMatchUVUp, width=ui.button_width3)
-        ui.button(label='expand/fold', c=self.onExpandFoldRD, dgc=self.onExpandFoldLU)
+        ui.button(label='to Front [back]', c=self.onOnewayMatchUVF, dgc=self.onOnewayMatchUVB, width=ui.button_width3, annotation="L: to Front\nM: to Back")
+        ui.button(label='to Pin [unpin]', c=self.onOnewayMatchUVP, dgc=self.onOnewayMatchUVUp, width=ui.button_width3, annotation="L: to Pined\nM: to UnPined")
+        ui.button(label='expand/fold', c=self.onExpandFoldRD, dgc=self.onExpandFoldLU, annotation="L: to Right/Bottom\nM: to Left/Top")
         ui.end_layout()
 
         # Flip
         ui.row_layout()
         ui.header(label="Flip")
-        ui.button(label='FlipU', c=self.onFlipUinTile, dgc=self.onFlipUinTilePiv, bgc=ui.color_u)
-        ui.button(label='FlipV', c=self.onFlipVinTile, dgc=self.onFlipVinTilePiv, bgc=ui.color_v)
+        ui.button(label='FlipU', c=self.onFlipUinTile, dgc=self.onFlipUinTilePiv, bgc=ui.color_u, annotation="L: at Tile Center\nM: at Pivot")
+        ui.button(label='FlipV', c=self.onFlipVinTile, dgc=self.onFlipVinTilePiv, bgc=ui.color_v, annotation="L: at Tile Center\nM: at Pivot")
         self.flip_pivot_u = ui.eb_float(width=ui.button_width2)
         self.flip_pivot_v = ui.eb_float(width=ui.button_width2)
         ui.button(label="get", width=ui.button_width1, c=self.onGetFlipPivot)
@@ -775,13 +793,13 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='')
         ui.button(label='Set', c=self.onSetTexel)
-        ui.button(label='U', c=self.onSetEdgeTexelUMin, dgc=self.onSetEdgeTexelUMax, bgc=ui.color_u)
-        ui.button(label='V', c=self.onSetEdgeTexelVMin, dgc=self.onSetEdgeTexelVMax, bgc=ui.color_v)
+        ui.button(label='U', c=self.onSetEdgeTexelUMin, dgc=self.onSetEdgeTexelUMax, bgc=ui.color_u, annotation="L: base on Min\nM: base on Max")
+        ui.button(label='V', c=self.onSetEdgeTexelVMin, dgc=self.onSetEdgeTexelVMax, bgc=ui.color_v, annotation="L: base on Min\nM: base on Max")
         ui.end_layout()
 
         ui.row_layout()
         ui.header(label='')
-        ui.button(label='AriUVRatio', c=self.onUVRatio, dgc=self.onUVRatioOptions)
+        ui.button(label='AriUVRatio', c=self.onUVRatio, dgc=self.onUVRatioOptions, annotation="L: AriUVRatio\nM: Options")
         ui.button(label='UnfoldU', c=self.onUnfoldU, bgc=ui.color_u)
         ui.button(label='UnfoldV', c=self.onUnfoldV, bgc=ui.color_v)
         ui.end_layout()
@@ -823,7 +841,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='')
-        ui.button(label='Symmetrize [setU]', c=self.onUVSymmetrizeTool, dgc=self.onSetUVSymmetrizeCenter)
+        ui.button(label='Symmetrize [setU]', c=self.onUVSymmetrizeTool, dgc=self.onSetUVSymmetrizeCenter, annotation="L: Symmetrize\nM: Set Center")
         ui.button(label='Shortest Tool', c=self.onShortestEdgeTool)
         ui.end_layout()
 
@@ -851,6 +869,7 @@ class NN_ToolWindow(object):
         ui.button(label=u'→', c=self.onTranslateUAdd, bgc=ui.color_u)
         ui.button(label=u'↑', c=self.onTranslateVAdd, bgc=ui.color_v)
         ui.button(label=u'↓', c=self.onTranslateVDiff, bgc=ui.color_v)
+        self.cb_transform_in_pixel = ui.check_box(label="px")
         ui.end_layout()
 
         ui.row_layout()
@@ -891,21 +910,37 @@ class NN_ToolWindow(object):
     @nd.undo_chunk
     def onTranslateUAdd(self, *args):
         v = ui.get_value(self.translateValue)
+
+        if ui.get_value(self.cb_transform_in_pixel):
+            v *= 1.0 / ui.get_value(self.mapSize)
+
         translate_uv(pivot=(0, 0), translate=(v, 0))
 
     @nd.undo_chunk
     def onTranslateUDiff(self, *args):
         v = ui.get_value(self.translateValue)
+
+        if ui.get_value(self.cb_transform_in_pixel):
+            v *= 1.0 / ui.get_value(self.mapSize)
+
         translate_uv(pivot=(0, 0), translate=(-v, 0))
 
     @nd.undo_chunk
     def onTranslateVAdd(self, *args):
         v = ui.get_value(self.translateValue)
+
+        if ui.get_value(self.cb_transform_in_pixel):
+            v *= 1.0 / ui.get_value(self.mapSize)
+
         translate_uv(pivot=(0, 0), translate=(0, v))
 
     @nd.undo_chunk
     def onTranslateVDiff(self, *args):
         v = ui.get_value(self.translateValue)
+
+        if ui.get_value(self.cb_transform_in_pixel):
+            v *= 1.0 / ui.get_value(self.mapSize)
+
         translate_uv(pivot=(0, 0), translate=(0, -v))
 
     @nd.undo_chunk
@@ -977,6 +1012,12 @@ class NN_ToolWindow(object):
     @nd.undo_chunk
     def onGridding(self, *args):
         ari_gridding()
+
+    @nd.undo_chunk
+    def onRectilinearize(self, *args):
+        target_texel = ui.get_value(self.texel)
+        map_size = ui.get_value(self.mapSize)
+        _rectilinearize(target_texel=target_texel, map_size=map_size)
 
     @nd.undo_chunk
     def onChangeTexel(self, *args):
