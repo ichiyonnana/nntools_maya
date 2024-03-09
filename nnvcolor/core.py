@@ -92,6 +92,9 @@ class EditBoxFloatDraggable(QLineEdit):
                 self.setText(to_real_text(new_value, self.precision))
                 self.dragged.emit()
 
+                # ドラッグ操作中は選択範囲変更にならないように通常のイベント処理は抑止する
+                return True
+
             else:
                 pass
 
