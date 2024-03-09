@@ -279,9 +279,9 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         self.setFixedSize(self.sizeHint())  # コントロール配置後に推奨最小サイズでウィンドウサイズ固定
 
         # ウィンドウのプリファレンスで起動位置指定する
-        if cmds.windowPref(self.window, exists=True):
-            position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
-            cmds.windowPref(self.window, remove=True)
+        if cmds.windowPref(window_name, exists=True):
+            position = cmds.windowPref(window_name, q=True, topLeftCorner=True)
+            cmds.windowPref(window_name, remove=True)
 
             self.move(position[0], position[1])
 
@@ -606,6 +606,10 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         self.fs_alpha = c
 
         rows[9].setContentsMargins(0, 0, 0, separater_height2)
+
+    def moveEvent(self, event):
+        pos = event.pos().toTuple()
+        cmds.windowPref(window_name, topLeftCorner=pos)
 
     def eventFilter(self, source, event):
         """イベントフィルター"""
