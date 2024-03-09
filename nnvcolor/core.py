@@ -13,7 +13,7 @@ import maya.api.OpenMaya as om
 import maya.OpenMayaUI as omui
 
 from PySide2.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QSlider
-from PySide2.QtCore import Qt, QEvent, Signal, QPoint
+from PySide2.QtCore import Qt, QSettings, QEvent, Signal, QPoint
 from PySide2.QtGui import QDoubleValidator, QCursor
 
 from maya.app.general.mayaMixin import MayaQWidgetBaseMixin
@@ -245,6 +245,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
 
     def __init__(self, parent=None):
         super(NN_ToolWindow, self).__init__(parent=parent)
+        self.settings = QSettings("NNTools", window_name)
 
         self.is_chunk_open = False
         self.editbox_precision = 4
@@ -285,12 +286,9 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         self.layout()
         self.setFixedSize(self.sizeHint())  # コントロール配置後に推奨最小サイズでウィンドウサイズ固定
 
-        # ウィンドウのプリファレンスで起動位置指定する
-        if cmds.windowPref(window_name, exists=True):
-            position = cmds.windowPref(window_name, q=True, topLeftCorner=True)
-            cmds.windowPref(window_name, remove=True)
-
-            self.move(position[0], position[1])
+        # 保存された位置があれば復帰する
+        if self.settings.value("geometry"):
+            self.restoreGeometry(self.settings.value("geometry"))
 
         self.show()
         NN_ToolWindow.singleton_instance = self
@@ -627,8 +625,8 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         rows[9].setContentsMargins(0, 0, 0, separater_height2)
 
     def moveEvent(self, event):
-        pos = event.pos().toTuple()
-        cmds.windowPref(window_name, topLeftCorner=pos)
+        """ウィンドウ位置の保存"""
+        self.settings.setValue("geometry", self.saveGeometry())
 
     def eventFilter(self, source, event):
         """イベントフィルター"""
@@ -1408,7 +1406,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
 
         for obj_name in obj_names:
             full_path = cmds.ls(obj_name, long=True)[0]
-            self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)        
+            self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)
 
     def onSliderPressed(self, *args):
         """スライダーが押された瞬間のハンドラ"""
