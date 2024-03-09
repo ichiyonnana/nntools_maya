@@ -24,11 +24,9 @@ import nnutil.ui as ui
 class UndoChunk(object):
     """Undo チャンクのオープン/クローズを with で行うクラス"""
     def __enter__(self):
-        print("open")
         cmds.undoInfo(openChunk=True)
 
     def __exit__(self, exc_type, exc_value, traceback):
-        print("close")
         cmds.undoInfo(closeChunk=True)
 
 
@@ -1332,7 +1330,6 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
             for obj_name in obj_names:
                 full_path = cmds.ls(obj_name, long=True)[0]
                 self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)
-                print("cache vf colors")
 
     def _close_chunk(self):
         """チャンクのクローズ処理"""
