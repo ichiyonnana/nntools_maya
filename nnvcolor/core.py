@@ -55,6 +55,8 @@ class PushButtonLRM(QPushButton):
 
 
 class EditBoxFloatDraggable(QLineEdit):
+    beginDragging = Signal()
+    endDragging = Signal()
     dragged = Signal()
 
     def __init__(self, parent=None):
@@ -79,6 +81,7 @@ class EditBoxFloatDraggable(QLineEdit):
                     self.cached_value = float(self.text())
                     self.cached_pos = QCursor.pos()
                     self.is_dragging = True
+                    self.beginDragging.emit()
 
                 # ドラッグ開始時のカーソル位置との差分をドラッグ開始時の値に加算する
                 current_pos = QCursor.pos()
@@ -89,15 +92,16 @@ class EditBoxFloatDraggable(QLineEdit):
                 self.setText(to_real_text(new_value, self.precision))
                 self.dragged.emit()
 
-            elif not self.is_met_drag_condition(event) and self.is_dragging:
-                # ドラッグ完了フレーム
-                self.is_dragging = False
-                self.dragged.emit()
-
             else:
                 pass
 
             return False
+
+        elif event.type() == QEvent.MouseButtonRelease:
+            if not self.is_met_drag_condition(event) and self.is_dragging:
+                # ドラッグ完了フレーム
+                self.is_dragging = False
+                self.endDragging.emit()
 
         return False
 
@@ -384,6 +388,8 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         c.setValidator(QDoubleValidator())
         c.validator().setDecimals(self.editbox_precision)
         c.setText(self.to_real_text(1.0))
+        c.beginDragging.connect(self.onBeginEditBoxDragging)
+        c.endDragging.connect(self.onEndEditBoxDraggingRed)
         c.dragged.connect(self.onDragEditBoxRed)
         c.returnPressed.connect(self.onChangeEditBoxRed)
         c.editingFinished.connect(self.onEdittingFinished)
@@ -454,6 +460,8 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         c.setValidator(QDoubleValidator())
         c.validator().setDecimals(self.editbox_precision)
         c.setText(self.to_real_text(1.0))
+        c.beginDragging.connect(self.onBeginEditBoxDragging)
+        c.endDragging.connect(self.onEndEditBoxDraggingGreen)
         c.dragged.connect(self.onDragEditBoxGreen)
         c.returnPressed.connect(self.onChangeEditBoxGreen)
         c.editingFinished.connect(self.onEdittingFinished)
@@ -522,6 +530,8 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         c.setValidator(QDoubleValidator())
         c.validator().setDecimals(self.editbox_precision)
         c.setText(self.to_real_text(1.0))
+        c.beginDragging.connect(self.onBeginEditBoxDragging)
+        c.endDragging.connect(self.onEndEditBoxDraggingBlue)
         c.dragged.connect(self.onDragEditBoxBlue)
         c.returnPressed.connect(self.onChangeEditBoxBlue)
         c.editingFinished.connect(self.onEdittingFinished)
@@ -590,6 +600,8 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         c.setValidator(QDoubleValidator())
         c.validator().setDecimals(self.editbox_precision)
         c.setText(self.to_real_text(1.0))
+        c.beginDragging.connect(self.onBeginEditBoxDragging)
+        c.endDragging.connect(self.onEndEditBoxDraggingAlpha)
         c.dragged.connect(self.onDragEditBoxAlpha)
         c.returnPressed.connect(self.onChangeEditBoxAlpha)
         c.editingFinished.connect(self.onEdittingFinished)
@@ -1170,11 +1182,28 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
             v = self.to_inner_value(float(self.eb_alpha.text()))
             self.fs_alpha.setValue(v)
 
+    def onBeginEditBoxDragging(self, *args):
+        """エディットボックスドラッグ開始時"""
+        self._create_vf_color_cache()
+        self._open_chunk()
+
     def _on_drag_editbox(self, channel):
         """エディットボックスのスライド時の処理"""
         # エディットボックスの値をスライダーの値に反映させてスライダードラッグ時の関数を呼ぶ
         self._sync_slider_and_editbox(from_editbox=True)
         self._on_drag_slider(channel=channel)
+
+    def _on_end_editbox_dragging(self, channel):
+        """エディットボックスドラッグ終了時"""
+        selection = cmds.ls(selection=True)
+
+        if selection:
+            # Undo 用の API を使用しない確定処理
+            self._on_set_color(channel=channel, drag=False)
+
+        # キャッシュの削除とチャンクのクローズ
+        self.vf_color_caches = dict()
+        self._close_chunk()
 
     def onDragEditBoxRed(self, *args):
         """Red エディットボックスのスライド操作"""
@@ -1191,6 +1220,22 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
     def onDragEditBoxAlpha(self, *args):
         """Alpha エディットボックスのスライド操作"""
         self._on_drag_editbox(channel="a")
+
+    def onEndEditBoxDraggingRed(self, *args):
+        """Red エディットボックスドラッグ終了時"""
+        self._on_end_editbox_dragging(channel="r")
+
+    def onEndEditBoxDraggingGreen(self, *args):
+        """Green エディットボックスドラッグ終了時"""
+        self._on_end_editbox_dragging(channel="g")
+
+    def onEndEditBoxDraggingBlue(self, *args):
+        """Blue エディットボックスドラッグ終了時"""
+        self._on_end_editbox_dragging(channel="b")
+
+    def onEndEditBoxDraggingAlpha(self, *args):
+        """Alpha エディットボックスドラッグ終了時"""
+        self._on_end_editbox_dragging(channel="a")
 
     def _format_editbox_text(self):
         """全てのエディットボックスの内容をフォーマッティングする"""
@@ -1260,10 +1305,9 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
 
         if selection:
             # スライド開始時の処理
-            if not self.is_chunk_open:
-                # チャンクのオープン
-                cmds.undoInfo(openChunk=True)
-                self.is_chunk_open = True
+
+            # チャンクのオープン
+            self._open_chunk()
 
             # b キー押し下げでソフト選択半径変更モードにする
             b_down = ui.is_key_pressed(ui.vk.VK_B)
@@ -1297,6 +1341,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
             else:
                 pass
 
+            # 頂点カラーの設定
             self._on_set_color(channel=channel, drag=True)
 
         self._sync_slider_and_editbox(from_slider=True)
@@ -1333,7 +1378,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
             # Undo 用の API を使用しない確定処理
             self._on_set_color(channel=channel, drag=False)
 
-        # キャッシュの削除とチャンクのクローズ  
+        # キャッシュの削除とチャンクのクローズ
         self.vf_color_caches = dict()
         self._close_chunk()
 
@@ -1353,23 +1398,32 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         """ A スライダー確定時のハンドラ"""
         self._on_change_slider(channel="a")
 
+    def _create_vf_color_cache(self):
+        """現在の頂点カラーをキャッシュする"""
+        selection = cmds.ls(selection=True)
+        obj_names = cmds.polyListComponentConversion(selection)
+
+        for obj_name in obj_names:
+            full_path = cmds.ls(obj_name, long=True)[0]
+            self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)        
+
     def onSliderPressed(self, *args):
         """スライダーが押された瞬間のハンドラ"""
         if not self.is_chunk_open:
             # チャンクのオープン
-            cmds.undoInfo(openChunk=True)
-            self.is_chunk_open = True
+            self._open_chunk()
 
             # スライド開始時の頂点カラーをキャッシュ
-            selection = cmds.ls(selection=True)
-            obj_names = cmds.polyListComponentConversion(selection)
-
-            for obj_name in obj_names:
-                full_path = cmds.ls(obj_name, long=True)[0]
-                self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)
+            self._create_vf_color_cache()
 
         # editingFinished による二重適用を避けるためエディットボックスのフォーカスを事前に外す
         self._clear_editboxes_focus()
+
+    def _open_chunk(self):
+        """チャンクのオープン処理"""
+        if not self.is_chunk_open:
+            cmds.undoInfo(openChunk=True)
+            self.is_chunk_open = True
 
     def _close_chunk(self):
         """チャンクのクローズ処理"""
