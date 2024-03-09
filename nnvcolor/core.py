@@ -266,9 +266,9 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
     def to_actual_value(self, v):
         """内部のスケールされた値を実際の値 [0.0, 1.0] に変換する"""
         if isinstance(v, list):
-            return [x / 10 ** self.editbox_precision for x in v]
+            return [float(x) / 10 ** self.editbox_precision for x in v]
         else:
-            return v / 10 ** self.editbox_precision
+            return float(v) / 10 ** self.editbox_precision
 
     def to_real_text(self, v):
         """エディットボックス用の実数のフォーマッティング"""
@@ -686,10 +686,10 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
             a_list = [color_components[4*i+3] for i in range(len(color_components)//4)]
             count = len(r_list)
 
-            r = sum(r_list)/count
-            g = sum(g_list)/count
-            b = sum(b_list)/count
-            a = sum(a_list)/count
+            r = float(sum(r_list)) / count
+            g = float(sum(g_list)) / count
+            b = float(sum(b_list)) / count
+            a = float(sum(a_list)) / count
 
             return (r, g, b, a)
 
