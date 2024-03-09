@@ -978,9 +978,6 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
             channel (str): 設定するチャンネル. "r" or "g" or "b" or "a"
             drag (bool): ドラッグ中なら True ､確定時なら False を指定する｡
         """
-        if ui.is_shift():
-            raise
-
         # スライダーの値取得
         slider = self.get_slider(channel)
         v = self.to_actual_value(slider.value())
