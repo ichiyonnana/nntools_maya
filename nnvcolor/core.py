@@ -870,8 +870,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
                     v_itr.next()
             else:
                 # MRichSeleciton が kMeshVertComponent 以外を返すようになったら修正が必要
-                print("unknown comptype")
-                pass
+                raise Exception("unknown comptype")
 
             # ブレンド元の頂点カラーが渡されていればそれを使用する｡なければ現在の頂点フェースカラーを取得
             if obj_name in vf_color_caches.keys():
@@ -909,8 +908,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
                 elif channel == "a":
                     ci = 3
                 else:
-                    print("unknown channel")
-                    ci = 0
+                    raise Exception("unknown channel")
 
                 if mode == "copy":
                     new_vf_colors[vfi][ci] = current_vf_colors[vfi][ci] * (1.0 - w) + v * w
@@ -923,7 +921,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
                     new_vf_colors[vfi][ci] = current_vf_colors[vfi][ci] / lerp(1.0, safe_v, w)
 
                 else:
-                    print("unknown mode")
+                    raise Exception("unknown mode")
 
             if via_api:
                 # API はそのまま全VFに適用
