@@ -385,7 +385,8 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         c.validator().setDecimals(self.editbox_precision)
         c.setText(self.to_real_text(1.0))
         c.dragged.connect(self.onDragEditBoxRed)
-        c.editingFinished.connect(self.onChangeEditBoxRed)
+        c.returnPressed.connect(self.onChangeEditBoxRed)
+        c.editingFinished.connect(self.onEdittingFinished)
         c.setFixedHeight(row_height2)
         c.setFixedWidth(edit_box_width)
         rows[3].addWidget(c)
@@ -454,7 +455,8 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         c.validator().setDecimals(self.editbox_precision)
         c.setText(self.to_real_text(1.0))
         c.dragged.connect(self.onDragEditBoxGreen)
-        c.editingFinished.connect(self.onChangeEditBoxGreen)
+        c.returnPressed.connect(self.onChangeEditBoxGreen)
+        c.editingFinished.connect(self.onEdittingFinished)
         c.setFixedHeight(row_height2)
         c.setFixedWidth(edit_box_width)
         rows[5].addWidget(c)
@@ -521,7 +523,8 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         c.validator().setDecimals(self.editbox_precision)
         c.setText(self.to_real_text(1.0))
         c.dragged.connect(self.onDragEditBoxBlue)
-        c.editingFinished.connect(self.onChangeEditBoxBlue)
+        c.returnPressed.connect(self.onChangeEditBoxBlue)
+        c.editingFinished.connect(self.onEdittingFinished)
         c.setFixedHeight(row_height2)
         c.setFixedWidth(edit_box_width)
         rows[7].addWidget(c)
@@ -588,7 +591,8 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         c.validator().setDecimals(self.editbox_precision)
         c.setText(self.to_real_text(1.0))
         c.dragged.connect(self.onDragEditBoxAlpha)
-        c.editingFinished.connect(self.onChangeEditBoxAlpha)
+        c.returnPressed.connect(self.onChangeEditBoxAlpha)
+        c.editingFinished.connect(self.onEdittingFinished)
         c.setFixedHeight(row_height2)
         c.setFixedWidth(edit_box_width)
         rows[9].addWidget(c)
@@ -963,6 +967,9 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
             channel (str): 設定するチャンネル. "r" or "g" or "b" or "a"
             drag (bool): ドラッグ中なら True ､確定時なら False を指定する｡
         """
+        if ui.is_shift():
+            raise
+
         # スライダーの値取得
         slider = self.get_slider(channel)
         v = self.to_actual_value(slider.value())
@@ -992,21 +999,33 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
 
     def onSetColorR(self, *args):
         """[R] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
+        self._clear_editboxes_focus()
         self._on_set_color(channel="r", drag=False)
 
     def onSetColorG(self, *args):
         """[G] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
+        self._clear_editboxes_focus()
         self._on_set_color(channel="g", drag=False)
 
     def onSetColorB(self, *args):
         """[B] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
+        self._clear_editboxes_focus()
         self._on_set_color(channel="b", drag=False)
 
     def onSetColorA(self, *args):
         """[A] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
+        self._clear_editboxes_focus()
         self._on_set_color(channel="a", drag=False)
 
+    def _clear_editboxes_focus(self):
+        """全てのエディットボックスのフォーカスを解除する"""
+        edit_boxes = [self.eb_red, self.eb_green, self.eb_blue, self.eb_alpha]
+
+        for eb in edit_boxes:
+            eb.clearFocus()
+
     def _set_slider_value_with_channel(self, channel, actual_value, sync=False):
+        self._clear_editboxes_focus()
         v = self.to_inner_value(actual_value)
         slider = self.get_slider(channel)
         slider.setValue(v)
@@ -1176,7 +1195,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         self._on_drag_editbox(channel="a")
 
     def _format_editbox_text(self):
-        """エディットボックスの内容をフォーマッティングする"""
+        """全てのエディットボックスの内容をフォーマッティングする"""
         editboxs = [self.eb_red, self.eb_green, self.eb_blue, self.eb_alpha]
         for eb in editboxs:
             v = float(eb.text())
@@ -1204,6 +1223,14 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
     def onChangeEditBoxAlpha(self, *args):
         """Alpha エディットボックス確定時のハンドラ"""
         self._on_change_editbox(channel="a")
+
+    def onEdittingFinished(self, *args):
+        """編集完了･フォーカスが外れたときのハンドラ
+
+        頂点カラーの実行はせず､スライダーへの動機とテキストのフォーマッティングのみ行う
+        """
+        self._sync_slider_and_editbox(from_editbox=True)
+        self._format_editbox_text()
 
     def get_slider(self, channel):
         if channel == "r":
@@ -1308,7 +1335,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
             # Undo 用の API を使用しない確定処理
             self._on_set_color(channel=channel, drag=False)
 
-        # キャッシュの削除とチャンクのクローズ
+        # キャッシュの削除とチャンクのクローズ  
         self.vf_color_caches = dict()
         self._close_chunk()
 
@@ -1342,6 +1369,9 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
             for obj_name in obj_names:
                 full_path = cmds.ls(obj_name, long=True)[0]
                 self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)
+
+        # editingFinished による二重適用を避けるためエディットボックスのフォーカスを事前に外す
+        self._clear_editboxes_focus()
 
     def _close_chunk(self):
         """チャンクのクローズ処理"""
