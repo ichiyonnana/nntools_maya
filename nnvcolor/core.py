@@ -1175,9 +1175,17 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         """Alpha エディットボックスのスライド操作"""
         self._on_drag_editbox(channel="a")
 
+    def _format_editbox_text(self):
+        """エディットボックスの内容をフォーマッティングする"""
+        editboxs = [self.eb_red, self.eb_green, self.eb_blue, self.eb_alpha]
+        for eb in editboxs:
+            v = float(eb.text())
+            eb.setText(to_real_text(v, eb.precision))
+
     def _on_change_editbox(self, channel):
         """エディットボックス確定時の処理 (Ctrl スライド含む) """
         self._sync_slider_and_editbox(from_editbox=True)
+        self._format_editbox_text()
         self._on_set_color(channel=channel, drag=False)
         self._close_chunk()
 
