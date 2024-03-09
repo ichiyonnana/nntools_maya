@@ -21,6 +21,17 @@ from maya.app.general.mayaMixin import MayaQWidgetBaseMixin
 import nnutil.ui as ui
 
 
+class UndoChunk(object):
+    """Undo チャンクのオープン/クローズを with で行うクラス"""
+    def __enter__(self):
+        print("open")
+        cmds.undoInfo(openChunk=True)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        print("close")
+        cmds.undoInfo(closeChunk=True)
+
+
 def to_real_text(v, precision):
     """エディットボックス用の実数のフォーマッティング"""
     format_string = "{:.%sf}" % precision
@@ -921,26 +932,27 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
                 fn_mesh.setFaceVertexColors(current_vf_colors, fis, vis)
 
                 # cmds はインデックスで反復して適用
-                for vfi, fivi in enumerate(vfi_to_fivi):
-                    fi = fivi[0]
-                    vi = fivi[1]
+                with UndoChunk():
+                    for vfi, fivi in enumerate(vfi_to_fivi):
+                        fi = fivi[0]
+                        vi = fivi[1]
 
-                    # ウェイトが無ければスキップ
-                    if vi not in selected_vis:
-                        continue
+                        # ウェイトが無ければスキップ
+                        if vi not in selected_vis:
+                            continue
 
-                    # 合成後の色を cmds で上書き
-                    color = new_vf_colors[vfi]
+                        # 合成後の色を cmds で上書き
+                        color = new_vf_colors[vfi]
 
-                    target = vfi_to_str(obj_name, fi, vi)
+                        target = vfi_to_str(obj_name, fi, vi)
 
-                    if len(color) == 4:
-                        r, g, b, a = list(color)
-                        cmds.polyColorPerVertex(target, r=r, g=g, b=b, a=a)
+                        if len(color) == 4:
+                            r, g, b, a = list(color)
+                            cmds.polyColorPerVertex(target, r=r, g=g, b=b, a=a)
 
-                    elif len(color) == 3:
-                        r, g, b = list(color)
-                        cmds.polyColorPerVertex(target, r=r, g=g, b=b)
+                        elif len(color) == 3:
+                            r, g, b = list(color)
+                            cmds.polyColorPerVertex(target, r=r, g=g, b=b)
 
     def _on_set_color(self, channel, drag):
         """スライダーを元に頂点カラーを設定する
@@ -1218,12 +1230,6 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
                 cmds.undoInfo(openChunk=True)
                 self.is_chunk_open = True
 
-                # スライド開始時の頂点カラーをキャッシュ
-                obj_names = cmds.polyListComponentConversion(selection)
-                for obj_name in obj_names:
-                    full_path = cmds.ls(obj_name, long=True)[0]
-                    self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)
-
             # b キー押し下げでソフト選択半径変更モードにする
             b_down = ui.is_key_pressed(ui.vk.VK_B)
 
@@ -1318,6 +1324,15 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
             # チャンクのオープン
             cmds.undoInfo(openChunk=True)
             self.is_chunk_open = True
+
+            # スライド開始時の頂点カラーをキャッシュ
+            selection = cmds.ls(selection=True)
+            obj_names = cmds.polyListComponentConversion(selection)
+
+            for obj_name in obj_names:
+                full_path = cmds.ls(obj_name, long=True)[0]
+                self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)
+                print("cache vf colors")
 
     def _close_chunk(self):
         """チャンクのクローズ処理"""
