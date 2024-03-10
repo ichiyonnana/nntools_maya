@@ -30,7 +30,7 @@ class NN_ToolWindow(object):
         "nnmirror",
         "nnuvtoolkit",
         "nncamera",
-        "align_edgering_length",
+        "nnringwidth",
         "nncurve",
         "nnsimplify",
         "nnstraighten",
@@ -88,7 +88,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label="Align:")
-        ui.button(label="EdgeRing", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onEdgeRing)
+        ui.button(label="RingWidth", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onRingWidth)
         ui.button(label="Curve", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onCurve)
         ui.button(label="Simplify", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onSimplify)
         ui.button(label="Straighten", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onStraighten)
@@ -146,10 +146,10 @@ class NN_ToolWindow(object):
         if not ui.is_shift():
             pm.deleteUI(self.window, window=True)
 
-    def onEdgeRing(self, *args):
+    def onRingWidth(self, *args):
         """"""
-        import align_edgering_length.core
-        align_edgering_length.core.main()
+        import nnringwidth.core
+        nnringwidth.core.main()
         if not ui.is_shift():
             pm.deleteUI(self.window, window=True)
 
