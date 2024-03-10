@@ -3,7 +3,6 @@
 import maya.cmds as cmds
 import pymel.core as pm
 import math
-import traceback
 
 import nnutil.ui as ui
 
@@ -38,10 +37,6 @@ def normalize(v):
         return (0, 0, 0)
 
 
-def printd(s):
-    print(s)
-
-
 class NN_AlignedgeRingWindow(object):
     MSG_NOT_SELECTED = "エッジが選択されていません"
     MSG_UNK_ALIGNMODE = "未知の整列モードです"
@@ -51,8 +46,9 @@ class NN_AlignedgeRingWindow(object):
     AM_IN = 1           # 内側基準
     AM_OUT = 2          # 外側基準
     AM_CENTER = 3       # 中央基準
-    lastExecuted = None  # 最後に実行した Align メソッド
-    lastExecutedMode = None  # 最後に実行した Align モード
+    last_executed_func = None  # 最後に実行した Align メソッド
+    last_executed_mode = None  # 最後に実行した Align モード
+    last_relative_mode = False  # 最後に実行したアラインの相対モード
 
     # 相対モード
     RM_ADD = 1
@@ -71,7 +67,7 @@ class NN_AlignedgeRingWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (270, 320)
+        self.size = (10, 10)
 
         self.absolute_mode_components = []
         self.relative_mode_components = []
@@ -87,16 +83,18 @@ class NN_AlignedgeRingWindow(object):
             pm.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False, resizeToFitChildren=True)
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False, resizeToFitChildren=True)
 
         self.layout()
         pm.showWindow(self.window)
 
     def layout(self):
+        window_width = 260
+
         ui.column_layout()
 
         # 絶対モード
@@ -109,7 +107,6 @@ class NN_AlignedgeRingWindow(object):
         ui.button(label='-', c=self.onDecreaseLength1)
         self.field_length1 = ui.eb_float(v=0.1, dc=self.onChangeLength1)
         ui.button(label='+', c=self.onIncreaseLength1)
-        ui.button(label='=2', c=self.onConstantLength1)
         ui.button(label='swap', c=self.onSwapLength)
         ui.end_layout()
 
@@ -118,11 +115,17 @@ class NN_AlignedgeRingWindow(object):
         ui.button(label='-', c=self.onDecreaseLength2)
         self.field_length2 = ui.eb_float(v=0.1, en=False, dc=self.onChangeLength2)
         ui.button(label='+', c=self.onIncreaseLength2)
-        ui.button(label='=1', c=self.onConstantLength2)
         self.constMode = ui.check_box(label='const', v=True, cc=self.onSetConst)
         ui.end_layout()
 
-        ui.separator()
+        ui.row_layout()
+        ui.header(label="Align")
+        ui.button(label='In', c=self.onAlignInAbsolute)
+        ui.button(label='Center', c=self.onAlignCenterAbsolute)
+        ui.button(label='Out', c=self.onAlignOutAbsolute)
+        ui.end_layout()
+
+        ui.separator(width=window_width)
 
         # 相対モード
         ui.row_layout()
@@ -130,34 +133,35 @@ class NN_AlignedgeRingWindow(object):
         ui.end_layout()
 
         ui.row_layout()
-        ui.button(label='-10%', c=self.onRelativeDiv_90)
-        ui.button(label='-1%', c=self.onRelativeDiv_99)
+        ui.header(label="mul")
+        ui.button(label='-10%', c=self.onRelativeDiv_90, width=ui.width(1.5))
+        ui.button(label='-1%', c=self.onRelativeDiv_99, width=ui.width(1.5))
         self.ff_acc_mul = ui.eb_float(v=1)
-        ui.button(label='+1%', c=self.onRelativeMul_1)
-        ui.button(label='+10%', c=self.onRelativeMul_10)
+        ui.button(label='+1%', c=self.onRelativeMul_1, width=ui.width(1.5))
+        ui.button(label='+10%', c=self.onRelativeMul_10, width=ui.width(1.5))
         ui.end_layout()
-  
+
         ui.row_layout()
-        ui.button(label='-0.1', c=self.onRelativeDiff_10)
-        ui.button(label='-0.01', c=self.onRelativeDiff_1)
+        ui.header(label="add")
+        ui.button(label='-0.1', c=self.onRelativeDiff_10, width=ui.width(1.5))
+        ui.button(label='-0.01', c=self.onRelativeDiff_1, width=ui.width(1.5))
         self.ff_acc_add = ui.eb_float(v=0)
-        ui.button(label='+0.01', c=self.onRelativeAdd_1)
-        ui.button(label='+0.1', c=self.onRelativeAdd_10)
+        ui.button(label='+0.01', c=self.onRelativeAdd_1, width=ui.width(1.5))
+        ui.button(label='+0.1', c=self.onRelativeAdd_10, width=ui.width(1.5))
         ui.end_layout()
 
         ui.row_layout()
-        ui.button(label='Align', c=self.onAlignRelative)
-        ui.button(label='Reset', c=self.onResetAccumulation)
+        ui.header(label="Align")
+        ui.button(label='In', c=self.onAlignInRelative)
+        ui.button(label='Center', c=self.onAlignCenterRelative)
+        ui.button(label='Out', c=self.onAlignOutRelative)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=window_width)
 
         # 取得系
         ui.row_layout()
         ui.header(label='Get from ')
-        ui.end_layout()
-
-        ui.row_layout()
         ui.button(label='First', c=self.onSetLengthFromFirstEdge)
         ui.button(label='Last', c=self.onSetLengthFromLastEdge)
         ui.button(label='Mode', c=self.onSetLengthFromMode)
@@ -165,37 +169,30 @@ class NN_AlignedgeRingWindow(object):
         ui.end_layout()
 
         ui.row_layout()
+        ui.header(label='')
         ui.button(label='Min', c=self.onSetLengthFromMin)
         ui.button(label='Max', c=self.onSetLengthFromMax)
         ui.button(label='Average', c=self.onSetLengthFromAverage)
         ui.end_layout()
 
-        ui.separator()
-
-        # アライン
-        ui.row_layout()
-        ui.text(label='Align')
-        ui.text(label='[MMB: only set mode]')
-        ui.end_layout()
-
-        ui.row_layout()
-        self.cb_relative_mode = ui.check_box(label='Relative Align', v=False, cc=self.onRelativeAlign)
-        ui.end_layout()
-
-        ui.row_layout()
-        ui.button(label='In', c=self.onAlignIn, dgc=self.onAlignInOnlySetMode)
-        ui.button(label='Center', c=self.onAlignCenter, dgc=self.onAlignCenterOnlySetMode)
-        ui.button(label='Out', c=self.onAlignOut, dgc=self.onAlignOutOnlySetMode)
-        ui.button(label='Hilite Inner', c=self.onHiliteInner)
-        ui.end_layout()
+        ui.separator(width=window_width)
 
         # その他機能
         ui.row_layout()
+        ui.header(label='')
         ui.button(label='Reset', c=self.onReset)
         ui.button(label='ClearCache', c=self.onClearCache)
         ui.button(label='Smooth', c=self.onSmoothAngle)
         ui.end_layout()
 
+        ui.row_layout()
+        ui.header(label='')
+        ui.check_box(label="Hilite Inner", v=False, cc=self.onHiliteInner)
+        ui.end_layout()
+
+        ui.separator(width=window_width)
+
+        ui.end_layout()
 
     def onChangeLength1(self, *args):
         """値変更時のハンドラ"""
@@ -209,7 +206,6 @@ class NN_AlignedgeRingWindow(object):
         currentLength = cmds.floatField(self.field_length1, q=True, v=True)
         newLength = currentLength * 1.1
         cmds.floatField(self.field_length1, e=True, v=newLength)
-        ui.set_value(self.cb_relative_mode, False)
         self.update()
 
     def onIncreaseLength2(self, *args):
@@ -217,7 +213,6 @@ class NN_AlignedgeRingWindow(object):
         currentLength = cmds.floatField(self.field_length2, q=True, v=True)
         newLength = currentLength * 1.1
         cmds.floatField(self.field_length2, e=True, v=newLength)
-        ui.set_value(self.cb_relative_mode, False)
         self.update()
 
     def onDecreaseLength1(self, *args):
@@ -225,7 +220,6 @@ class NN_AlignedgeRingWindow(object):
         currentLength = cmds.floatField(self.field_length1, q=True, v=True)
         newLength = currentLength * 0.9
         cmds.floatField(self.field_length1, e=True, v=newLength)
-        ui.set_value(self.cb_relative_mode, False)
         self.update()
 
     def onDecreaseLength2(self, *args):
@@ -233,7 +227,6 @@ class NN_AlignedgeRingWindow(object):
         currentLength = cmds.floatField(self.field_length2, q=True, v=True)
         newLength = currentLength * 0.9
         cmds.floatField(self.field_length2, e=True, v=newLength)
-        ui.set_value(self.cb_relative_mode, False)
         self.update()
 
     def onSwapLength(self, *args):
@@ -242,130 +235,69 @@ class NN_AlignedgeRingWindow(object):
         length2 = cmds.floatField(self.field_length2, q=True, v=True)
         cmds.floatField(self.field_length1, e=True, v=length2)
         cmds.floatField(self.field_length2, e=True, v=length1)
-        ui.set_value(self.cb_relative_mode, False)
-        self.update()
-
-    def onConstantLength1(self, *args):
-        """絶対モードの幅を 幅2 で統一する"""
-        length = cmds.floatField(self.field_length2, q=True, v=True)
-        cmds.floatField(self.field_length1, e=True, v=length)
-        ui.set_value(self.cb_relative_mode, False)
-        self.update()
-
-    def onConstantLength2(self, *args):
-        """絶対モードの幅を 幅1 で統一する"""
-        length = cmds.floatField(self.field_length1, q=True, v=True)
-        cmds.floatField(self.field_length2, e=True, v=length)
-        ui.set_value(self.cb_relative_mode, False)
         self.update()
 
     def onSetConst(self, *args):
         """等幅モードのチェックボックス変更ハンドラ"""
         constMode = cmds.checkBox(self.constMode, q=True, v=True)
-        
+
         if constMode:
-            self.onConstantLength2()
             cmds.floatField(self.field_length2, e=True, en=False)
         else:
             cmds.floatField(self.field_length2, e=True, en=True)
 
-        ui.set_value(self.cb_relative_mode, False)
-
     def update(self, *args):
         """現在の設定で整列を実行する"""
-        constMode = cmds.checkBox(self.constMode, q=True, v=True)
-        if self.lastExecuted:
-            self.lastExecuted()
+        if self.last_executed_func:
+            self.last_executed_func()
 
     def onRelativeDiff_1(self, *args):
         """相対モードの加数を減らして実行"""
         current_acc_add = ui.get_value(self.ff_acc_add)
         ui.set_value(self.ff_acc_add, current_acc_add - 0.01)
-        ui.set_value(self.cb_relative_mode, True)
-
-        if self.lastExecutedMode:
-            self.alignEdgeRing(length1=None, length2=None, alignMode=self.lastExecutedMode, relativeMode=True)
+        self.update()
 
     def onRelativeDiff_10(self, *args):
         """相対モードの加数を減らして実行"""
         current_acc_add = ui.get_value(self.ff_acc_add)
         ui.set_value(self.ff_acc_add, current_acc_add - 0.1)
-        ui.set_value(self.cb_relative_mode, True)
-
-        if self.lastExecutedMode:
-            self.alignEdgeRing(length1=None, length2=None, alignMode=self.lastExecutedMode, relativeMode=True)
+        self.update()
 
     def onRelativeAdd_1(self, *args):
         """相対モードの加数を増やして実行"""
         current_acc_add = ui.get_value(self.ff_acc_add)
         ui.set_value(self.ff_acc_add, current_acc_add + 0.01)
-        ui.set_value(self.cb_relative_mode, True)
-
-        if self.lastExecutedMode:
-            self.alignEdgeRing(length1=None, length2=None, alignMode=self.lastExecutedMode, relativeMode=True)
+        self.update()
 
     def onRelativeAdd_10(self, *args):
         """相対モードの加数を増やして実行"""
         current_acc_add = ui.get_value(self.ff_acc_add)
         ui.set_value(self.ff_acc_add, current_acc_add + 0.1)
-        ui.set_value(self.cb_relative_mode, True)
-
-        if self.lastExecutedMode:
-            self.alignEdgeRing(length1=None, length2=None, alignMode=self.lastExecutedMode, relativeMode=True)
+        self.update()
 
     def onRelativeDiv_99(self, *args):
         """相対モードの乗数を減らして実行"""
         current_acc_mul = ui.get_value(self.ff_acc_mul)
         ui.set_value(self.ff_acc_mul, current_acc_mul * 0.99)
-        ui.set_value(self.cb_relative_mode, True)
-
-        if self.lastExecutedMode:
-            self.alignEdgeRing(length1=None, length2=None, alignMode=self.lastExecutedMode, relativeMode=True)
+        self.update()
 
     def onRelativeDiv_90(self, *args):
         """相対モードの乗数を減らして実行"""
         current_acc_mul = ui.get_value(self.ff_acc_mul)
         ui.set_value(self.ff_acc_mul, current_acc_mul * 0.9)
-        ui.set_value(self.cb_relative_mode, True)
-
-        if self.lastExecutedMode:
-            self.alignEdgeRing(length1=None, length2=None, alignMode=self.lastExecutedMode, relativeMode=True)
+        self.update()
 
     def onRelativeMul_1(self, *args):
         """相対モードの乗数を減らして実行"""
         current_acc_mul = ui.get_value(self.ff_acc_mul)
         ui.set_value(self.ff_acc_mul, current_acc_mul * 1.01)
-        ui.set_value(self.cb_relative_mode, True)
-
-        if self.lastExecutedMode:
-            self.alignEdgeRing(length1=None, length2=None, alignMode=self.lastExecutedMode, relativeMode=True)
+        self.update()
 
     def onRelativeMul_10(self, *args):
         """相対モードの乗数を減らして実行"""
         current_acc_mul = ui.get_value(self.ff_acc_mul)
         ui.set_value(self.ff_acc_mul, current_acc_mul * 1.1)
-        ui.set_value(self.cb_relative_mode, True)
-
-        if self.lastExecutedMode:
-            self.alignEdgeRing(length1=None, length2=None, alignMode=self.lastExecutedMode, relativeMode=True)
-
-    def onRelativeAlign(self, *args):
-        """相対モードのチェックボックス変更"""
-        pass
-        #if self.lastExecutedMode:
-        #    self.alignEdgeRing(length1=None, length2=None, alignMode=self.lastExecutedMode, relativeMode=True)
-
-    def onAlignRelative(self, *args):
-        if self.lastExecutedMode:
-            self.alignEdgeRing(length1=None, length2=None, alignMode=self.lastExecutedMode, relativeMode=True)
-
-    def onResetAccumulation(self, *args):
-        cmds.floatField(self.ff_acc_add, e=True, v=0)
-        cmds.floatField(self.ff_acc_mul, e=True, v=1)
-
-        if self.lastExecutedMode:
-            self.alignEdgeRing(length1=None, length2=None, alignMode=self.lastExecutedMode, relativeMode=True)
-
+        self.update()
 
     def onSetLengthFromFirstEdge(self, *args):
         """
@@ -440,8 +372,7 @@ class NN_AlignedgeRingWindow(object):
                 cmds.polyListComponentConversion(edge, fe=True, tv=True), sm=31)
             p0 = cmds.xform(v0, q=True, ws=True, t=True)
             p1 = cmds.xform(v1, q=True, ws=True, t=True)
-            length = math.sqrt((p1[0]-p0[0]) **
-                                   2 + (p1[1]-p0[1])**2 + (p1[2]-p0[2])**2)
+            length = math.sqrt((p1[0]-p0[0]) ** 2 + (p1[1]-p0[1])**2 + (p1[2]-p0[2])**2)
             length_list.append(length)
 
         if len(length_list) != 0:
@@ -465,17 +396,13 @@ class NN_AlignedgeRingWindow(object):
                 cmds.polyListComponentConversion(edge, fe=True, tv=True), sm=31)
             p0 = cmds.xform(v0, q=True, ws=True, t=True)
             p1 = cmds.xform(v1, q=True, ws=True, t=True)
-            length = math.sqrt((p1[0]-p0[0]) **
-                                   2 + (p1[1]-p0[1])**2 + (p1[2]-p0[2])**2)
+            length = math.sqrt((p1[0]-p0[0]) ** 2 + (p1[1]-p0[1])**2 + (p1[2]-p0[2])**2)
             length_list.append(length)
 
         if len(length_list) != 0:
             new_length = max(length_list)
             cmds.floatField(self.field_length1, e=True, v=new_length)
             cmds.floatField(self.field_length2, e=True, v=new_length)
-
-        # self.update()
-
 
     def onSetLengthFromMode(self, *args):
         """
@@ -530,47 +457,89 @@ class NN_AlignedgeRingWindow(object):
         # self.update()
 
     # アラインの実行
-    def onAlignIn(self, *args):
+    def onAlignInAbsolute(self, *args):
         length1 = cmds.floatField(self.field_length1, q=True, v=True)
         length2 = cmds.floatField(self.field_length2, q=True, v=True)
         mode = self.AM_IN
-        relative_mode = ui.get_value(self.cb_relative_mode)
-        self.alignEdgeRing(length1=length1, length2=length2, alignMode=mode, relativeMode=relative_mode)
-        self.lastExecuted = self.onAlignIn
-        self.lastExecutedMode = mode
+        relative_mode = False
 
-    def onAlignOut(self, *args):
+        if relative_mode != self.last_relative_mode:
+            self.onClearCache()
+
+        self._align_edge_ring(length1=length1, length2=length2, alignMode=mode, relativeMode=relative_mode)
+        self.last_executed_func = self.onAlignInAbsolute
+        self.last_executed_mode = mode
+        self.last_relative_mode = False
+
+    def onAlignOutAbsolute(self, *args):
         length1 = cmds.floatField(self.field_length1, q=True, v=True)
         length2 = cmds.floatField(self.field_length2, q=True, v=True)
         mode = self.AM_OUT
-        relative_mode = ui.get_value(self.cb_relative_mode)
-        self.alignEdgeRing(length1=length1, length2=length2, alignMode=mode, relativeMode=relative_mode)
-        self.lastExecuted = self.onAlignOut
-        self.lastExecutedMode = mode
+        relative_mode = False
 
-    def onAlignCenter(self, *args):
+        if relative_mode != self.last_relative_mode:
+            self.onClearCache()
+
+        self._align_edge_ring(length1=length1, length2=length2, alignMode=mode, relativeMode=relative_mode)
+        self.last_executed_func = self.onAlignOutAbsolute
+        self.last_executed_mode = mode
+        self.last_relative_mode = False
+
+    def onAlignCenterAbsolute(self, *args):
         length1 = cmds.floatField(self.field_length1, q=True, v=True)
         length2 = cmds.floatField(self.field_length2, q=True, v=True)
         mode = self.AM_CENTER
-        relative_mode = ui.get_value(self.cb_relative_mode)
-        self.alignEdgeRing(length1=length1, length2=length2, alignMode=mode, relativeMode=relative_mode)
-        self.lastExecuted = self.onAlignCenter
-        self.lastExecutedMode = mode
+        relative_mode = False
 
-    def onAlignInOnlySetMode(self, *args):
-        printd("only set in")
+        if relative_mode != self.last_relative_mode:
+            self.onClearCache()
+
+        self._align_edge_ring(length1=length1, length2=length2, alignMode=mode, relativeMode=relative_mode)
+        self.last_executed_func = self.onAlignCenterAbsolute
+        self.last_executed_mode = mode
+        self.last_relative_mode = False
+
+    def onAlignInRelative(self, *args):
+        length1 = cmds.floatField(self.field_length1, q=True, v=True)
+        length2 = cmds.floatField(self.field_length2, q=True, v=True)
         mode = self.AM_IN
-        self.lastExecutedMode = mode
+        relative_mode = True
 
-    def onAlignOutOnlySetMode(self, *args):
-        printd("only set out")
+        if relative_mode != self.last_relative_mode:
+            self.onClearCache()
+
+        self._align_edge_ring(length1=length1, length2=length2, alignMode=mode, relativeMode=relative_mode)
+        self.last_executed_func = self.onAlignInRelative
+        self.last_executed_mode = mode
+        self.last_relative_mode = True
+
+    def onAlignOutRelative(self, *args):
+        length1 = cmds.floatField(self.field_length1, q=True, v=True)
+        length2 = cmds.floatField(self.field_length2, q=True, v=True)
         mode = self.AM_OUT
-        self.lastExecutedMode = mode
+        relative_mode = True
 
-    def onAlignCenterOnlySetMode(self, *args):
-        printd("only set center")
+        if relative_mode != self.last_relative_mode:
+            self.onClearCache()
+
+        self._align_edge_ring(length1=length1, length2=length2, alignMode=mode, relativeMode=relative_mode)
+        self.last_executed_func = self.onAlignOutRelative
+        self.last_executed_mode = mode
+        self.last_relative_mode = True
+
+    def onAlignCenterRelative(self, *args):
+        length1 = cmds.floatField(self.field_length1, q=True, v=True)
+        length2 = cmds.floatField(self.field_length2, q=True, v=True)
         mode = self.AM_CENTER
-        self.lastExecutedMode = mode
+        relative_mode = True
+
+        if relative_mode != self.last_relative_mode:
+            self.onClearCache()
+
+        self._align_edge_ring(length1=length1, length2=length2, alignMode=mode, relativeMode=relative_mode)
+        self.last_executed_func = self.onAlignCenterRelative
+        self.last_executed_mode = mode
+        self.last_relative_mode = True
 
     def onHiliteInner(self, *args):
         pass
@@ -592,16 +561,17 @@ class NN_AlignedgeRingWindow(object):
                 self.pntListB[i][0], self.pntListB[i][1], self.pntListB[i][2]))
 
     def onClearCache(self, *args):
-        self.selEdges = []        # 前回実行時の選択エッジ
-        self.sortedSelEdges = []  # 前回実行時の選択エッジ (ソート済)
-        self.vtxListA = []        # 最後に更新された sortedSelEdges 集合の片側の頂点オブジェクト列
-        self.vtxListB = []        # 最後に更新された sortedSelEdges 集合の片側の頂点オブジェクト列
-        self.pntListA = []        # 最後に更新された sortedSelEdges 集合の片側の頂点座標列
-        self.pntListB = []        # 最後に更新された sortedSelEdges 集合の片側の頂点座標列
-        lastExecuted = None  # 最後に実行した Align メソッド
+        self.selEdges = []
+        self.sortedSelEdges = []
+        self.vtxListA = []
+        self.vtxListB = []
+        self.pntListA = []
+        self.pntListB = []
+        self.last_executed_func = None
+        self.last_relative_mode = None
 
     # 選択エッジの幅を揃える機能本体
-    def alignEdgeRing(self, length1, length2, alignMode, relativeMode=None):
+    def _align_edge_ring(self, length1, length2, alignMode, relativeMode=None):
         constMode = cmds.checkBox(self.constMode, q=True, v=True)
         if constMode:
             length2 = length1
@@ -658,7 +628,7 @@ class NN_AlignedgeRingWindow(object):
                     break
 
             # すべての選択フェイスのうち選択エッジを一つしか持たないフェースは端のフェイス
-            if startFace == None:
+            if startFace is None:
                 for selFace in allSelfaces:
                     edges = cmds.filterExpand(cmds.polyListComponentConversion(
                         selFace, ff=True, te=True), sm=32)
@@ -668,7 +638,7 @@ class NN_AlignedgeRingWindow(object):
                         preprocessedFace = startFace
 
             # すべての選択フェイスが選択エッジをふたつ以上持っていればループ
-            if startFace == None:
+            if startFace is None:
                 startEdge = selEdges[0]
                 faces = cmds.filterExpand(cmds.polyListComponentConversion(
                     startEdge, fe=True, tf=True), sm=34)
@@ -680,7 +650,7 @@ class NN_AlignedgeRingWindow(object):
             # SelEdge-sortedSelEdges が空集合 or elEdge-sortedSelEdgesを構成要素として持つフェースが検出できなかったら終了
             processedFaces = []  # 処理済みフェース
             sortedSelEdges.append(startEdge)
-            if preprocessedFace != None:
+            if preprocessedFace is not None:
                 processedFaces.append(preprocessedFace)
             untreatedEdges = list(set(selEdges) - set(sortedSelEdges))
             existNextEdge = True  # 次のエッジがあれば True
@@ -851,7 +821,6 @@ class NN_AlignedgeRingWindow(object):
             acc_add = cmds.floatField(self.ff_acc_add, q=True, v=True)
             acc_mul = cmds.floatField(self.ff_acc_mul, q=True, v=True)
 
-
             for i in range(0, edgeCount):
                 p1 = basePoints[i]
                 p2 = movePoints[i]
@@ -950,8 +919,10 @@ class NN_AlignedgeRingWindow(object):
 def alignEdgeRingUI():
     NN_AlignedgeRingWindow().create()
 
+
 def main():
     alignEdgeRingUI()
+
 
 if __name__ == "__main__":
     main()
