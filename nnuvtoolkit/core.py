@@ -690,17 +690,19 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (330, 520)
+        self.size = (1, 1)
 
-    def create(self):
+    def create(self, parent_to_uveditor=False):
         if pm.window(self.window, exists=True):
             pm.deleteUI(self.window)
 
-        # UV エディターのウィンドウ名を取得
-        all_uv_panels = cmds.getPanel(scriptType="polyTexturePlacementPanel")
-        uv_panel = all_uv_panels[0] if all_uv_panels else None
-        uv_window = cmds.panel(uv_panel, q=True, control=True)
-        parent_window = uv_window.split("|")[0] if uv_window else None
+        if parent_to_uveditor:
+            # UV エディターのウィンドウ名を取得
+            all_uv_panels = cmds.getPanel(scriptType="polyTexturePlacementPanel")
+            uv_panel = all_uv_panels[0] if all_uv_panels else None
+            uv_window = cmds.panel(uv_panel, q=True, control=True)
+            parent_window = uv_window.split("|")[0] if uv_window else None
+            print("1")
 
         # プリファレンスの有無による分岐
         if pm.windowPref(self.window, exists=True):
@@ -708,17 +710,16 @@ class NN_ToolWindow(object):
             position = pm.windowPref(self.window, q=True, topLeftCorner=True)
             pm.windowPref(self.window, remove=True)
 
-            # 前回位置に指定したサイズで表示
-            if parent_window:
-                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False, parent=parent_window)
+            if parent_to_uveditor and parent_window:
+                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False, resizeToFitChildren=True, parent=parent_window)
             else:
-                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, resizeToFitChildren=True, sizeable=False)
+
         else:
-            # プリファレンスがなければデフォルト位置に指定サイズで表示
-            if parent_window:
-                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False, parent=parent_window)
+            if parent_to_uveditor and parent_window:
+                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False, resizeToFitChildren=True, parent=parent_window)
             else:
-                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, resizeToFitChildren=True, sizeable=False)
 
         self.layout()
         pm.showWindow(self.window)
@@ -897,6 +898,13 @@ class NN_ToolWindow(object):
         ui.button(label='UVToolkit', c=self.onUVToolKit)
         ui.button(label='UVSnapShot', c=self.onUVSnapShot)
         ui.button(label='DrawEdge', c=self.onDrawEdge)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label="")
+        ui.button(label="Parent to UVEditor", c=self.onParentToUVEditor)
+        ui.end_layout()
+
         ui.end_layout()
 
     def initialize(self):
@@ -1305,6 +1313,9 @@ class NN_ToolWindow(object):
         mapsize = ui.get_value(self.mapSize)
         draw_edge(mapsize=mapsize)
 
+    def onParentToUVEditor(self, *args):
+        """UVエディターを親にしてウィンドウを再作成する"""
+        self.create(parent_to_uveditor=True)
 
 def showNNToolWindow():
     NN_ToolWindow().create()
