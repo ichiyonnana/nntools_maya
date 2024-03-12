@@ -397,9 +397,9 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Set')
-        ui.button(label='X = ', c=self.onSetXOS, dgc=self.onSetXWS, bgc=ui.color_x, width=ui.width1, annotation="L: Object\nM: World")
-        ui.button(label='Y = ', c=self.onSetYOS, dgc=self.onSetYWS, bgc=ui.color_y, width=ui.width1, annotation="L: Object\nM: World")
-        ui.button(label='Z = ', c=self.onSetZOS, dgc=self.onSetZWS, bgc=ui.color_z, width=ui.width1, annotation="L: Object\nM: World")
+        ui.button(label='X = ', c=self.onSetXOS, dgc=self.onSetXWS, bgc=ui.color_x, width=ui.width1, annotation="L: Object\nM: World\nShift: Negative")
+        ui.button(label='Y = ', c=self.onSetYOS, dgc=self.onSetYWS, bgc=ui.color_y, width=ui.width1, annotation="L: Object\nM: World\nShift: Negative")
+        ui.button(label='Z = ', c=self.onSetZOS, dgc=self.onSetZWS, bgc=ui.color_z, width=ui.width1, annotation="L: Object\nM: World\nShift: Negative")
         self.coord_value = ui.eb_float(v=0, width=ui.width2)
         self.cb_set_position_relative = ui.check_box(label="Relative", v=False)
         ui.end_layout()
@@ -577,31 +577,49 @@ class NN_ToolWindow(object):
 
     def onSetXOS(self, *args):
         v = ui.get_value(self.coord_value)
+        if ui.is_shift():
+            v *= -1
+
         relative = ui.get_value(self.cb_set_position_relative)
         nm.set_coord('x', v, space="object", relative=relative)
 
     def onSetYOS(self, *args):
         v = ui.get_value(self.coord_value)
+        if ui.is_shift():
+            v *= -1
+
         relative = ui.get_value(self.cb_set_position_relative)
         nm.set_coord('y', v, space="object", relative=relative)
 
     def onSetZOS(self, *args):
         v = ui.get_value(self.coord_value)
+        if ui.is_shift():
+            v *= -1
+
         relative = ui.get_value(self.cb_set_position_relative)
         nm.set_coord('z', v, space="object", relative=relative)
 
     def onSetXWS(self, *args):
         v = ui.get_value(self.coord_value)
+        if ui.is_shift():
+            v *= -1
+
         relative = ui.get_value(self.cb_set_position_relative)
         nm.set_coord('x', v, space="world", relative=relative)
 
     def onSetYWS(self, *args):
         v = ui.get_value(self.coord_value)
+        if ui.is_shift():
+            v *= -1
+
         relative = ui.get_value(self.cb_set_position_relative)
         nm.set_coord('y', v, space="world", relative=relative)
 
     def onSetZWS(self, *args):
         v = ui.get_value(self.coord_value)
+        if ui.is_shift():
+            v *= -1
+
         relative = ui.get_value(self.cb_set_position_relative)
         nm.set_coord('z', v, space="world", relative=relative)
 
