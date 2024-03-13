@@ -301,7 +301,7 @@ def snap_to_ordinal_in_block(targets=None, texture_resolution=1024, block_width=
 
 
 @nd.undo_chunk
-def extrude_edges():
+def extrude_edges(offset):
     """UV･頂点カラー等が設定されたエッジのextrude."""
     selected_edges = cmds.ls(selection=True, flatten=True)
 
@@ -310,8 +310,9 @@ def extrude_edges():
         constructionHistory=True,
         keepFacesTogether=True,
         divisions=1,
-        offset=0.1,
-        thickness=0)
+        offset=offset,
+        thickness=0,
+        smoothingAngle=180)
 
     extruded_edges = cmds.ls(selection=True, flatten=True)
     extruded_faces = cmds.filterExpand(cmds.polyListComponentConversion(extruded_edges, fe=True, tf=True), selectionMask=34)
@@ -389,10 +390,26 @@ def smart_extrude():
 
         elif (cmds.objectType(selections[0], isType="mesh")
               and cmds.selectType(q=True, polymeshEdge=True)):
-            extrude_edges()
+            extrude_edges(offset=0.1)
 
         else:
             mel.eval("performPolyExtrude 0")
+
+
+def smart_duplicate():
+    """選択物のタイプによって適切に duplicate する."""
+    selections = cmds.ls(selection=True)
+
+    if selections:
+        if cmds.objectType(selections[0], isType="mesh"):
+            if cmds.selectType(q=True, polymeshEdge=True):
+                extrude_edges(offset=0.0)
+
+            else:
+                pass
+
+        else:
+            cmds.duplicate()
 
 
 def orient_object_from_edges():
