@@ -301,7 +301,7 @@ def snap_to_ordinal_in_block(targets=None, texture_resolution=1024, block_width=
 
 
 @nd.undo_chunk
-def extrude_edges():
+def extrude_edges(offset):
     """UV･頂点カラー等が設定されたエッジのextrude."""
     selected_edges = cmds.ls(selection=True, flatten=True)
 
@@ -310,7 +310,7 @@ def extrude_edges():
         constructionHistory=True,
         keepFacesTogether=True,
         divisions=1,
-        offset=0.1,
+        offset=offset,
         thickness=0)
 
     extruded_edges = cmds.ls(selection=True, flatten=True)
@@ -389,7 +389,7 @@ def smart_extrude():
 
         elif (cmds.objectType(selections[0], isType="mesh")
               and cmds.selectType(q=True, polymeshEdge=True)):
-            extrude_edges()
+            extrude_edges(offset=0.1)
 
         else:
             mel.eval("performPolyExtrude 0")
