@@ -311,7 +311,8 @@ def extrude_edges(offset):
         keepFacesTogether=True,
         divisions=1,
         offset=offset,
-        thickness=0)
+        thickness=0,
+        smoothingAngle=180)
 
     extruded_edges = cmds.ls(selection=True, flatten=True)
     extruded_faces = cmds.filterExpand(cmds.polyListComponentConversion(extruded_edges, fe=True, tf=True), selectionMask=34)
