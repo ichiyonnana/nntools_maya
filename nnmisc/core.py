@@ -396,6 +396,22 @@ def smart_extrude():
             mel.eval("performPolyExtrude 0")
 
 
+def smart_duplicate():
+    """選択物のタイプによって適切に duplicate する."""
+    selections = cmds.ls(selection=True)
+
+    if selections:
+        if cmds.objectType(selections[0], isType="mesh"):
+            if cmds.selectType(q=True, polymeshEdge=True):
+                extrude_edges(offset=0.0)
+
+            else:
+                pass
+
+        else:
+            cmds.duplicate()
+
+
 def orient_object_from_edges():
     """選択されているエッジを元にローカル座標軸を設定する.
 
