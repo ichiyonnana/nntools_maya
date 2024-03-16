@@ -883,11 +883,11 @@ class NN_ToolWindow(object):
         mel.eval('DetachSkinOptions')
 
     def onUnlockTRS(self, *args):
-        for obj in pm.selected(flatten=True):
+        for obj in pm.selected(flatten=True, type="transform"):
             nu.unlock_trs(obj)
 
     def onLockTRS(self, *args):
-        for obj in pm.selected(flatten=True):
+        for obj in pm.selected(flatten=True, type="transform"):
             nu.lock_trs(obj)
 
     def onResetPose(self, *args):
