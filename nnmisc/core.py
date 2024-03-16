@@ -563,3 +563,53 @@ def resize_editor(window_title, x=-1, y=-1, width=-1, height=-1):
                 child.resize(width, height)
 
             break
+
+
+def select_all_skined_meshes_from_root_joint(root_object=None, select=True, result=False):
+    """選択したジョイント以下にある全てのジョイントがスキンクラスターで影響を与えているメッシュを全て選択･取得する
+
+    Args:
+        root_obj (str, optional): スケルトン全体のルートオブジェクト｡省略時は選択オブジェクト. Defaults to None.
+        select (bool, optional): 結果のメッシュを選択するかどうか. Defaults to True.
+
+    Returns:
+        list[str] | None: メッシュのノード名のリスト.エラー時は None.
+    """
+    if not root_object:
+        selected_object = cmds.ls(selection=True)
+
+        if not selected_object:
+            print("select root object.")
+            return None
+
+        root_object = selected_object[0]
+
+    all_joints = cmds.listRelatives(root_object, allDescendents=True)
+    all_skinclusters = []
+
+    for joint in all_joints:
+        skinclusters = cmds.listConnections(joint, destination=True, type="skinCluster")
+        all_skinclusters.extend(skinclusters)
+
+    all_skinclusters = list(set(all_skinclusters))
+
+    if not all_skinclusters:
+        print("no skincluster.")
+        return None
+
+    skined_meshes = []
+
+    for sc in all_skinclusters:
+        meshes = cmds.listConnections(sc, destination=True, type="mesh")
+        skined_meshes.extend(meshes)
+
+    skined_meshes = list(set(skined_meshes))
+
+    if not skined_meshes:
+        print("no skined meshes.", all_skinclusters)
+        return None
+
+    if select:
+        cmds.select(skined_meshes, replace=True)
+
+    return skined_meshes
