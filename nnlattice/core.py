@@ -236,30 +236,34 @@ def rebuild_lattice(lattice=None, s=None, t=None, u=None):
         t (int): 新しい T 分割数
         u (int): 新しい U 分割数
     """
+    if not lattice and not cmds.ls(selection=True):
+        print("select lattice")
+        return
 
     # 処理終了後に設定する編集モード
     object_mode = pm.selectMode(q=True, object=True)
 
     # 再分割対象ラティスの取得
     if not lattice:
-        selected_lattice_point = [x for x in pm.selected(flatten=True) if type(x) is pm.LatticePoint]
+        selected_trs = cmds.ls(selection=True, type="transform")
 
-        if selected_lattice_point:
-            # ラティスポイントが選択されていた場合
-            lattice_shape = cmds.polyListComponentConversion(selected_lattice_point[0])[0]
-            lattice = cmds.listRelatives(lattice_shape, parent=True)[0]
-            object_mode = False
+        # シェープとしてラティスを持つトランスフォームが選択されている場合
+        if selected_trs:
+            shapes = cmds.listRelatives(selected_trs[0], shapes=True)
+
+            if shapes and cmds.objectType(shapes[0]) == "lattice":
+                lattice = selected_trs[0]
 
         else:
-            # ラティスポイント以外が選択されていた場合
-            selected_trs = cmds.ls(selection=True, type="transform")
+            # ラティス以外が選択されていた場合
+            selection = cmds.ls(selection=True, flatten=True)
+            selected_lattice_point = cmds.filterExpand(selection, sm=46)
 
-            # シェープとしてラティスを持つトランスフォームが選択されている場合
-            if selected_trs:
-                shapes = cmds.listRelatives(selected_trs[0], shapes=True)
-
-                if shapes and cmds.objectType(shapes[0]) == "lattice":
-                    lattice = selected_trs[0]
+            if selected_lattice_point:
+                # ラティスポイントが選択されていた場合
+                lattice_shape = cmds.polyListComponentConversion(selected_lattice_point[0])[0]
+                lattice = cmds.listRelatives(lattice_shape, parent=True)[0]
+                object_mode = False
 
         if not lattice:
             # リビルド対象が特定できなかった場合
