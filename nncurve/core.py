@@ -312,6 +312,8 @@ class NN_ToolWindow(object):
 
         polyline_list = nu.get_all_polylines(selections)
 
+        curves = []
+
         for edges in polyline_list:
             # 選択エッジ列からカーブ生成
             ret = makeCurve(edges, n=resolution)
@@ -331,6 +333,10 @@ class NN_ToolWindow(object):
             edges_str = cmds.textField(self.ed_edges, q=True, tx=True)
             curve_str = cmds.textField(self.ed_curve, q=True, tx=True)
             addAttributes(curve_str, edges_str)
+
+            curves.append(curve_str)
+
+        cmds.select(curves)
 
     def onSetActive(self, *args):
         """
