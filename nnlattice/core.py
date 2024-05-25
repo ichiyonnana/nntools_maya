@@ -219,7 +219,16 @@ def get_selected_lattice_and_points(selected_lattice_points=[]):
     return [lattice, selected_lattice_points]
 
 
-def rebuild_lattice(lattice=None, s=2, t=2, u=2):
+def get_divisions(lattice_name):
+    """ラティスの分割数を取得する"""
+    s = cmds.getAttr(lattice_name + ".sDivisions")
+    t = cmds.getAttr(lattice_name + ".tDivisions")
+    u = cmds.getAttr(lattice_name + ".uDivisions")
+
+    return [s, t, u]
+
+
+def rebuild_lattice(lattice=None, s=None, t=None, u=None):
     """ラティスの分割数を変更する｡
 
     Args:
@@ -265,6 +274,11 @@ def rebuild_lattice(lattice=None, s=2, t=2, u=2):
     orig_s = cmds.getAttr(lattice_name + ".sDivisions")
     orig_t = cmds.getAttr(lattice_name + ".tDivisions")
     orig_u = cmds.getAttr(lattice_name + ".uDivisions")
+
+    # 引数が未指定の場合は元の分割数を使用
+    s = s or orig_s
+    t = t or orig_t
+    u = u or orig_u
 
     # 再分割対象ラティスの CV 座標を保存
     old_pt_coords = [[[None for x in range(orig_u)] for x in range(orig_t)] for x in range(orig_s)]
@@ -632,9 +646,17 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Divsions')
-        self.rebuild_s = ui.eb_int(v=3)
-        self.rebuild_t = ui.eb_int(v=3)
-        self.rebuild_u = ui.eb_int(v=3)
+        self.rebuild_s = ui.eb_int(v=3, cc=self.onChangeS)
+        self.rebuild_t = ui.eb_int(v=3, cc=self.onChangeT)
+        self.rebuild_u = ui.eb_int(v=3, cc=self.onChangeU)
+        ui.button(label='Get', c=self.onGetDivisions)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='Set', c=self.onRebuildS)
+        ui.button(label='Set', c=self.onRebuildT)
+        ui.button(label='Set', c=self.onRebuildU)
         ui.end_layout()
 
         ui.row_layout()
@@ -680,6 +702,46 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
         ui.end_layout()
+
+    def onChangeS(self, *args):
+        s = ui.get_value(self.rebuild_s)
+        if s < 2:
+            ui.set_value(self.rebuild_s, 2)
+
+    def onChangeT(self, *args):
+        t = ui.get_value(self.rebuild_t)
+        if t < 2:
+            ui.set_value(self.rebuild_t, 2)
+
+    def onChangeU(self, *args):
+        u = ui.get_value(self.rebuild_u)
+        if u < 2:
+            ui.set_value(self.rebuild_u, 2)
+
+    def onGetDivisions(self, *args):
+        """選択ラティスの分割数を取得して UI に設定する"""
+        target_lattice = None
+        selected_trs = cmds.ls(selection=True, type="transform")
+
+        if selected_trs:
+            shapes = cmds.listRelatives(selected_trs[0], shapes=True)
+
+            if shapes and cmds.objectType(shapes[0]) == "lattice":
+                target_lattice = selected_trs[0]
+
+        if not target_lattice:
+            # リビルド対象が特定できなかった場合
+            print("select lattice")
+            return
+
+        lattice_trs = target_lattice
+        lattice_name = cmds.listRelatives(lattice_trs, shapes=True)[0]
+
+        s, t, u = get_divisions(lattice_name)
+
+        ui.set_value(self.rebuild_s, s)
+        ui.set_value(self.rebuild_t, t)
+        ui.set_value(self.rebuild_u, u)
 
     # イベントハンドラ
     def onAddMember(self, *args):
@@ -754,6 +816,18 @@ class NN_ToolWindow(object):
         t = ui.get_value(self.rebuild_t)
         u = ui.get_value(self.rebuild_u)
         rebuild_lattice(s=s, t=t, u=u)
+
+    def onRebuildS(self, *args):
+        s = ui.get_value(self.rebuild_s)
+        rebuild_lattice(s=s)
+
+    def onRebuildT(self, *args):
+        t = ui.get_value(self.rebuild_t)
+        rebuild_lattice(t=t)
+
+    def onRebuildU(self, *args):
+        u = ui.get_value(self.rebuild_u)
+        rebuild_lattice(u=u)
 
     def onSmoothLatticePoint(self, *args):
         if ui.get_value(self.cb_smooth_completely):
