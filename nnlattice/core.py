@@ -236,30 +236,34 @@ def rebuild_lattice(lattice=None, s=None, t=None, u=None):
         t (int): 新しい T 分割数
         u (int): 新しい U 分割数
     """
+    if not lattice and not cmds.ls(selection=True):
+        print("select lattice")
+        return
 
     # 処理終了後に設定する編集モード
     object_mode = pm.selectMode(q=True, object=True)
 
     # 再分割対象ラティスの取得
     if not lattice:
-        selected_lattice_point = [x for x in pm.selected(flatten=True) if type(x) is pm.LatticePoint]
+        selected_trs = cmds.ls(selection=True, type="transform")
 
-        if selected_lattice_point:
-            # ラティスポイントが選択されていた場合
-            lattice_shape = cmds.polyListComponentConversion(selected_lattice_point[0])[0]
-            lattice = cmds.listRelatives(lattice_shape, parent=True)[0]
-            object_mode = False
+        # シェープとしてラティスを持つトランスフォームが選択されている場合
+        if selected_trs:
+            shapes = cmds.listRelatives(selected_trs[0], shapes=True)
+
+            if shapes and cmds.objectType(shapes[0]) == "lattice":
+                lattice = selected_trs[0]
 
         else:
-            # ラティスポイント以外が選択されていた場合
-            selected_trs = cmds.ls(selection=True, type="transform")
+            # ラティス以外が選択されていた場合
+            selection = cmds.ls(selection=True, flatten=True)
+            selected_lattice_point = cmds.filterExpand(selection, sm=46)
 
-            # シェープとしてラティスを持つトランスフォームが選択されている場合
-            if selected_trs:
-                shapes = cmds.listRelatives(selected_trs[0], shapes=True)
-
-                if shapes and cmds.objectType(shapes[0]) == "lattice":
-                    lattice = selected_trs[0]
+            if selected_lattice_point:
+                # ラティスポイントが選択されていた場合
+                lattice_shape = cmds.polyListComponentConversion(selected_lattice_point[0])[0]
+                lattice = cmds.listRelatives(lattice_shape, parent=True)[0]
+                object_mode = False
 
         if not lattice:
             # リビルド対象が特定できなかった場合
@@ -653,10 +657,11 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
         ui.row_layout()
-        ui.header(label='')
-        ui.button(label='Set', c=self.onRebuildS)
-        ui.button(label='Set', c=self.onRebuildT)
-        ui.button(label='Set', c=self.onRebuildU)
+        ui.header(label='Rebuild')
+        ui.button(label='S', c=self.onRebuildS, width=ui.width(2))
+        ui.button(label='T', c=self.onRebuildT, width=ui.width(2))
+        ui.button(label='U', c=self.onRebuildU, width=ui.width(2))
+        ui.button(label='STU', c=self.onRebuidLattice)
         ui.end_layout()
 
         ui.row_layout()
@@ -669,7 +674,6 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Func')
-        ui.button(label='Rebuild', c=self.onRebuidLattice)
         ui.button(label='Smooth', c=self.onSmoothLatticePoint)
         self.cb_smooth_completely = ui.check_box(label="completely", v=False)
         ui.end_layout()
