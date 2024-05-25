@@ -653,10 +653,11 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
         ui.row_layout()
-        ui.header(label='')
-        ui.button(label='Set', c=self.onRebuildS)
-        ui.button(label='Set', c=self.onRebuildT)
-        ui.button(label='Set', c=self.onRebuildU)
+        ui.header(label='Rebuild')
+        ui.button(label='S', c=self.onRebuildS, width=ui.width(2))
+        ui.button(label='T', c=self.onRebuildT, width=ui.width(2))
+        ui.button(label='U', c=self.onRebuildU, width=ui.width(2))
+        ui.button(label='STU', c=self.onRebuidLattice)
         ui.end_layout()
 
         ui.row_layout()
@@ -669,7 +670,6 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Func')
-        ui.button(label='Rebuild', c=self.onRebuidLattice)
         ui.button(label='Smooth', c=self.onSmoothLatticePoint)
         self.cb_smooth_completely = ui.check_box(label="completely", v=False)
         ui.end_layout()
