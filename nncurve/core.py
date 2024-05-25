@@ -1,5 +1,7 @@
 #! python
 # coding:utf-8
+import re
+
 import pymel.core as pm
 import maya.cmds as cmds
 
@@ -310,7 +312,7 @@ class NN_ToolWindow(object):
 
         selections = cmds.ls(selection=True, flatten=True)
 
-        polyline_list = nu.get_all_polylines(selections)
+        polyline_list = nu.get_all_polylines(selections)    
 
         curves = []
 
@@ -336,7 +338,14 @@ class NN_ToolWindow(object):
 
             curves.append(curve_str)
 
+        # 生成カーブの選択
         cmds.select(curves)
+
+        # 生成カーブを全ての isolation セットに追加
+        all_isolation_sets = [x for x in cmds.ls(type="objectSet") if re.match(r"modelPanel\dViewSelectedSet", x)]
+
+        for set_name in all_isolation_sets:
+            cmds.sets(curves, e=True, add=set_name)
 
     def onSetActive(self, *args):
         """
