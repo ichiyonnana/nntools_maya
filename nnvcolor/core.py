@@ -19,6 +19,7 @@ from PySide2.QtGui import QDoubleValidator, QCursor
 from maya.app.general.mayaMixin import MayaQWidgetBaseMixin
 
 import nnutil.ui as ui
+import nnutil.memento as nm
 
 
 class UndoChunk(object):
@@ -219,7 +220,7 @@ def str_to_vfi(vf_comp_string):
     if match:
         vi, fi = match.groups()
 
-        return (fi, vi)
+        return (int(fi), int(vi))
 
     else:
         return None
@@ -771,55 +772,138 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
 
             self._sync_slider_and_editbox(from_slider=True)
 
-    def _set_unified_color(self, targets, channel, value, via_api):
-        """指定頂点カラーに同一値を設定する｡最終的な設定は cmds経由で Undo 可能｡同一色での塗りつぶし1回なので早い｡
+    def _set_unified_color(self, targets, channel, value, via_api=False):
+        """指定頂点カラーに同一値を設定する｡同一色での塗りつぶし1回なので早い｡
 
         Args:
             targets (list[str]): 対象コンポーネント
             channel (str): 上書きするチャンネル
             value (float): 上書きする値
-
-        TODO: 高速化が必要な場合は via_api で分岐して API での処理を書く
+            via_api (bool, optional): API での操作. Defaults to False.
         """
         if targets:
-            # UV選択なら vf 変換､エッジ選択なら vtx 変換する
+            # UV選択なら vf 変換､エッジ選択なら vtx 変換する｡それ以外の場合はそのまま
             if cmds.selectType(q=True, polymeshUV=True):
                 targets = cmds.polyListComponentConversion(targets, tvf=True)
 
             elif cmds.selectType(q=True, edge=True):
                 targets = cmds.polyListComponentConversion(targets, tv=True)
 
-            # オブジェクト全体の現在の頂点カラーを保存する
-            objects = cmds.polyListComponentConversion(targets)
-            stored_colors = store_colors(objects)
+            if via_api:
+                # API による頂点カラーの設定
 
-            # 指定のチャンネルを上書きする｡ polyColorPerVertex の仕様で他チャンネルが崩れるので
-            # 保存した頂点カラーで復帰する
-            if channel == "r":
-                cmds.polyColorPerVertex(targets, r=value)
-                restore_colors(objects, stored_colors, r=False, g=True, b=True, a=True)
+                # API の場合､速度は気にしなくて良いので全て頂点フェースに変換して後続処理を簡略化する
+                targets = cmds.filterExpand(cmds.polyListComponentConversion(targets, tvf=True), sm=70)
 
-            if channel == "g":
-                cmds.polyColorPerVertex(targets, g=value)
-                restore_colors(objects, stored_colors, r=True, g=False, b=True, a=True)
+                # コンポーネントをオブジェクト毎に分類
+                objects = cmds.polyListComponentConversion(targets)
+                object_name_to_targets = dict()
 
-            if channel == "b":
-                cmds.polyColorPerVertex(targets, b=value)
-                restore_colors(objects, stored_colors, r=True, g=True, b=False, a=True)
+                for target in targets:
+                    obj_name = cmds.polyListComponentConversion(target)[0]
 
-            if channel == "a":
-                cmds.polyColorPerVertex(targets, a=value)
-                restore_colors(objects, stored_colors, r=True, g=True, b=True, a=False)
+                    if obj_name not in object_name_to_targets:
+                        object_name_to_targets[obj_name] = []
+
+                    object_name_to_targets[obj_name].append(target)
+
+                # オブジェクト毎に頂点カラーを設定
+                for obj_name, targets in object_name_to_targets.items():
+                    # 関数オブジェクト初期化
+                    slist = om.MGlobal.getSelectionListByName(obj_name)
+                    obj, component = slist.getComponent(0)
+                    fn_mesh = om.MFnMesh(obj)
+
+                    # 全頂点フェースのカラー取得
+                    vf_colors = fn_mesh.getFaceVertexColors()
+
+                    # 頂点インデックス･フェースインデックスと 頂点フェースインデックス (1次元) の相互変換辞書
+                    vfi_to_fivi = [None] * len(vf_colors)
+                    fivi_to_vfi = dict()
+
+                    for fi in range(fn_mesh.numPolygons):
+                        vertex_indices = fn_mesh.getPolygonVertices(fi)
+
+                        for lvi, gvi in enumerate(vertex_indices):
+                            vfi = fn_mesh.getFaceVertexIndex(fi, lvi)
+                            vfi_to_fivi[vfi] = (fi, gvi)
+                            fivi_to_vfi[(fi, gvi)] = vfi
+
+                    # targets で指定されたコンポーネントの頂点カラーを上書き
+                    for fi, vi in [str_to_vfi(x) for x in targets]:
+                        vfi = fivi_to_vfi[(fi, vi)]
+                        vf_color = vf_colors[vfi]
+
+                        if channel == "r":
+                            vf_color.r = value
+
+                        if channel == "g":
+                            vf_color.g = value
+
+                        if channel == "b":
+                            vf_color.b = value
+
+                        if channel == "a":
+                            vf_color.a = value
+
+                        vf_colors[vfi] = vf_color
+
+                    # 全頂点フェースカラーの設定
+                    face_indices = om.MIntArray()
+                    vertex_indices = om.MIntArray()
+
+                    for i in range(fn_mesh.numPolygons):
+                        polygon_vertices = fn_mesh.getPolygonVertices(i)
+
+                        for j in polygon_vertices:
+                            face_indices.append(i)
+                            vertex_indices.append(j)
+
+                    print(obj_name)
+                    nm.snapshot(targets=[obj_name], color=True)
+
+                    fn_mesh.setFaceVertexColors(vf_colors, face_indices, vertex_indices)
+
+                    nm.snapshot(targets=[obj_name], color=True)
 
             else:
-                pass
+                # コマンドによる頂点カラーの設定
+                # 指定のチャンネルを上書きする｡ polyColorPerVertex の仕様で他チャンネルが崩れるので
+                # 保存した頂点カラーで復帰する
+
+                # オブジェクト全体の現在の頂点カラーを保存する
+                objects = cmds.polyListComponentConversion(targets)
+                stored_colors = store_colors(objects)
+
+                if channel == "r":
+                    cmds.polyColorPerVertex(targets, r=value)
+                    restore_colors(objects, stored_colors, r=False, g=True, b=True, a=True)
+
+                if channel == "g":
+                    cmds.polyColorPerVertex(targets, g=value)
+                    restore_colors(objects, stored_colors, r=True, g=False, b=True, a=True)
+
+                if channel == "b":
+                    cmds.polyColorPerVertex(targets, b=value)
+                    restore_colors(objects, stored_colors, r=True, g=True, b=False, a=True)
+
+                if channel == "a":
+                    cmds.polyColorPerVertex(targets, a=value)
+                    restore_colors(objects, stored_colors, r=True, g=True, b=True, a=False)
+
+                else:
+                    pass
 
     def _blend_color(self, vf_color_caches, channel, v, weight_mul=1.0, mode="copy", via_api=False):
-        """頂点カラーそれぞれに指定した値を設定する｡最終的な設定は cmds経由で Undo 可能｡コンポーネント反復するので遅い｡
+        """頂点カラーそれぞれに指定した値を設定する｡コンポーネント反復するので遅い｡
 
         Args:
             vf_color_caches (dict[str, list[MColor]]): オブジェクト毎の全頂点カラー
             channel (str): 上書きするチャンネル
+            v (float): 上書きする値
+            weight_mul (float, optional): 乗算モードでの倍率. Defaults to 1.0.
+            mode (str, optional): 上書きモード. Defaults to "copy".
+            via_api (bool, optional): API での操作. Defaults to False.
         """
         if not cmds.softSelect(q=True, softSelectEnabled=True):
             return None
@@ -848,7 +932,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
                 vi_to_weight[vi] = fn_comp.weight(j).influence
 
             # シンメトリ側に同一のオブジェクトがあればウェイト取得してマージする
-            # 同一オブジェクトを別々に処理する (sl_rich_sel と sl_rich_sel_sym をそれぞれ for する等) と
+            # 同一オブジェクトを別々に処理すると (sl_rich_sel と sl_rich_sel_sym をそれぞれ for する等)
             # スライド中にお互いがお互いをキャッシュで上書きされて使い勝手悪い
             for j in range(sl_rich_sel_sym.length()):
                 sym_obj, sym_comp = sl_rich_sel_sym.getComponent(j)
@@ -940,15 +1024,22 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
                 # API はそのまま全VFに適用
                 fis = [fi for fi, vi in vfi_to_fivi]
                 vis = [vi for fi, vi in vfi_to_fivi]
+
+                nm.snapshot(targets=[obj_name], color=True)
+
                 fn_mesh.setFaceVertexColors(new_vf_colors, fis, vis)
 
+                nm.snapshot(targets=[obj_name], color=True)
+
             else:
+                # cmds はインデックスで反復して適用
+
                 # 一度キャッシュの内容に戻して cmds が作る Undo にドラッグ前の値を記憶させる
                 fis = [fi for fi, vi in vfi_to_fivi]
                 vis = [vi for fi, vi in vfi_to_fivi]
                 fn_mesh.setFaceVertexColors(current_vf_colors, fis, vis)
 
-                # cmds はインデックスで反復して適用
+                # 適用処理
                 with UndoChunk():
                     for vfi, fivi in enumerate(vfi_to_fivi):
                         fi = fivi[0]
@@ -995,7 +1086,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
                     self._blend_color(self.vf_color_caches, channel, v, mode=mode, via_api=True)
 
                 else:
-                    self._blend_color(self.vf_color_caches, channel, v, mode=mode, via_api=False)
+                    self._blend_color(self.vf_color_caches, channel, v, mode=mode, via_api=True)  # nm.snapshot が使用できない環境では via_api=False にして Undo 対応する
 
             else:
                 # 通常選択
@@ -1003,7 +1094,7 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
                     self._set_unified_color(selection, channel, v, via_api=True)
 
                 else:
-                    self._set_unified_color(selection, channel, v, via_api=False)
+                    self._set_unified_color(selection, channel, v, via_api=True)  # nm.snapshot が使用できない環境では via_api=False にして Undo 対応する
 
     def onSetColorR(self, *args):
         """[R] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
