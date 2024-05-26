@@ -98,7 +98,16 @@ class NnSnapshotState(om.MPxCommand):
                 fn_mesh.setPoints(self.positions)
 
             if self.to_store_colors:
-                fn_mesh.setFaceVertexColor(self.colors)
+                face_indices = om.MIntArray()
+                vertex_indices = om.MIntArray()
+
+                for i in range(fn_mesh.numPolygons):
+                    polygon_vertices = fn_mesh.getPolygonVertices(i)
+                    for j in polygon_vertices:
+                        face_indices.append(i)
+                        vertex_indices.append(j)
+
+                fn_mesh.setFaceVertexColors(self.colors, face_indices, vertex_indices)
 
             fn_mesh.updateSurface()
 
@@ -122,7 +131,16 @@ class NnSnapshotState(om.MPxCommand):
                 fn_mesh.setPoints(self.positions)
 
             if self.to_store_colors:
-                fn_mesh.setFaceVertexColor(self.colors)
+                face_indices = om.MIntArray()
+                vertex_indices = om.MIntArray()
+
+                for i in range(fn_mesh.numPolygons):
+                    polygon_vertices = fn_mesh.getPolygonVertices(i)
+                    for j in polygon_vertices:
+                        face_indices.append(i)
+                        vertex_indices.append(j)
+
+                fn_mesh.setFaceVertexColors(self.colors, face_indices, vertex_indices)
 
             fn_mesh.updateSurface()
 
