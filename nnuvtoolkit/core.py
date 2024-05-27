@@ -711,15 +711,47 @@ class NN_ToolWindow(object):
             pm.windowPref(self.window, remove=True)
 
             if parent_to_uveditor and parent_window:
-                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False, resizeToFitChildren=True, parent=parent_window)
+                pm.window(
+                    self.window,
+                    t=self.title,
+                    maximizeButton=False,
+                    minimizeButton=False,
+                    topLeftCorner=position,
+                    widthHeight=self.size,
+                    sizeable=False,
+                    resizeToFitChildren=True,
+                    parent=parent_window)
             else:
-                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, resizeToFitChildren=True, sizeable=False)
+                pm.window(
+                    self.window,
+                    t=self.title,
+                    maximizeButton=False,
+                    minimizeButton=False,
+                    topLeftCorner=position,
+                    widthHeight=self.size,
+                    resizeToFitChildren=True,
+                    sizeable=False)
 
         else:
             if parent_to_uveditor and parent_window:
-                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False, resizeToFitChildren=True, parent=parent_window)
+                pm.window(
+                    self.window,
+                    t=self.title,
+                    maximizeButton=False,
+                    minimizeButton=False,
+                    widthHeight=self.size,
+                    sizeable=False,
+                    resizeToFitChildren=True,
+                    parent=parent_window)
             else:
-                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, resizeToFitChildren=True, sizeable=False)
+                pm.window(
+                    self.window,
+                    t=self.title,
+                    maximizeButton=False,
+                    minimizeButton=False,
+                    widthHeight=self.size,
+                    resizeToFitChildren=True,
+                    sizeable=False)
 
         self.layout()
         pm.showWindow(self.window)

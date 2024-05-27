@@ -18,8 +18,9 @@ class NN_ManipWindow(object):
         self.window = cmds.window(
             self.window,
             t=self.title,
-            widthHeight=self.size
-        )
+            widthHeight=self.size,
+            resizeToFitChildren=True
+            )
         self.layout()
         cmds.showWindow()
 

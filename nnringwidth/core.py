@@ -83,11 +83,28 @@ class NN_AlignedgeRingWindow(object):
             pm.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False, resizeToFitChildren=True)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                topLeftCorner=position,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False, resizeToFitChildren=True)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         self.layout()
         pm.showWindow(self.window)
