@@ -37,6 +37,72 @@ bw_double = bw_single*2 + 2
 bw_triple = bw_single*3 + 4
 
 
+def set_shrinkwrap_attr(shrinkwrap):
+    """シュリンクラップのデフォルト設定を行う｡"""
+    cmds.setAttr(shrinkwrap + ".projection", 3)
+    cmds.setAttr(shrinkwrap + ".closestIfNoIntersection", 0)
+    cmds.setAttr(shrinkwrap + ".reverse", 0)
+    cmds.setAttr(shrinkwrap + ".bidirectional", 1)
+    cmds.setAttr(shrinkwrap + ".offset", 0)
+    cmds.setAttr(shrinkwrap + ".targetInflation", 0)
+    cmds.setAttr(shrinkwrap + ".axisReference", 3)
+    cmds.setAttr(shrinkwrap + ".alongX", False)
+    cmds.setAttr(shrinkwrap + ".alongY", False)
+    cmds.setAttr(shrinkwrap + ".alongZ", True)
+    cmds.setAttr(shrinkwrap + ".targetSmoothLevel", 0)
+
+
+def shrinkwrap():
+    """選択オブジェクトでシュリンクラップを作成する｡"""
+    selections = cmds.ls(selection=True, type="transform")
+
+    if len(selections) < 2:
+        return
+
+    base_objects = selections[0:-1]
+    target = selections[-1]
+
+    # シュリンクラップの作成とターゲットメッシュ設定
+    shrinkwrap = cmds.deformer(base_objects[0], type="shrinkWrap")[0]
+    cmds.connectAttr(target + ".worldMesh[0]", shrinkwrap + ".targetGeom")
+
+    # メンバの追加
+    for obj in base_objects[1:]:
+        cmds.deformer(shrinkwrap, e=True, geometry=obj)
+
+    # アトリビュート設定
+    set_shrinkwrap_attr(shrinkwrap)
+
+    # ノード選択
+    cmds.select(shrinkwrap)
+
+
+def shrinkwrap_for_set():
+    """ オブジェクトの一部分にだけシュリンクラップを設定する
+    頂点セットとターゲットメッシュ選択して実行すると
+    セットメンバーの頂点のみウェイトが1.0になるようにシュリンクラップを作成する
+    TODO: セレクションじゃなくて引数で頂点リスト取って
+    """
+    base_set, target = cmds.ls(selection=True, flatten=True)
+
+    vts = cmds.sets(base_set, q=True)
+    base = nnutil.get_object(vts[0])
+
+    # シュリンクラップの作成とターゲットメッシュ設定
+    shrinkwrap = cmds.deformer(base, type="shrinkWrap")[0]
+    cmds.connectAttr(target + ".worldMesh[0]", shrinkwrap + ".targetGeom")
+
+    # アトリビュート設定
+    set_shrinkwrap_attr(shrinkwrap)
+
+    # ウェイトの設定
+    cmds.percent(shrinkwrap, base + ".vtx[*]", v=0)
+    cmds.percent(shrinkwrap, vts, v=1)
+
+    # ノード選択
+    cmds.select(shrinkwrap)
+
+
 class NN_ToolWindow(object):
 
     def __init__(self):
@@ -232,10 +298,10 @@ class NN_ToolWindow(object):
 
     # シュリンクラップ
     def onShrinkwrapForObject(self, *args):
-        mel.eval("CreateShrinkWrap")
+        shrinkwrap()
 
     def onShrinkwrapForSet(self, *args):
-        nnutil.shrinkwrap_for_set()
+        shrinkwrap_for_set()
 
     def onShrinkwrapOptions(self, *args):
         mel.eval("CreateShrinkWrapOptions")
