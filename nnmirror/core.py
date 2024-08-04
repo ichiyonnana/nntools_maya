@@ -359,7 +359,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (280, 530)
+        self.size = (10, 10)
 
     def create(self):
         if pm.window(self.window, exists=True):
@@ -372,16 +372,35 @@ class NN_ToolWindow(object):
             pm.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                topLeftCorner=position,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         self.layout()
         pm.showWindow(self.window)
 
     def layout(self):
+        separator_width = 250
+
         ui.column_layout()
 
         ui.row_layout()
@@ -418,7 +437,7 @@ class NN_ToolWindow(object):
         ui.button(label='Z', c=self.onFlattenZ, bgc=ui.color_z, width=ui.width2)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='Weight')
@@ -431,7 +450,7 @@ class NN_ToolWindow(object):
         ui.button(label='Op', c=self.onMirrorWeightOp)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='Joint')
@@ -455,7 +474,7 @@ class NN_ToolWindow(object):
         ui.button(label="Add Inf", c=self.onAddInfluence, width=ui.width(2))
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='weight')
@@ -473,7 +492,7 @@ class NN_ToolWindow(object):
         ui.button(label='over', c=self.onImportWeightOver, dgc=self.onImportWeightOverB, annotation="L: ReBind\nM: Keep Bind")
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='bind')
@@ -489,7 +508,7 @@ class NN_ToolWindow(object):
         ui.button(label='del pose', c=self.onDeletePose)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='combine')
@@ -497,7 +516,7 @@ class NN_ToolWindow(object):
         ui.button(label='combine Op', c=self.onCombineOptions)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='Anim')
@@ -505,7 +524,7 @@ class NN_ToolWindow(object):
         ui.button(label='import', c=self.onImportAnim)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='Editor')
@@ -513,7 +532,7 @@ class NN_ToolWindow(object):
         ui.button(label='copyWeightOp', c=self.onCopyWeightOp)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='AriTools')
@@ -527,7 +546,7 @@ class NN_ToolWindow(object):
         ui.button(label='SplitPolygon', c=self.onAriSplitPolygon)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='NnTools')
@@ -536,7 +555,7 @@ class NN_ToolWindow(object):
         ui.button(label='Straighten', c=self.onNnStraighten)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='Mesh')
@@ -545,7 +564,7 @@ class NN_ToolWindow(object):
         ui.button(label='QRemesher', c=self.onQuadRemesher)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='Etc')
