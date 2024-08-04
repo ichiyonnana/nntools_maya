@@ -589,7 +589,9 @@ def select_all_skined_meshes_from_root_joint(root_object=None, select=True, resu
 
     for joint in all_joints:
         skinclusters = cmds.listConnections(joint, destination=True, type="skinCluster")
-        all_skinclusters.extend(skinclusters)
+
+        if skinclusters:
+            all_skinclusters.extend(skinclusters)
 
     all_skinclusters = list(set(all_skinclusters))
 
