@@ -190,6 +190,22 @@ def half_expand_fold(right_down=True):
     cmds.select(clear=True)
 
 
+def get_uv_pivot():
+    current_context = cmds.currentCtx()
+
+    if current_context == "moveSuperContext":
+        return cmds.texMoveContext("texMoveContext", q=True, position=True)
+
+    elif current_context == "rotateSuperContext":
+        return cmds.texRotateContext("texRotateContext", q=True, position=True)
+
+    elif current_context == "scaleSuperContext":
+        return cmds.texScaleContext("texScaleContext", q=True, position=True)
+
+    else:
+        return None
+
+
 @nd.repeatable
 def translate_uv(pivot, translate):
     """ 選択中 UV の移動
@@ -202,14 +218,24 @@ def translate_uv(pivot, translate):
 
 
 @nd.repeatable
-def scale_uv(pivot, scale):
+def scale_uv(pivot=None, scale=(1.0, 1.0)):
     """ 選択中 UV のスケール
 
     Args:
         pivot ([type]): [description]
         scale ([type]): [description]
     """
-    cmds.polyEditUV(pu=pivot[0], pv=pivot[1], u=scale[0], v=scale[1])
+
+    if not pivot:
+        uv_pivot = get_uv_pivot()
+
+        if uv_pivot:
+            pivot = uv_pivot
+
+        else:
+            pivot = (0.0, 0.0)
+
+    cmds.polyEditUV(scale=True, pu=pivot[0], pv=pivot[1], scaleU=scale[0], scaleV=scale[1])
 
 
 @nd.repeatable
@@ -986,22 +1012,22 @@ class NN_ToolWindow(object):
     @nd.undo_chunk
     def onOrigScaleUMul(self, *args):
         v = ui.get_value(self.scaleValue)
-        scale_uv(pivot=(0, 0), scale=(v, 1))
+        scale_uv(scale=(v, 1))
 
     @nd.undo_chunk
     def onOrigScaleVMul(self, *args):
         v = ui.get_value(self.scaleValue)
-        scale_uv(pivot=(0, 0), scale=(1, v))
+        scale_uv(scale=(1, v))
 
     @nd.undo_chunk
     def onOrigScaleUDiv(self, *args):
         v = ui.get_value(self.scaleValue)
-        scale_uv(pivot=(0, 0), scale=(1.0/v, 1))
+        scale_uv(scale=(1.0/v, 1))
 
     @nd.undo_chunk
     def onOrigScaleVDiv(self, *args):
         v = ui.get_value(self.scaleValue)
-        scale_uv(pivot=(0, 0), scale=(1, 1.0/v))
+        scale_uv(scale=(1, 1.0/v))
 
     @nd.undo_chunk
     def onRotateLeft(self, *args):
