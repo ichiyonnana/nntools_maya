@@ -1,6 +1,8 @@
 import maya.cmds as cmds
 import maya.mel as mel
 
+import nnutil.decorator as deco
+
 
 ls_nonscalse = 1
 ls_uniform = 2
@@ -18,6 +20,11 @@ def set_texel(texel=default_texel, mapsize=default_mapsize):
     mel.eval("texSetTexelDensity %f %d" % (texel, mapsize))
 
 
+@deco.repeatable
+def project_uv(axis="x"):
+    cmds.polyProjection(type="Planar", ibd=1, kir=True, md=axis)
+
+
 layout_buttons = dict()
 unused_color = (0.25, 0.25, 0.25)
 used_color = (0.5, 0.5, 0.5)
@@ -33,9 +40,9 @@ def main():
     # プロジェクションボタン
     cmds.columnLayout()
     cmds.rowLayout(numberOfColumns=6)
-    cmds.button(label="X", width=40, height=40, bgc=(1.0, 0.5, 0.5), command=lambda x, axis="x": cmds.polyProjection(type="Planar", ibd=1, kir=True, md=axis))
-    cmds.button(label="Y", width=40, height=40, bgc=(0.5, 1.0, 0.5), command=lambda x, axis="y": cmds.polyProjection(type="Planar", ibd=1, kir=True, md=axis))
-    cmds.button(label="Z", width=40, height=40, bgc=(0.5, 0.5, 1.0), command=lambda x, axis="z": cmds.polyProjection(type="Planar", ibd=1, kir=True, md=axis))
+    cmds.button(label="X", width=40, height=40, bgc=(1.0, 0.5, 0.5), command=lambda x, axis="x": project_uv(axis=axis))
+    cmds.button(label="Y", width=40, height=40, bgc=(0.5, 1.0, 0.5), command=lambda x, axis="y": project_uv(axis=axis))
+    cmds.button(label="Z", width=40, height=40, bgc=(0.5, 0.5, 1.0), command=lambda x, axis="z": project_uv(axis=axis))
 
     cmds.button(label="Cut", width=40, height=40, command=lambda x: cmds.polyMapCut())
     cmds.button(label="Sew", width=40, height=40, command=lambda x: cmds.polyMapSew())
