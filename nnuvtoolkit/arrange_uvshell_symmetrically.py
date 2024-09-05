@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 # 選択した UV シェルを左右対称に配置する
 
 import maya.cmds as cmds

@@ -1,5 +1,3 @@
-#! python
-# coding:utf-8
 """API の Undo/Redo 用プラグイン"""
 
 import sys

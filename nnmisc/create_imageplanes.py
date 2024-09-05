@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 import pymel.core as pm
 import pymel.core.datatypes as dt
 import re

@@ -1,5 +1,3 @@
-#! python
-# coding:utf-8
 """頂点カラーツール"""
 import re
 import math

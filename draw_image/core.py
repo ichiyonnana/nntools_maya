@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 import svgwrite
 
 import maya.cmds as cmds

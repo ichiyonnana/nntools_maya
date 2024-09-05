@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 # 頂点ロック関連
 
 import maya.cmds as cmds

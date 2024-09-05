@@ -1,5 +1,3 @@
-#! python
-# coding:utf-8
 import re
 
 import pymel.core as pm

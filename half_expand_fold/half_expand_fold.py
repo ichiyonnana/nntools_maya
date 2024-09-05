@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 # UVシェルを選択したUVを軸に裏面をシンメトリにフリップしたり開いたシェルをたたんだりする
 
 import maya.cmds as cmds
