@@ -1,4 +1,3 @@
-# coding:utf-8
 """
 カーブ関連
 pymel ベース

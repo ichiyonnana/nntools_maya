@@ -1,5 +1,3 @@
-# coding:utf-8
-
 # 選択されたすべてのジョイントに対してエンドジョイントを作成する
 
 import maya.cmds as cmds
