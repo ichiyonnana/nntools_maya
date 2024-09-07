@@ -1,5 +1,3 @@
-#! python
-# coding:utf-8
 import re
 import os
 import sys
@@ -359,7 +357,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (280, 530)
+        self.size = (10, 10)
 
     def create(self):
         if pm.window(self.window, exists=True):
@@ -372,16 +370,35 @@ class NN_ToolWindow(object):
             pm.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                topLeftCorner=position,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         self.layout()
         pm.showWindow(self.window)
 
     def layout(self):
+        separator_width = 250
+
         ui.column_layout()
 
         ui.row_layout()
@@ -397,9 +414,9 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Set')
-        ui.button(label='X = ', c=self.onSetXOS, dgc=self.onSetXWS, bgc=ui.color_x, width=ui.width1, annotation="L: Object\nM: World")
-        ui.button(label='Y = ', c=self.onSetYOS, dgc=self.onSetYWS, bgc=ui.color_y, width=ui.width1, annotation="L: Object\nM: World")
-        ui.button(label='Z = ', c=self.onSetZOS, dgc=self.onSetZWS, bgc=ui.color_z, width=ui.width1, annotation="L: Object\nM: World")
+        ui.button(label='X = ', c=self.onSetXOS, dgc=self.onSetXWS, bgc=ui.color_x, width=ui.width1, annotation="L: Object\nM: World\nShift: Negative")
+        ui.button(label='Y = ', c=self.onSetYOS, dgc=self.onSetYWS, bgc=ui.color_y, width=ui.width1, annotation="L: Object\nM: World\nShift: Negative")
+        ui.button(label='Z = ', c=self.onSetZOS, dgc=self.onSetZWS, bgc=ui.color_z, width=ui.width1, annotation="L: Object\nM: World\nShift: Negative")
         self.coord_value = ui.eb_float(v=0, width=ui.width2)
         self.cb_set_position_relative = ui.check_box(label="Relative", v=False)
         ui.end_layout()
@@ -418,7 +435,7 @@ class NN_ToolWindow(object):
         ui.button(label='Z', c=self.onFlattenZ, bgc=ui.color_z, width=ui.width2)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='Weight')
@@ -431,7 +448,7 @@ class NN_ToolWindow(object):
         ui.button(label='Op', c=self.onMirrorWeightOp)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='Joint')
@@ -455,7 +472,7 @@ class NN_ToolWindow(object):
         ui.button(label="Add Inf", c=self.onAddInfluence, width=ui.width(2))
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='weight')
@@ -473,7 +490,7 @@ class NN_ToolWindow(object):
         ui.button(label='over', c=self.onImportWeightOver, dgc=self.onImportWeightOverB, annotation="L: ReBind\nM: Keep Bind")
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='bind')
@@ -489,7 +506,7 @@ class NN_ToolWindow(object):
         ui.button(label='del pose', c=self.onDeletePose)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='combine')
@@ -497,7 +514,7 @@ class NN_ToolWindow(object):
         ui.button(label='combine Op', c=self.onCombineOptions)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='Anim')
@@ -505,7 +522,7 @@ class NN_ToolWindow(object):
         ui.button(label='import', c=self.onImportAnim)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='Editor')
@@ -513,7 +530,7 @@ class NN_ToolWindow(object):
         ui.button(label='copyWeightOp', c=self.onCopyWeightOp)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='AriTools')
@@ -527,7 +544,7 @@ class NN_ToolWindow(object):
         ui.button(label='SplitPolygon', c=self.onAriSplitPolygon)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='NnTools')
@@ -536,7 +553,7 @@ class NN_ToolWindow(object):
         ui.button(label='Straighten', c=self.onNnStraighten)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='Mesh')
@@ -545,7 +562,7 @@ class NN_ToolWindow(object):
         ui.button(label='QRemesher', c=self.onQuadRemesher)
         ui.end_layout()
 
-        ui.separator()
+        ui.separator(width=separator_width)
 
         ui.row_layout()
         ui.header(label='Etc')
@@ -577,31 +594,49 @@ class NN_ToolWindow(object):
 
     def onSetXOS(self, *args):
         v = ui.get_value(self.coord_value)
+        if ui.is_shift():
+            v *= -1
+
         relative = ui.get_value(self.cb_set_position_relative)
         nm.set_coord('x', v, space="object", relative=relative)
 
     def onSetYOS(self, *args):
         v = ui.get_value(self.coord_value)
+        if ui.is_shift():
+            v *= -1
+
         relative = ui.get_value(self.cb_set_position_relative)
         nm.set_coord('y', v, space="object", relative=relative)
 
     def onSetZOS(self, *args):
         v = ui.get_value(self.coord_value)
+        if ui.is_shift():
+            v *= -1
+
         relative = ui.get_value(self.cb_set_position_relative)
         nm.set_coord('z', v, space="object", relative=relative)
 
     def onSetXWS(self, *args):
         v = ui.get_value(self.coord_value)
+        if ui.is_shift():
+            v *= -1
+
         relative = ui.get_value(self.cb_set_position_relative)
         nm.set_coord('x', v, space="world", relative=relative)
 
     def onSetYWS(self, *args):
         v = ui.get_value(self.coord_value)
+        if ui.is_shift():
+            v *= -1
+
         relative = ui.get_value(self.cb_set_position_relative)
         nm.set_coord('y', v, space="world", relative=relative)
 
     def onSetZWS(self, *args):
         v = ui.get_value(self.coord_value)
+        if ui.is_shift():
+            v *= -1
+
         relative = ui.get_value(self.cb_set_position_relative)
         nm.set_coord('z', v, space="world", relative=relative)
 
@@ -778,14 +813,14 @@ class NN_ToolWindow(object):
     def onAddInfluence(self, *args):
         """"選択された全てのジョイントを選択された全てのメッシュのスキンクラスターにインフルエンスとして追加する｡"""
         joints = cmds.ls(selection=True, exactType="joint")
-        transforms = cmds.ls(selection=True, exactType="transform")
+        transforms = cmds.ls(selection=True, exactType="transform", long=True)
         target_skinclusters = []
 
         if not joints or not transforms:
             return
 
         for transform in transforms:
-            all_meshes = cmds.listRelatives(transform, shapes=True, noIntermediate=False, type="mesh") or []
+            all_meshes = cmds.listRelatives(transform, shapes=True, noIntermediate=False, type="mesh", fullPath=True) or []
 
             for mesh in all_meshes:
                 skinclusters = cmds.listConnections(mesh, source=True, type="skinCluster") or []
@@ -865,11 +900,11 @@ class NN_ToolWindow(object):
         mel.eval('DetachSkinOptions')
 
     def onUnlockTRS(self, *args):
-        for obj in pm.selected(flatten=True):
+        for obj in pm.selected(flatten=True, type="transform"):
             nu.unlock_trs(obj)
 
     def onLockTRS(self, *args):
-        for obj in pm.selected(flatten=True):
+        for obj in pm.selected(flatten=True, type="transform"):
             nu.lock_trs(obj)
 
     def onResetPose(self, *args):

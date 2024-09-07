@@ -1,17 +1,11 @@
-#! python
-# coding:utf-8
-
-import math
-import copy
-
-import importlib
+import re
 
 import pymel.core as pm
 import maya.cmds as cmds
-import maya.mel as mel
 
 import nnutil.core as nu
 import nnutil.display as nd
+import nnutil.ui as ui
 
 # TODO: カーブを比率で分割しても曲率の違いで 全体曲線:部分曲線 と 全体折れ線:部分直線 の比率が一致しない問題どうにかする (元の比率をキャッシュする？)
 # TODO: ループ時の対応 (メッセージ出しつつ適当な所始点にしてしまいたい)
@@ -29,12 +23,6 @@ window = None
 def get_window():
     return window
 
-
-window_width = 300
-header_width = 50
-bw_single = 24
-bw_double = bw_single*2 + 2
-bw_3 = bw_single*3 + 2
 
 # アトリビュートにエッジ列を文字列で保存する際の区切り文字
 component_separator = ','
@@ -107,7 +95,7 @@ def makeCurve(edges, n=4):
 
     # 開いた状態の連続した一本のエッジ列以外は現状エラーで終了
     if not len(end_vts) == 2:
-        raise(Exception)
+        raise Exception
 
     sorted_vts = nu.sortVtx(edge_set, end_vts[0])
 
@@ -210,7 +198,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (240, 360)
+        self.size = (10, 10)
 
     def create(self):
         if pm.window(self.window, exists=True):
@@ -223,110 +211,109 @@ class NN_ToolWindow(object):
             pm.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                topLeftCorner=position,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         self.layout()
         pm.showWindow(self.window)
 
     def layout(self):
-        self.columnLayout = cmds.columnLayout()
+        window_width = 255
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Make', width=header_width)
-        self.bt_ = cmds.button(l='Make Curve', c=self.onMakeCurve)
-        self.bt_ = cmds.button(l='Set Active', c=self.onSetActive)
-        cmds.setParent("..")
+        ui.column_layout()
 
-        cmds.separator(width=window_width)
+        ui.row_layout()
+        ui.header(label='Make')
+        ui.button(label='Make Curve', c=self.onMakeCurve)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Active Objects')
-        cmds.setParent("..")
+        ui.separator(width=window_width)
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Edges', width=header_width)
-        self.ed_edges = cmds.textField(tx='')
-        self.bt_hoge = cmds.button(l='Set', c=self.onSetEdges)
-        self.bt_hoge = cmds.button(l='Sel', c=self.onSelectEdges)
-        cmds.setParent("..")
-
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Curve', width=header_width)
+        ui.row_layout()
+        ui.header(label='Curve')
         self.ed_curve = cmds.textField(tx='')
-        self.bt_hoge = cmds.button(l='Set', c=self.onSetCurve)
-        self.bt_hoge = cmds.button(l='Sel', c=self.onSelectCurve)
-        cmds.setParent("..")
+        ui.button(label='Set', c=self.onSetCurve)
+        ui.button(label='Sel', c=self.onSelectCurve)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.bt_ = cmds.button(l='Fit to Curve', c=self.onFitActive, width=bw_3)
-        self.bt_ = cmds.button(l='Rebuild', c=self.onRebuildActive, width=bw_3)
-        self.bt_ = cmds.button(l='Smooth', c=self.onSmoothActive, width=bw_3)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='Edges')
+        self.ed_edges = cmds.textField(tx='')
+        ui.button(label='Set', c=self.onSetEdges)
+        ui.button(label='Sel', c=self.onSelectEdges)
+        ui.end_layout()
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.bt_ = cmds.button(l='Remake', c=self.onReMakeCurve, width=bw_3)
-        self.bt_ = cmds.button(l='Reassign', c=self.onReAssignEdges, width=bw_3)
-        cmds.setParent("..")
+        ui.separator(width=window_width)
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
+        ui.row_layout()
+        ui.button(label='Active', c=self.onSetActive, width=ui.width(2))
+        ui.button(label='Fit to Curve', c=self.onFitActive, width=ui.width(2.5))
+        ui.button(label='Smooth', c=self.onSmoothActive, width=ui.width(2.5))
         self.cb_keep_ratio_mode = cmds.checkBox(l='keep ratio', v=True, cc=self.onSetKeepRatio)
-        self.bt_ = cmds.button(l='/2', c=self.onRebuildResolutionDiv2)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='Remake', c=self.onReMakeCurve, width=ui.width(2.5))
+        ui.button(label='Reassign', c=self.onReAssignEdges, width=ui.width(2.5))
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label="")
+        ui.button(label='Rebuild', c=self.onRebuildActive, width=ui.width(2.5))
+        ui.button(label='/2', c=self.onRebuildResolutionDiv2)
         self.tx_rebuild_resolution = cmds.textField(tx='2', width=32)
-        self.bt_ = cmds.button(l='x2', c=self.onRebuildResolutionMul2)
-        cmds.setParent("..")
+        ui.button(label='x2', c=self.onRebuildResolutionMul2)
+        ui.end_layout()
 
-        cmds.separator(width=window_width)
+        ui.separator(width=window_width)
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Fit', width=header_width)
-        self.bt_ = cmds.button(l='Fit All', c=self.onFitAll, width=bw_3)
-        self.bt_ = cmds.button(l='Selected', c=self.onFitSelection, width=bw_double)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='Selected')
+        ui.button(label='Fit', c=self.onFitSelection)
+        ui.button(label='Rebuild [Op]', c=self.onRebuildSelection, dgc=self.onRebuildOp, width=ui.width(2.8))
+        ui.button(label='Smooth [Op]', c=self.onSmoothSelection, dgc=self.onSmoothOp, width=ui.width(2.8))
+        ui.end_layout()
 
-        cmds.separator(width=window_width)
+        ui.separator(width=window_width)
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Rebuild', width=header_width)
-        self.bt_ = cmds.button(l='Rebuild All', c=self.onRebuildAll, width=bw_3)
-        self.bt_ = cmds.button(l='Selected', c=self.onRebuildSelection, dgc=self.onRebuildOp, width=bw_double)
-        self.bt_ = cmds.button(l='[Op]', c=self.onRebuildOp, width=bw_single)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='Select')
+        ui.button(label='All', c=self.onSelectAll)
+        ui.button(label='Visible [invis]', c=self.onSelectVisible, dgc=self.onSelectInvisible)
+        ui.end_layout()
 
-        cmds.separator(width=window_width)
+        ui.separator(width=window_width)
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Smooth', width=header_width)
-        self.bt_ = cmds.button(l='Smooth All', c=self.onSmoothAll, width=bw_3)
-        self.bt_ = cmds.button(l='Selected', c=self.onSmoothSelection, dgc=self.onSmoothOp, width=bw_double)
-        self.bt_ = cmds.button(l='[Op]', c=self.onSmoothOp, width=bw_single)
-        cmds.setParent("..")
+        ui.row_layout()
+        ui.header(label='Display')
+        ui.button(label='Draw On Top [off]', c=self.onEnableDrawOnTop, dgc=self.onDisableDrawOnTop, width=ui.width(3.8))
+        ui.button(label="Show Curve [off]", c=self.onShowCurve, dgc=self.onHideCurve, width=ui.width(3.8))
+        ui.end_layout()
 
-        cmds.separator(width=window_width)
+        ui.separator(width=window_width)
 
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Select', width=header_width)
-        self.bt_ = cmds.button(l='Select All', c=self.onSelectAll, width=bw_3)
-        self.bt_ = cmds.button(l='Visible [inv]', c=self.onSelectVisible, dgc=self.onSelectInvisible, width=bw_3)
-        cmds.setParent("..")
-
-        cmds.separator(width=window_width)
-
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Display', width=header_width)
-        self.bt_ = cmds.button(l='Draw On Top [off]', c=self.onEnableDrawOnTop, dgc=self.onDisableDrawOnTop)
-        self.bt_ = cmds.button(l='Add Isolation', c=self.onAddIsolation)
-        cmds.setParent("..")
-
-        cmds.separator(width=window_width)
-
-        self.rowLayout1 = cmds.rowLayout(numberOfColumns=10)
-        self.label1 = cmds.text(label='Tools', width=header_width)
-        self.bt_ = cmds.button(l='Simplify', c=self.onExecSimplify)
-        cmds.setParent("..")
+        ui.end_layout()
 
     def onSetKeepRatio(self, *args):
         pass
@@ -340,7 +327,9 @@ class NN_ToolWindow(object):
 
         selections = cmds.ls(selection=True, flatten=True)
 
-        polyline_list = nu.get_all_polylines(selections)
+        polyline_list = nu.get_all_polylines(selections)    
+
+        curves = []
 
         for edges in polyline_list:
             # 選択エッジ列からカーブ生成
@@ -361,6 +350,17 @@ class NN_ToolWindow(object):
             edges_str = cmds.textField(self.ed_edges, q=True, tx=True)
             curve_str = cmds.textField(self.ed_curve, q=True, tx=True)
             addAttributes(curve_str, edges_str)
+
+            curves.append(curve_str)
+
+        # 生成カーブの選択
+        cmds.select(curves)
+
+        # 生成カーブを全ての isolation セットに追加
+        all_isolation_sets = [x for x in cmds.ls(type="objectSet") if re.match(r"modelPanel\dViewSelectedSet", x)]
+
+        for set_name in all_isolation_sets:
+            cmds.sets(curves, e=True, add=set_name)
 
     def onSetActive(self, *args):
         """
@@ -396,7 +396,7 @@ class NN_ToolWindow(object):
         # カーブオブジェクトにアトリビュート追加
         edges_str = cmds.textField(self.ed_edges, q=True, tx=True)
         curve_str = cmds.textField(self.ed_curve, q=True, tx=True)
-        if not curve_str is "":
+        if curve_str != "":
             addAttributes(curve_str, edges_str)
 
     def onSelectEdges(self, *args):
@@ -418,7 +418,7 @@ class NN_ToolWindow(object):
         # カーブオブジェクトにアトリビュート追加
         edges_str = cmds.textField(self.ed_edges, q=True, tx=True)
         curve_str = cmds.textField(self.ed_curve, q=True, tx=True)
-        if not curve_str is "":
+        if curve_str != "":
             addAttributes(curve_str, edges_str)
 
     def onSelectCurve(self, *args):
@@ -627,16 +627,28 @@ class NN_ToolWindow(object):
                 shape = cmds.listRelatives(obj, shapes=True)[0]
                 cmds.setAttr(shape + ".alwaysDrawOnTop", 0)
 
-    def onAddIsolation(self, *args):
+    def onShowCurve(self, *args):
+        """"""
         active_panel = cmds.getPanel(withFocus=True)
-        all_curves = getAllCurves()
+        panel_type = cmds.getPanel(typeOf=active_panel)
 
-        for curve in all_curves:
-            cmds.isolateSelect(active_panel, addDagObject=curve)
+        if panel_type == "modelPanel":
+            cmds.modelEditor(active_panel, e=True, nurbsCurves=True)
 
-    def onExecSimplify(self, *args):
-        import nnsimplify
-        nnsimplify.main()
+    def onHideCurve(self, *args):
+        """"""
+        active_panel = cmds.getPanel(withFocus=True)
+        panel_type = cmds.getPanel(typeOf=active_panel)
+
+        if panel_type == "modelPanel":
+            cmds.modelEditor(active_panel, e=True, nurbsCurves=False)
+
+    def _add_isolation(self, objects):
+        """指定のオブジェクトを isolate に追加する"""
+        active_panel = cmds.getPanel(withFocus=True)
+
+        for obj in objects:
+            cmds.isolateSelect(active_panel, addDagObject=obj)
 
 
 def showNNToolWindow():

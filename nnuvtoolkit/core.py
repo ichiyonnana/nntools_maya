@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 import re
 
 import maya.cmds as cmds
@@ -190,6 +187,22 @@ def half_expand_fold(right_down=True):
     cmds.select(clear=True)
 
 
+def get_uv_pivot():
+    current_context = cmds.currentCtx()
+
+    if current_context == "moveSuperContext":
+        return cmds.texMoveContext("texMoveContext", q=True, position=True)
+
+    elif current_context == "rotateSuperContext":
+        return cmds.texRotateContext("texRotateContext", q=True, position=True)
+
+    elif current_context == "scaleSuperContext":
+        return cmds.texScaleContext("texScaleContext", q=True, position=True)
+
+    else:
+        return None
+
+
 @nd.repeatable
 def translate_uv(pivot, translate):
     """ 選択中 UV の移動
@@ -202,14 +215,24 @@ def translate_uv(pivot, translate):
 
 
 @nd.repeatable
-def scale_uv(pivot, scale):
+def scale_uv(pivot=None, scale=(1.0, 1.0)):
     """ 選択中 UV のスケール
 
     Args:
         pivot ([type]): [description]
         scale ([type]): [description]
     """
-    cmds.polyEditUV(pu=pivot[0], pv=pivot[1], u=scale[0], v=scale[1])
+
+    if not pivot:
+        uv_pivot = get_uv_pivot()
+
+        if uv_pivot:
+            pivot = uv_pivot
+
+        else:
+            pivot = (0.0, 0.0)
+
+    cmds.polyEditUV(scale=True, pu=pivot[0], pv=pivot[1], scaleU=scale[0], scaleV=scale[1])
 
 
 @nd.repeatable
@@ -690,17 +713,19 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (330, 520)
+        self.size = (1, 1)
 
-    def create(self):
+    def create(self, parent_to_uveditor=False):
         if pm.window(self.window, exists=True):
             pm.deleteUI(self.window)
 
-        # UV エディターのウィンドウ名を取得
-        all_uv_panels = cmds.getPanel(scriptType="polyTexturePlacementPanel")
-        uv_panel = all_uv_panels[0] if all_uv_panels else None
-        uv_window = cmds.panel(uv_panel, q=True, control=True)
-        parent_window = uv_window.split("|")[0] if uv_window else None
+        if parent_to_uveditor:
+            # UV エディターのウィンドウ名を取得
+            all_uv_panels = cmds.getPanel(scriptType="polyTexturePlacementPanel")
+            uv_panel = all_uv_panels[0] if all_uv_panels else None
+            uv_window = cmds.panel(uv_panel, q=True, control=True)
+            parent_window = uv_window.split("|")[0] if uv_window else None
+            print("1")
 
         # プリファレンスの有無による分岐
         if pm.windowPref(self.window, exists=True):
@@ -708,17 +733,48 @@ class NN_ToolWindow(object):
             position = pm.windowPref(self.window, q=True, topLeftCorner=True)
             pm.windowPref(self.window, remove=True)
 
-            # 前回位置に指定したサイズで表示
-            if parent_window:
-                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False, parent=parent_window)
+            if parent_to_uveditor and parent_window:
+                pm.window(
+                    self.window,
+                    t=self.title,
+                    maximizeButton=False,
+                    minimizeButton=False,
+                    topLeftCorner=position,
+                    widthHeight=self.size,
+                    sizeable=False,
+                    resizeToFitChildren=True,
+                    parent=parent_window)
             else:
-                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+                pm.window(
+                    self.window,
+                    t=self.title,
+                    maximizeButton=False,
+                    minimizeButton=False,
+                    topLeftCorner=position,
+                    widthHeight=self.size,
+                    resizeToFitChildren=True,
+                    sizeable=False)
+
         else:
-            # プリファレンスがなければデフォルト位置に指定サイズで表示
-            if parent_window:
-                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False, parent=parent_window)
+            if parent_to_uveditor and parent_window:
+                pm.window(
+                    self.window,
+                    t=self.title,
+                    maximizeButton=False,
+                    minimizeButton=False,
+                    widthHeight=self.size,
+                    sizeable=False,
+                    resizeToFitChildren=True,
+                    parent=parent_window)
             else:
-                pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+                pm.window(
+                    self.window,
+                    t=self.title,
+                    maximizeButton=False,
+                    minimizeButton=False,
+                    widthHeight=self.size,
+                    resizeToFitChildren=True,
+                    sizeable=False)
 
         self.layout()
         pm.showWindow(self.window)
@@ -899,6 +955,13 @@ class NN_ToolWindow(object):
         ui.button(label='DrawEdge', c=self.onDrawEdge)
         ui.end_layout()
 
+        ui.row_layout()
+        ui.header(label="")
+        ui.button(label="Parent to UVEditor", c=self.onParentToUVEditor)
+        ui.end_layout()
+
+        ui.end_layout()
+
     def initialize(self):
         # テクセルとマップサイズを UVToolkit から取得
         uvtkTexel = mel.eval("floatField -q -v uvTkTexelDensityField")
@@ -946,22 +1009,22 @@ class NN_ToolWindow(object):
     @nd.undo_chunk
     def onOrigScaleUMul(self, *args):
         v = ui.get_value(self.scaleValue)
-        scale_uv(pivot=(0, 0), scale=(v, 1))
+        scale_uv(scale=(v, 1))
 
     @nd.undo_chunk
     def onOrigScaleVMul(self, *args):
         v = ui.get_value(self.scaleValue)
-        scale_uv(pivot=(0, 0), scale=(1, v))
+        scale_uv(scale=(1, v))
 
     @nd.undo_chunk
     def onOrigScaleUDiv(self, *args):
         v = ui.get_value(self.scaleValue)
-        scale_uv(pivot=(0, 0), scale=(1.0/v, 1))
+        scale_uv(scale=(1.0/v, 1))
 
     @nd.undo_chunk
     def onOrigScaleVDiv(self, *args):
         v = ui.get_value(self.scaleValue)
-        scale_uv(pivot=(0, 0), scale=(1, 1.0/v))
+        scale_uv(scale=(1, 1.0/v))
 
     @nd.undo_chunk
     def onRotateLeft(self, *args):
@@ -1305,6 +1368,9 @@ class NN_ToolWindow(object):
         mapsize = ui.get_value(self.mapSize)
         draw_edge(mapsize=mapsize)
 
+    def onParentToUVEditor(self, *args):
+        """UVエディターを親にしてウィンドウを再作成する"""
+        self.create(parent_to_uveditor=True)
 
 def showNNToolWindow():
     NN_ToolWindow().create()

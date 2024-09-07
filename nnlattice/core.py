@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 import os
 import re
 import sys
@@ -27,7 +24,7 @@ def get_window():
 
 window_width = 280
 header_width = 50
-window_height = 180
+window_height = 220
 
 
 def match_latice(from_objects=None, to_object=None):
@@ -109,8 +106,8 @@ def add_lattice_menber(lattice=None, targets=None):
     targets は lattice を除いたすべてのオブジェクト (他にラティスがあればそれも含む)
 
     Args:
-        lattice (Transform or Lattice): 
-        targets (list[Transform or Lattice]): 
+        lattice (Transform or Lattice):
+        targets (list[Transform or Lattice]):
     """
     lattice_types = [nt.BaseLattice, nt.Lattice]
 
@@ -141,8 +138,8 @@ def get_lattice_menber(lattice):
     引数が未指定の場合は選択オブジェクトを使用する
 
     Args:
-        lattice (Transform or Lattice): 
-        targets (list[Transform or Lattice]): 
+        lattice (Transform or Lattice):
+        targets (list[Transform or Lattice]):
     """
     lattice_types = [nt.BaseLattice, nt.Lattice]
 
@@ -163,7 +160,7 @@ def get_lattice_menber(lattice):
         members = [nu.get_object(x) for x in object_set.members()]
 
     return members
-    
+
 
 def select_lattice_menber(lattice=None):
     """ ラティスのメンバーを選択する
@@ -171,8 +168,8 @@ def select_lattice_menber(lattice=None):
     引数が未指定の場合は選択オブジェクトを使用する
 
     Args:
-        lattice (Transform or Lattice): 
-        targets (list[Transform or Lattice]): 
+        lattice (Transform or Lattice):
+        targets (list[Transform or Lattice]):
     """
     lattice_types = [nt.BaseLattice, nt.Lattice]
 
@@ -184,7 +181,7 @@ def select_lattice_menber(lattice=None):
     # メンバーの取得と選択
     members = get_lattice_menber(lattice)
     pm.select(members, replace=True)
-    
+
 
 def get_selected_lattice_and_points(selected_lattice_points=[]):
     """ ラティスかラティスポイントが選択されている場合に､選択されているラティスとラティスポイントのリストを返す
@@ -196,7 +193,7 @@ def get_selected_lattice_and_points(selected_lattice_points=[]):
         selected_lattice_points (list[LatticePoint]):
     """
     lattice = None
-    
+
     if not selected_lattice_points:
         selected_lattice_points = [x for x in pm.selected(flatten=True) if type(x) == pm.LatticePoint]
 
@@ -204,7 +201,7 @@ def get_selected_lattice_and_points(selected_lattice_points=[]):
         # ラティスポイントが選択されていた場合
         lattice = nu.pynode(pm.polyListComponentConversion(selected_lattice_points[0])[0]).getParent()
 
-    else:            
+    else:
         selected_lattice = [x for x in pm.selected(flatten=True) if hasattr(x, "getShape") and type(x.getShape()) == nt.Lattice]
 
         if selected_lattice:
@@ -215,88 +212,122 @@ def get_selected_lattice_and_points(selected_lattice_points=[]):
     if not lattice:
         # ラティスもラティスポイントも選択されていなかった場合
         return None
-    
+
     return [lattice, selected_lattice_points]
 
 
-def rebuild_lattice(lattice=None, s=2, t=2, u=2):
-    """ラティスの分割数を変更する｡現状 Undo 不可
+def get_divisions(lattice_name):
+    """ラティスの分割数を取得する"""
+    s = cmds.getAttr(lattice_name + ".sDivisions")
+    t = cmds.getAttr(lattice_name + ".tDivisions")
+    u = cmds.getAttr(lattice_name + ".uDivisions")
+
+    return [s, t, u]
+
+
+def rebuild_lattice(lattice=None, s=None, t=None, u=None):
+    """ラティスの分割数を変更する｡
 
     Args:
-        s (int):
-        t (int):
-        u (int):
+        s (int): 新しい S 分割数
+        t (int): 新しい T 分割数
+        u (int): 新しい U 分割数
     """
+    if not lattice and not cmds.ls(selection=True):
+        print("select lattice")
+        return
+
     # 処理終了後に設定する編集モード
     object_mode = pm.selectMode(q=True, object=True)
 
-    # 対象ラティスの取得
+    # 再分割対象ラティスの取得
     if not lattice:
-        selected_lattice_point = [x for x in pm.selected(flatten=True) if type(x) == pm.LatticePoint]
+        selected_trs = cmds.ls(selection=True, type="transform")
 
-        if selected_lattice_point:
-            # ラティスポイントが選択されていた場合
-            lattice = nu.pynode(pm.polyListComponentConversion(selected_lattice_point[0])[0]).getParent()
-            object_mode = False
+        # シェープとしてラティスを持つトランスフォームが選択されている場合
+        if selected_trs:
+            shapes = cmds.listRelatives(selected_trs[0], shapes=True)
 
-        else:            
-            selected_lattice = [x for x in pm.selected(flatten=True) if hasattr(x, "getShape") and type(x.getShape()) == nt.Lattice]
+            if shapes and cmds.objectType(shapes[0]) == "lattice":
+                lattice = selected_trs[0]
 
-            if selected_lattice:
-                # ラティスが選択されていた場合    
-                lattice = selected_lattice[0]
+        else:
+            # ラティス以外が選択されていた場合
+            selection = cmds.ls(selection=True, flatten=True)
+            selected_lattice_point = cmds.filterExpand(selection, sm=46)
+
+            if selected_lattice_point:
+                # ラティスポイントが選択されていた場合
+                lattice_shape = cmds.polyListComponentConversion(selected_lattice_point[0])[0]
+                lattice = cmds.listRelatives(lattice_shape, parent=True)[0]
+                object_mode = False
 
         if not lattice:
-            # リビルド対象が特定でき無かった場合
+            # リビルド対象が特定できなかった場合
             print("select lattice")
             return
 
-    # 対象ラティスのノード取得
+    # 再分割対象ラティスのノード名取得
     lattice_trs = lattice
-    lattice_node = lattice.getShape()
-    
-    # 対象ラティスの分割数を保存
-    orig_s, orig_t, orig_u = lattice_node.getDivisions()
-    
-    # 対象ラティスの CV 座標を保存
+    lattice_name = cmds.listRelatives(lattice_trs, shapes=True)[0]
+
+    # 再分割対象ラティスの分割数を保存
+    orig_s = cmds.getAttr(lattice_name + ".sDivisions")
+    orig_t = cmds.getAttr(lattice_name + ".tDivisions")
+    orig_u = cmds.getAttr(lattice_name + ".uDivisions")
+
+    # 引数が未指定の場合は元の分割数を使用
+    s = s or orig_s
+    t = t or orig_t
+    u = u or orig_u
+
+    # 再分割対象ラティスの CV 座標を保存
     old_pt_coords = [[[None for x in range(orig_u)] for x in range(orig_t)] for x in range(orig_s)]
-    
+
     for s_i in range(orig_s):
         for t_i in range(orig_t):
             for u_i in range(orig_u):
-                old_pt_coords[s_i][t_i][u_i] = pm.xform(lattice_node.pt[s_i][t_i][u_i], q=True, ws=True, t=True)
+                old_pt_coords[s_i][t_i][u_i] = cmds.xform(f"{lattice_name}.pt[{s_i}][{t_i}][{u_i}]", q=True, ws=True, t=True)
 
-    # 対象ラティスのリセットと分割数設定
-    lattice_node.reset()
-    lattice_node.setDivisions(s, t, u)
+    # 対象ラティスをリセットして指定の分割数を設定
+    cmds.lattice(lattice_name, e=True, latticeReset=True)
+    cmds.setAttr(lattice_name + ".sDivisions", s)
+    cmds.setAttr(lattice_name + ".tDivisions", t)
+    cmds.setAttr(lattice_name + ".uDivisions", u)
 
-    # 対象ラティスの外側に元の分割数でラティス作成
-    pm.select(clear=True)
-    pm.select(lattice_trs)
-    mel.eval("CreateLattice")
-    outer_lattice_trs = pm.selected(flatten=True)[0]
-    outer_lattice_node = outer_lattice_trs.getShape()
+    # ラティスを複製
+    dup_lattice_trs = cmds.duplicate(lattice_name)[0]
+    dup_lattice_name = cmds.listRelatives(dup_lattice_trs, shapes=True)[0]
 
-    # 外側ラティスに分割数とCV座標設定
-    outer_lattice_node.setDivisions(orig_s, orig_t, orig_u)
+    # 複製ラティスの外側に元の分割数でラティス作成
+    outer_lattice_trs = cmds.lattice(dup_lattice_trs, divisions=(orig_s, orig_t, orig_u), ldivisions=(2, 2, 2), objectCentered=True)
+    outer_lattice_name = cmds.listRelatives(outer_lattice_trs, shapes=True)[0]
 
-    # 外側ラティスのポイントに座標設定
+    # 外側ラティスのポイントにリセット前の座標を設定
     for s_i in range(orig_s):
         for t_i in range(orig_t):
             for u_i in range(orig_u):
-                # ラティスポイントオブジェクト
-                new_pt = outer_lattice_node.pt[s_i][t_i][u_i]
+                lattice_pt = f"{outer_lattice_name}.pt[{s_i}][{t_i}][{u_i}]"
+                cmds.xform(lattice_pt, ws=True, t=old_pt_coords[s_i][t_i][u_i])
 
-                # ラティスポイントのローカル座標取得
-                # from_coord = lattice_node.point(s_i, t_i, u_i)
-                # to_coord = to_lattice_node.point(s_i, t_i, u_i)
+    # 複製ラティスのポイントの座標を取得
+    new_pt_coords = [[[None for x in range(u)] for x in range(t)] for x in range(s)]
 
-                # ラティスポイントをワールド座標で設定
-                pm.xform(new_pt, ws=True, t=old_pt_coords[s_i][t_i][u_i])
+    for s_i in range(s):
+        for t_i in range(t):
+            for u_i in range(u):
+                new_pt_coords[s_i][t_i][u_i] = cmds.xform(f"{dup_lattice_name}.pt[{s_i}][{t_i}][{u_i}]", q=True, ws=True, t=True)
 
-    # 外側ラティスの適用
-    pm.select(lattice_node, replace=True)
-    pm.delete(ch=True)
+    # 複製ラティス･外側ラティスを削除
+    cmds.delete(outer_lattice_trs)
+    cmds.delete(dup_lattice_trs)
+
+    # 再分割対象ラティスのポイントに座標を設定
+    for s_i in range(s):
+        for t_i in range(t):
+            for u_i in range(u):
+                lattice_pt = f"{lattice_name}.pt[{s_i}][{t_i}][{u_i}]"
+                cmds.xform(lattice_pt, ws=True, t=new_pt_coords[s_i][t_i][u_i])
 
     # 実行時の選択モードに復帰する
     if object_mode:
@@ -335,10 +366,10 @@ def smooth_lattice_point(ratio=0.1, prevent_dent=True):
 
     if not selected_lattice_points:
         return
-    
+
     # ラティスオブジェクト
     lattice = nu.pynode(pm.polyListComponentConversion(selected_lattice_points[0])[0]).getParent()
-    
+
     # インデックス範囲
     div_s, div_t, div_u = lattice.getDivisions()
 
@@ -366,7 +397,7 @@ def smooth_lattice_point(ratio=0.1, prevent_dent=True):
                     continue
                 else:
                     adjacent_points_coords.append(dt.Vector(pm.xform(lattice.pt[a_s][a_t][a_u], q=True, ws=True, t=True)))
-        
+
         # 平均値で座標値を設定
         old_coord = dt.Vector(pm.xform(lattice.pt[s][t][u], q=True, ws=True, t=True))
         avg_coord = sum(adjacent_points_coords) / len(adjacent_points_coords)
@@ -377,11 +408,11 @@ def smooth_lattice_point(ratio=0.1, prevent_dent=True):
 def select_inner(lattice=None):
     """ ラティスポイントの内側だけを選択する
     Args:
-        lattice (Lattice): 
+        lattice (Lattice):
     """
     # 対象ラティスの取得
     lattice, points = get_selected_lattice_and_points()
-    
+
     # 最終的に選択するポイント
     selections = []
 
@@ -396,14 +427,14 @@ def select_inner(lattice=None):
     pm.selectMode(component=True)
     pm.selectType(latticePoint=True)
     pm.select(selections, replace=True)
-                
+
 
 def select_surface(lattice=None):
     """ ラティスポイントの表面だけを選択する
     """
     # 対象ラティスの取得
     lattice, points = get_selected_lattice_and_points()
-    
+
     # 最終的に選択するポイント
     selections = []
 
@@ -430,7 +461,7 @@ def select_grow(r=1):
     lattice, points = get_selected_lattice_and_points()
 
     selected_indices = [tuple(p.indices()[0]) for p in points]
-    
+
     # 最終的に選択するポイント
     selections = []
 
@@ -453,12 +484,12 @@ def select_shrink():
     """
     # 対象ラティスの取得
     lattice, points = get_selected_lattice_and_points()
-    
+
     selected_indices = [tuple(p.indices()[0]) for p in points]
 
     # 最終的に選択するポイント
     selections = []
-    
+
     div_s, div_t, div_u = lattice.getDivisions()
 
     for s in range(div_s):
@@ -508,11 +539,11 @@ def toggle_envelope(lattices=None):
     for lattice in lattices:
         ffd = pm.listConnections(lattice, type="ffd")[0]
         ffd.nodeState.set(new_state)
-    
+
     # 新しくセットされた状態をインビューメッセージで表示
     if new_state == 0:
         nd.message("lattice state: Normal")
-    else:        
+    else:
         nd.message("lattice state: No Effect")
 
 
@@ -550,32 +581,32 @@ def apply_lattice(lattices=[]):
                 shape = obj
             else:
                 continue
-        
+
             points = shape.getPoints()
             lattices = [x for x in shape.connections() if isinstance(x, nt.Ffd)]
             lattices_to_remove.extend(lattices)
             shape_points_table[shape] = points
-    
+
     lattices_to_remove = nu.uniq(lattices_to_remove)
 
     # ラティスの削除
     for lattice in lattices_to_remove:
         if pm.objExists(lattice):
             pm.delete(lattice)
-    
+
     # シェイプにラティス削除前の座標を上書き
     for shape, points in shape_points_table.items():
         shape.setPoints(points)
 
 
-def reset_lattice(lattices=[]):    
+def reset_lattice(lattices=[]):
     # 引数が無効なら選択オブジェクトからラティスを取得する
     if not lattices:
         lattices = [x for sel in pm.selected(flatten=True) for x in pm.listRelatives(sel, ad=True) if isinstance(x, nt.Lattice)]
 
         if not lattices:
             raise(Exception)
-        
+
     for lattice in lattices:
         pm.lattice(e=True, latticeReset=True)
 
@@ -600,11 +631,28 @@ class NN_ToolWindow(object):
             pm.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                topLeftCorner=position,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         self.layout()
         pm.showWindow(self.window)
@@ -616,9 +664,18 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Divsions')
-        self.rebuild_s = ui.eb_int(v=3)
-        self.rebuild_t = ui.eb_int(v=3)
-        self.rebuild_u = ui.eb_int(v=3)
+        self.rebuild_s = ui.eb_int(v=3, cc=self.onChangeS)
+        self.rebuild_t = ui.eb_int(v=3, cc=self.onChangeT)
+        self.rebuild_u = ui.eb_int(v=3, cc=self.onChangeU)
+        ui.button(label='Get', c=self.onGetDivisions)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label='Rebuild')
+        ui.button(label='S', c=self.onRebuildS, width=ui.width(2))
+        ui.button(label='T', c=self.onRebuildT, width=ui.width(2))
+        ui.button(label='U', c=self.onRebuildU, width=ui.width(2))
+        ui.button(label='STU', c=self.onRebuidLattice)
         ui.end_layout()
 
         ui.row_layout()
@@ -631,7 +688,6 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Func')
-        ui.button(label='Rebuild', c=self.onRebuidLattice)
         ui.button(label='Smooth', c=self.onSmoothLatticePoint)
         self.cb_smooth_completely = ui.check_box(label="completely", v=False)
         ui.end_layout()
@@ -665,6 +721,46 @@ class NN_ToolWindow(object):
 
         ui.end_layout()
 
+    def onChangeS(self, *args):
+        s = ui.get_value(self.rebuild_s)
+        if s < 2:
+            ui.set_value(self.rebuild_s, 2)
+
+    def onChangeT(self, *args):
+        t = ui.get_value(self.rebuild_t)
+        if t < 2:
+            ui.set_value(self.rebuild_t, 2)
+
+    def onChangeU(self, *args):
+        u = ui.get_value(self.rebuild_u)
+        if u < 2:
+            ui.set_value(self.rebuild_u, 2)
+
+    def onGetDivisions(self, *args):
+        """選択ラティスの分割数を取得して UI に設定する"""
+        target_lattice = None
+        selected_trs = cmds.ls(selection=True, type="transform")
+
+        if selected_trs:
+            shapes = cmds.listRelatives(selected_trs[0], shapes=True)
+
+            if shapes and cmds.objectType(shapes[0]) == "lattice":
+                target_lattice = selected_trs[0]
+
+        if not target_lattice:
+            # リビルド対象が特定できなかった場合
+            print("select lattice")
+            return
+
+        lattice_trs = target_lattice
+        lattice_name = cmds.listRelatives(lattice_trs, shapes=True)[0]
+
+        s, t, u = get_divisions(lattice_name)
+
+        ui.set_value(self.rebuild_s, s)
+        ui.set_value(self.rebuild_t, t)
+        ui.set_value(self.rebuild_u, u)
+
     # イベントハンドラ
     def onAddMember(self, *args):
         add_lattice_menber()
@@ -685,20 +781,20 @@ class NN_ToolWindow(object):
         s = ui.get_value(self.rebuild_s)
         t = ui.get_value(self.rebuild_t)
         u = ui.get_value(self.rebuild_u)
-        
+
         s = max((s + 1) // 2, 2)
         t = max((t + 1) // 2, 2)
         u = max((u + 1) // 2, 2)
-        
+
         ui.set_value(self.rebuild_s, s)
         ui.set_value(self.rebuild_t, t)
         ui.set_value(self.rebuild_u, u)
-        
+
     def onMul2(self, *args):
         s = ui.get_value(self.rebuild_s)
         t = ui.get_value(self.rebuild_t)
         u = ui.get_value(self.rebuild_u)
-        
+
         s = s * 2 - 1
         t = t * 2 - 1
         u = u * 2 - 1
@@ -711,20 +807,20 @@ class NN_ToolWindow(object):
         s = ui.get_value(self.rebuild_s)
         t = ui.get_value(self.rebuild_t)
         u = ui.get_value(self.rebuild_u)
-        
+
         s = max(s - 1, 2)
         t = max(t - 1, 2)
         u = max(u - 1, 2)
-        
+
         ui.set_value(self.rebuild_s, s)
         ui.set_value(self.rebuild_t, t)
         ui.set_value(self.rebuild_u, u)
-        
+
     def onAdd1(self, *args):
         s = ui.get_value(self.rebuild_s)
         t = ui.get_value(self.rebuild_t)
         u = ui.get_value(self.rebuild_u)
-        
+
         s = s + 1
         t = t + 1
         u = u + 1
@@ -738,6 +834,18 @@ class NN_ToolWindow(object):
         t = ui.get_value(self.rebuild_t)
         u = ui.get_value(self.rebuild_u)
         rebuild_lattice(s=s, t=t, u=u)
+
+    def onRebuildS(self, *args):
+        s = ui.get_value(self.rebuild_s)
+        rebuild_lattice(s=s)
+
+    def onRebuildT(self, *args):
+        t = ui.get_value(self.rebuild_t)
+        rebuild_lattice(t=t)
+
+    def onRebuildU(self, *args):
+        u = ui.get_value(self.rebuild_u)
+        rebuild_lattice(u=u)
 
     def onSmoothLatticePoint(self, *args):
         if ui.get_value(self.cb_smooth_completely):

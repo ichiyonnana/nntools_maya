@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 # ダイアログのテンプレ
 # self.window だけユニークならあとはそのままで良い
 import re
@@ -63,7 +60,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (window_width, 95)
+        self.size = (10, 10)
 
         self.sample_vts = []
         self.sample_points = []
@@ -80,16 +77,35 @@ class NN_ToolWindow(object):
             pm.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                topLeftCorner=position,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         self.layout()
         pm.showWindow(self.window)
 
     def layout(self):
+        window_width = 140
+
         self.columnLayout = cmds.columnLayout()
 
         self.rowLayout1 = cmds.rowLayout( numberOfColumns=16 )

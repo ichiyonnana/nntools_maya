@@ -1,6 +1,4 @@
-#! python
-# coding:utf-8
-
+import math
 import pymel.core as pm
 import maya.cmds as cmds
 import maya.mel as mel
@@ -62,7 +60,39 @@ def get_vtx_weight(vtx):
     return influence_weight_dic
 
 
-def _linearize_weight(target, end_vts_weights, end_vts_points):
+def curve_function(x, mode, formula=None):
+    x = min(max(x, 0.0), 1.0)
+
+    if mode == "linear":
+        return x
+
+    if mode == "cosine":
+        return 0.5 - 0.5 * math.cos(math.pi * x)
+
+    if mode == "formula":
+        def f(x):
+            return eval(formula)
+
+        y_min = float('inf')
+        y_max = float('-inf')
+
+        resolution = 100
+        for i in range(0, resolution+1):
+            y = f(i / resolution)
+
+            if y < y_min:
+                y_min = y
+
+            if y > y_max:
+                y_max = y
+
+        return (f(x) - y_min) / (y_max - y_min)
+
+    else:
+        raise ValueError(f"不明なモード: {mode}")
+
+
+def _linearize_weight(target, end_vts_weights, end_vts_points, mode="linear", formula=None):
     """
     指定した代表点のウェイトと座標で指定した対象頂点のウェイトをリニアにする
     vts:
@@ -100,7 +130,8 @@ def _linearize_weight(target, end_vts_weights, end_vts_points):
             else:
                 ratio = 0
         else:
-            ratio = 1 - d0 / total_distance
+            u = 1 - d0 / total_distance
+            ratio = curve_function(u, mode=mode, formula=formula)
 
         # 最終的に頂点に適用するウェイト
         interior_division_weight = {}
@@ -117,7 +148,7 @@ def _linearize_weight(target, end_vts_weights, end_vts_points):
 
 
 @deco.repeatable
-def linearize_weight_with_farthest_points():
+def linearize_weight_with_farthest_points(mode, formula):
     """
     選択頂点のウェイトを距離でリニアにする
     代表点も選択頂点内から選ぶ
@@ -132,7 +163,7 @@ def linearize_weight_with_farthest_points():
     # 代表点のウェイトリストと座標リスト
     end_vts_weights = [get_vtx_weight(vtx) for vtx in end_vts]
     end_vts_points = [nu.point_from_vertex(vtx) for vtx in end_vts]
-    _linearize_weight(vts, end_vts_weights, end_vts_points)
+    _linearize_weight(vts, end_vts_weights, end_vts_points, mode=mode, formula=formula)
 
 
 # linearize_weight_selected_with_specified_end_points で使用する代表点情報
@@ -199,7 +230,7 @@ def set_end_point_with_vts(vts):
 
 
 @deco.repeatable
-def linearize_weight_with_specified_points():
+def linearize_weight_with_specified_points(mode, formula=None):
     """
     選択頂点のウェイトを距離でリニアにする
     代表点は事前に指定したものを使用する
@@ -214,7 +245,7 @@ def linearize_weight_with_specified_points():
     end_vts = nu.get_most_distant_vts(vts)
 
     # 代表点のウェイトリストと座標リスト
-    _linearize_weight(vts, specified_end_vts_weights, specified_end_vts_points)
+    _linearize_weight(vts, specified_end_vts_weights, specified_end_vts_points, mode=mode, formula=formula)
 
 
 # ウェイトのコピー元になる代理頂点
@@ -323,7 +354,7 @@ class NN_ToolWindow(object):
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (ui.width(10), ui.height(8))
+        self.size = (10, 10)
 
     def create(self):
         if pm.window(self.window, exists=True):
@@ -336,11 +367,28 @@ class NN_ToolWindow(object):
             pm.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                topLeftCorner=position,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+            pm.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True
+                )
 
         self.layout()
         pm.showWindow(self.window)
@@ -362,6 +410,22 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
         ui.row_layout()
+        ui.header(label="Mode")
+        self.rbc_mode = ui.radio_collection()
+        ui.radio_button(label="Linear", width=ui.width(2), select=True)
+        ui.radio_button(label="Cosine", width=ui.width(2))
+        ui.radio_button(label="Gaussian", width=ui.width(2))
+        ui.radio_button(label="Formula", width=ui.width(2))
+        ui.end_layout()  # radio_collection
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label="Formula")
+        ui.text(label="f(x) = ", width=ui.width(1.5))
+        self.eb_formula = ui.eb_text(text="", width=ui.width(6))
+        ui.end_layout()
+
+        ui.row_layout()
         ui.header(label="RingCopy")
         ui.button(label="Ring Source")
         ui.button(label="Ring Paste")
@@ -378,6 +442,7 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label="Etc")
         cmds.button(l='Checker', c=self.on_skin_checker)
+        cmds.button(l='SIWE', c=self.on_siwe)
         ui.end_layout()
 
         ui.row_layout()
@@ -404,11 +469,19 @@ class NN_ToolWindow(object):
 
     @deco.undo_chunk
     def on_linearize_farthest(self, *args):
-        linearize_weight_with_farthest_points()
+        linearize_weight_with_farthest_points(mode=self._get_mode(), formula=self.get_formula())
+
+    def _get_mode(self):
+        radio_button_name = cmds.radioCollection(self.rbc_mode, q=True, select=True)
+
+        return cmds.radioButton(radio_button_name, q=True, label=True).lower()
+
+    def get_formula(self):
+        return ui.get_value(self.eb_formula)
 
     @deco.undo_chunk
     def on_linearize_specified(self, *args):
-        linearize_weight_with_specified_points()
+        linearize_weight_with_specified_points(mode=self._get_mode(), formula=self.get_formula())
 
     @deco.undo_chunk
     def on_copy_proxy(self, *args):
@@ -445,6 +518,10 @@ class NN_ToolWindow(object):
     def on_skin_checker(self, *args):
         import nnskin.check_skin_tool
         nnskin.check_skin_tool.main()
+
+    def on_siwe(self, *args):        
+        import siweighteditor.siweighteditor
+        siweighteditor.siweighteditor.Option()
 
     def on_check_fractions(self, *args):
         import nnskin.check_weights_fractions

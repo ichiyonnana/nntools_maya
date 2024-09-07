@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 # マニピュレーター設定ウィンドウ
 import maya.cmds as cmds
 import maya.mel as mel
@@ -18,8 +15,9 @@ class NN_ManipWindow(object):
         self.window = cmds.window(
             self.window,
             t=self.title,
-            widthHeight=self.size
-        )
+            widthHeight=self.size,
+            resizeToFitChildren=True
+            )
         self.layout()
         cmds.showWindow()
 

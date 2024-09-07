@@ -301,7 +301,7 @@ def snap_to_ordinal_in_block(targets=None, texture_resolution=1024, block_width=
 
 
 @nd.undo_chunk
-def extrude_edges():
+def extrude_edges(offset):
     """UV･頂点カラー等が設定されたエッジのextrude."""
     selected_edges = cmds.ls(selection=True, flatten=True)
 
@@ -310,8 +310,9 @@ def extrude_edges():
         constructionHistory=True,
         keepFacesTogether=True,
         divisions=1,
-        offset=0.1,
-        thickness=0)
+        offset=offset,
+        thickness=0,
+        smoothingAngle=180)
 
     extruded_edges = cmds.ls(selection=True, flatten=True)
     extruded_faces = cmds.filterExpand(cmds.polyListComponentConversion(extruded_edges, fe=True, tf=True), selectionMask=34)
@@ -389,10 +390,26 @@ def smart_extrude():
 
         elif (cmds.objectType(selections[0], isType="mesh")
               and cmds.selectType(q=True, polymeshEdge=True)):
-            extrude_edges()
+            extrude_edges(offset=0.1)
 
         else:
             mel.eval("performPolyExtrude 0")
+
+
+def smart_duplicate():
+    """選択物のタイプによって適切に duplicate する."""
+    selections = cmds.ls(selection=True)
+
+    if selections:
+        if cmds.objectType(selections[0], isType="mesh"):
+            if cmds.selectType(q=True, polymeshEdge=True):
+                extrude_edges(offset=0.0)
+
+            else:
+                pass
+
+        else:
+            cmds.duplicate()
 
 
 def orient_object_from_edges():
@@ -546,3 +563,55 @@ def resize_editor(window_title, x=-1, y=-1, width=-1, height=-1):
                 child.resize(width, height)
 
             break
+
+
+def select_all_skined_meshes_from_root_joint(root_object=None, select=True, result=False):
+    """選択したジョイント以下にある全てのジョイントがスキンクラスターで影響を与えているメッシュを全て選択･取得する
+
+    Args:
+        root_obj (str, optional): スケルトン全体のルートオブジェクト｡省略時は選択オブジェクト. Defaults to None.
+        select (bool, optional): 結果のメッシュを選択するかどうか. Defaults to True.
+
+    Returns:
+        list[str] | None: メッシュのノード名のリスト.エラー時は None.
+    """
+    if not root_object:
+        selected_object = cmds.ls(selection=True)
+
+        if not selected_object:
+            print("select root object.")
+            return None
+
+        root_object = selected_object[0]
+
+    all_joints = cmds.listRelatives(root_object, allDescendents=True)
+    all_skinclusters = []
+
+    for joint in all_joints:
+        skinclusters = cmds.listConnections(joint, destination=True, type="skinCluster")
+
+        if skinclusters:
+            all_skinclusters.extend(skinclusters)
+
+    all_skinclusters = list(set(all_skinclusters))
+
+    if not all_skinclusters:
+        print("no skincluster.")
+        return None
+
+    skined_meshes = []
+
+    for sc in all_skinclusters:
+        meshes = cmds.listConnections(sc, destination=True, type="mesh")
+        skined_meshes.extend(meshes)
+
+    skined_meshes = list(set(skined_meshes))
+
+    if not skined_meshes:
+        print("no skined meshes.", all_skinclusters)
+        return None
+
+    if select:
+        cmds.select(skined_meshes, replace=True)
+
+    return skined_meshes

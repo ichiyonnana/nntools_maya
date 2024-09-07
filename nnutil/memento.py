@@ -1,5 +1,3 @@
-#! python
-# coding:utf-8
 """プラグインを作成せずに API 経由でのデータ編集を Undo/Redo するためのモジュール。
 
 API による Undo 不可能な編集の前後で snapshot() を呼び、必要な情報を保存する。

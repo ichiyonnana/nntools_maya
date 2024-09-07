@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 # ダイアログのテンプレ
 # self.window だけユニークならあとはそのままで良い
 import maya.cmds as cmds
@@ -80,7 +77,8 @@ class NN_ToolWindow(object):
         self.window = cmds.window(
             self.window,
             t=self.title,
-            widthHeight=self.size
+            widthHeight=self.size,
+            resizeToFitChildren=True
         )
         self.layout()
         cmds.showWindow()

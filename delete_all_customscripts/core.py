@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 import maya.mel as mel
 import maya.cmds as cmds
 

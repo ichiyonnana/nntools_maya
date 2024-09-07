@@ -1,5 +1,3 @@
-#! python
-# coding:utf-8
 """ 
 単独で機能になっているがパッケージにするほどでもないもの
 基本的には Maya のホットキーやシェルフから直接呼ぶもの
@@ -445,38 +443,6 @@ def parent_to_camera():
     camera = cmds.modelPanel(active_panel, q=True, camera=True)
     targets = cmds.ls(selection=True)
     cmds.parent(targets, camera)
-
-
-def shrinkwrap_for_set():
-    """ オブジェクトの一部分にだけシュリンクラップを設定する
-    頂点セットとターゲットメッシュ選択して実行すると
-    セットメンバーの頂点のみウェイトが1.0になるようにシュリンクラップを作成する
-    TODO: セレクションじゃなくて引数で頂点リスト取って
-    """
-    base_set, target = cmds.ls(selection=True, flatten=True)
-
-    vts = cmds.sets(base_set, q=True)
-    base = nu.get_object(vts[0])
-
-    shrinkwrap = cmds.deformer(base, type="shrinkWrap")[0]
-    cmds.connectAttr(target + ".worldMesh[0]", shrinkwrap + ".targetGeom")
-
-    cmds.setAttr(shrinkwrap + ".projection", 2)
-    cmds.setAttr(shrinkwrap + ".closestIfNoIntersection", 0)
-    cmds.setAttr(shrinkwrap + ".reverse", 0)
-    cmds.setAttr(shrinkwrap + ".bidirectional", 1)
-    cmds.setAttr(shrinkwrap + ".offset", 0)
-    cmds.setAttr(shrinkwrap + ".targetInflation", 0)
-    cmds.setAttr(shrinkwrap + ".axisReference", 3)
-    cmds.setAttr(shrinkwrap + ".alongX", False)
-    cmds.setAttr(shrinkwrap + ".alongY", False)
-    cmds.setAttr(shrinkwrap + ".alongZ", True)
-    cmds.setAttr(shrinkwrap + ".targetSmoothLevel", 3)
-
-    cmds.percent(shrinkwrap, base + ".vtx[*]", v=0)
-    cmds.percent(shrinkwrap, vts, v=1)
-
-    cmds.select(shrinkwrap)
 
 
 def delete_uvSet_noncurrent():

@@ -1,13 +1,111 @@
-#! python
-# coding:utf-8
 """頂点カラーツール"""
 import re
+import math
+
+from shiboken2 import wrapInstance
 
 import maya.cmds as cmds
 import maya.mel as mel
 import maya.api.OpenMaya as om
 
+import maya.OpenMayaUI as omui
+
+from PySide2.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QSlider
+from PySide2.QtCore import Qt, QSettings, QEvent, Signal, QPoint
+from PySide2.QtGui import QDoubleValidator, QCursor
+
+from maya.app.general.mayaMixin import MayaQWidgetBaseMixin
+
 import nnutil.ui as ui
+import nnutil.memento as nm
+
+
+class UndoChunk(object):
+    """Undo チャンクのオープン/クローズを with で行うクラス"""
+    def __enter__(self):
+        cmds.undoInfo(openChunk=True)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        cmds.undoInfo(closeChunk=True)
+
+
+def to_real_text(v, precision):
+    """エディットボックス用の実数のフォーマッティング"""
+    format_string = "{:.%sf}" % precision
+
+    return format_string.format(v)
+
+
+class PushButtonLRM(QPushButton):
+    middleClicked = Signal()
+    rightClicked = Signal()
+
+    def __init__(self, parent=None):
+        super(PushButtonLRM, self).__init__(parent)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MiddleButton:
+            self.middleClicked.emit()
+
+        elif event.button() == Qt.RightButton:
+            self.rightClicked.emit()
+
+        super(PushButtonLRM, self).mouseReleaseEvent(event)
+
+
+class EditBoxFloatDraggable(QLineEdit):
+    beginDragging = Signal()
+    endDragging = Signal()
+    dragged = Signal()
+
+    def __init__(self, parent=None):
+        super(EditBoxFloatDraggable, self).__init__(parent)
+        self.installEventFilter(self)
+
+        self.is_dragging = False
+        self.cached_value = 0.0
+        self.cached_pos = QPoint(0, 0)
+        self.precision = 4
+        self.diff_scale = 1.0
+
+    def is_met_drag_condition(self, event):
+        """"ドラッグ操作の条件を満たしていれば True"""
+        return event.buttons() & Qt.LeftButton and event.modifiers() == Qt.ControlModifier
+
+    def eventFilter(self, source, event):
+        """イベントフィルター"""
+        if event.type() == QEvent.MouseMove:
+            if self.is_met_drag_condition(event):  # ドラッグ継続中処理
+                if not self.is_dragging:  # ドラッグ開始フレーム
+                    self.cached_value = float(self.text())
+                    self.cached_pos = QCursor.pos()
+                    self.is_dragging = True
+                    self.beginDragging.emit()
+
+                # ドラッグ開始時のカーソル位置との差分をドラッグ開始時の値に加算する
+                current_pos = QCursor.pos()
+                diff_pos = round(float(current_pos.x() - self.cached_pos.x()) / 10**self.precision / self.diff_scale, 4)
+                diff_sign = math.copysign(1.0, diff_pos)
+                diff_abs = max(0.1**self.precision, abs(diff_pos))
+                new_value = self.cached_value + diff_abs * diff_sign
+                self.setText(to_real_text(new_value, self.precision))
+                self.dragged.emit()
+
+                # ドラッグ操作中は選択範囲変更にならないように通常のイベント処理は抑止する
+                return True
+
+            else:
+                pass
+
+            return False
+
+        elif event.type() == QEvent.MouseButtonRelease:
+            if not self.is_met_drag_condition(event) and self.is_dragging:
+                # ドラッグ完了フレーム
+                self.is_dragging = False
+                self.endDragging.emit()
+
+        return False
 
 
 class InvalidArgumentCombinationError(Exception):
@@ -120,7 +218,7 @@ def str_to_vfi(vf_comp_string):
     if match:
         vi, fi = match.groups()
 
-        return (fi, vi)
+        return (int(fi), int(vi))
 
     else:
         return None
@@ -136,121 +234,420 @@ window = None
 
 
 def get_window():
+    global window
+
     return window
 
 
-class NN_ToolWindow(object):
-    def __init__(self):
-        self.window = window_name
-        self.title = window_name
-        self.size = (250, 240)
+class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
+    singleton_instance = None
+
+    def __init__(self, parent=None):
+        super(NN_ToolWindow, self).__init__(parent=parent)
+        self.settings = QSettings("NNTools", window_name)
 
         self.is_chunk_open = False
         self.editbox_precision = 4
         self.vf_color_caches = dict()  # スライド開始時の頂点カラーキャッシュ dict[obj_name, list[MColor]]
 
-    def create(self):
-        if cmds.window(self.window, exists=True):
-            cmds.deleteUI(self.window, window=True)
+        self.brush_size_mode = False
+        self.cached_value = 1.0  # ブラシサイズ変更開始時のスライダーの値
+        self.start_pos = 0
+        self.cached_size = 0.1  # ブラシサイズ変更開始時のブラシサイズ
 
-        # プリファレンスの有無による分岐
-        if cmds.windowPref(self.window, exists=True):
-            # ウィンドウのプリファレンスがあれば位置だけ保存して削除
-            position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
-            cmds.windowPref(self.window, remove=True)
+        # UI の初期化
+        self.setWindowFlags(Qt.Window | Qt.CustomizeWindowHint | Qt.WindowCloseButtonHint)
+        self.setWindowTitle(window_name)
 
-            cmds.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, topLeftCorner=position, widthHeight=self.size, sizeable=False)
-
+    def to_inner_value(self, v):
+        """実際の値 [0.0, 1.0] を内部のスケールされた値に変換する"""
+        if isinstance(v, list):
+            return [int(x * 10 ** self.editbox_precision) for x in v]
         else:
-            # プリファレンスがなければデフォルト位置に指定サイズで表示
-            cmds.window(self.window, t=self.title, maximizeButton=False, minimizeButton=False, widthHeight=self.size, sizeable=False)
+            return int(v * 10 ** self.editbox_precision)
+
+    def to_actual_value(self, v):
+        """内部のスケールされた値を実際の値 [0.0, 1.0] に変換する"""
+        if isinstance(v, list):
+            return [float(x) / 10 ** self.editbox_precision for x in v]
+        else:
+            return float(v) / 10 ** self.editbox_precision
+
+    def to_real_text(self, v):
+        """エディットボックス用の実数のフォーマッティング"""
+        return to_real_text(v, self.editbox_precision)
+
+    def create(self):
+        """ウィンドウの作成と表示"""
+        if NN_ToolWindow.singleton_instance:
+            NN_ToolWindow.singleton_instance.close()
 
         self.layout()
-        cmds.showWindow(self.window)
+        self.setFixedSize(self.sizeHint())  # コントロール配置後に推奨最小サイズでウィンドウサイズ固定
+
+        # 保存された位置があれば復帰する
+        if self.settings.value("geometry"):
+            self.restoreGeometry(self.settings.value("geometry"))
+
+        self.show()
+        NN_ToolWindow.singleton_instance = self
 
     def layout(self):
-        row_height1 = ui.height(1.0)
-        row_height2 = ui.height(0.9)
+        row_height1 = 36
+        row_height2 = 30
+        button_width1 = 80
+        button_width2 = 54
+        edit_box_width = button_width1
+        separater_height1 = 4
+        separater_height2 = 8
+        outer_margin = 2
+        spacing = 3
 
-        ui.column_layout()
+        # レウアウト枠組み
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
 
-        ui.row_layout()
-        ui.button(label="RGBA", c=self.onSetColorRGBA, dgc=self.onGetColorRGBA)
-        ui.button(label="Create Set [Op]", c=self.onCreateColorSet, dgc=self.onColorSetEditor, width=ui.width(3.75))
-        ui.button(label="Toggle Disp", c=self.onToggleDisplay, width=ui.width(3.75))
-        ui.end_layout()
+        column1 = QVBoxLayout(central_widget)
+        column1.setSpacing(0)
+        column1.setContentsMargins(outer_margin, outer_margin, outer_margin, outer_margin)
 
-        ui.separator(width=1, height=5)
+        rows = [QHBoxLayout() for _ in range(10)]
+        for row in rows:
+            row.setSpacing(spacing)
+            row.setContentsMargins(0, 0, 0, 0)
 
-        ui.row_layout()
-        ui.button(label="R", c=self.onSetColorR, dgc=self.onGetColorR, width=ui.width(2), height=row_height1)
-        ui.button(label="0.00", c=self.onSetColorR000, bgc=(0, 0, 0), width=ui.width1_5, height=row_height1)
-        ui.button(label="0.25", c=self.onSetColorR025, bgc=(0.25, 0, 0), width=ui.width1_5, height=row_height1)
-        ui.button(label="0.50", c=self.onSetColorR050, bgc=(0.5, 0, 0), width=ui.width1_5, height=row_height1)
-        ui.button(label="0.75", c=self.onSetColorR075, bgc=(0.75, 0, 0), width=ui.width1_5, height=row_height1)
-        ui.button(label="1.00", c=self.onSetColorR100, bgc=(1.0, 0, 0), width=ui.width1_5, height=row_height1)
-        ui.end_layout()
+            column1.addLayout(row)
 
-        ui.row_layout()
-        self.eb_red = ui.eb_float(min=0.0, max=1.0, v=1.0, precision=self.editbox_precision, width=ui.width(2), height=row_height2, dc=self.onDragEditBoxRed, cc=self.onChangeEditBoxRed)
-        self.fs_red = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), height=row_height2, dc=self.onDragRed, cc=self.onChangeSliderRed)
-        ui.end_layout()
+        # UI コントロ-ル定義
+        c = PushButtonLRM("RGBA")
+        c.clicked.connect(self.onSetColorRGBA)
+        c.middleClicked.connect(self.onGetColorRGBA)
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width1)
+        rows[0].addWidget(c)
 
-        ui.separator(width=1, height=5)
+        c = PushButtonLRM("Create Set [Op]")
+        c.clicked.connect(self.onCreateColorSet)
+        c.middleClicked.connect(self.onColorSetEditor)
+        c.setFixedHeight(row_height1)
+        rows[0].addWidget(c)
 
-        ui.row_layout()
-        ui.button(label="G", c=self.onSetColorG, dgc=self.onGetColorG, width=ui.width(2))
-        ui.button(label="0.00", c=self.onSetColorG000, bgc=(0, 0, 0), width=ui.width1_5)
-        ui.button(label="0.25", c=self.onSetColorG025, bgc=(0, 0.25, 0), width=ui.width1_5)
-        ui.button(label="0.50", c=self.onSetColorG050, bgc=(0, 0.5, 0), width=ui.width1_5)
-        ui.button(label="0.75", c=self.onSetColorG075, bgc=(0, 0.75, 0), width=ui.width1_5)
-        ui.button(label="1.00", c=self.onSetColorG100, bgc=(0, 1.0, 0), width=ui.width1_5)
-        ui.end_layout()
+        c = PushButtonLRM("Toggle Disp")
+        c.clicked.connect(self.onToggleDisplay)
+        c.setFixedHeight(row_height1)
+        rows[0].addWidget(c)
 
-        ui.row_layout()
-        self.eb_green = ui.eb_float(min=0.0, max=1.0, v=1.0, precision=self.editbox_precision, width=ui.width(2), dc=self.onDragEditBoxGreen, cc=self.onChangeEditBoxGreen)
-        self.fs_green = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragGreen, cc=self.onChangeSliderGreen)
-        ui.end_layout()
+        rows[0].setContentsMargins(0, 0, 0, separater_height2)
 
-        ui.separator(width=1, height=5)
+        # Red
+        c = PushButtonLRM("R")
+        c.clicked.connect(self.onSetColorR)
+        c.middleClicked.connect(self.onGetColorR)
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width1)
+        rows[2].addWidget(c)
 
-        ui.row_layout()
-        ui.button(label="B", c=self.onSetColorB, dgc=self.onGetColorB, width=ui.width(2))
-        ui.button(label="0.00", c=self.onSetColorB000, bgc=(0, 0, 0), width=ui.width1_5)
-        ui.button(label="0.25", c=self.onSetColorB025, bgc=(0, 0, 0.25), width=ui.width1_5)
-        ui.button(label="0.50", c=self.onSetColorB050, bgc=(0, 0, 0.5), width=ui.width1_5)
-        ui.button(label="0.75", c=self.onSetColorB075, bgc=(0, 0, 0.75), width=ui.width1_5)
-        ui.button(label="1.00", c=self.onSetColorB100, bgc=(0, 0, 1.0), width=ui.width1_5)
-        ui.end_layout()
+        c = PushButtonLRM("0.00")
+        c.clicked.connect(self.onSetColorR000)
+        c.setStyleSheet("background-color: #000000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[2].addWidget(c)
 
-        ui.row_layout()
-        self.eb_blue = ui.eb_float(min=0.0, max=1.0, v=1.0, precision=self.editbox_precision, width=ui.width(2), dc=self.onDragEditBoxBlue, cc=self.onChangeEditBoxBlue)
-        self.fs_blue = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragBlue, cc=self.onChangeSliderBlue)
-        ui.end_layout()
+        c = PushButtonLRM("0.25")
+        c.clicked.connect(self.onSetColorR025)
+        c.setStyleSheet("background-color: #400000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[2].addWidget(c)
 
-        ui.separator(width=1, height=5)
+        c = PushButtonLRM("0.50")
+        c.clicked.connect(self.onSetColorR050)
+        c.setStyleSheet("background-color: #800000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[2].addWidget(c)
 
-        ui.row_layout()
-        ui.button(label="A", c=self.onSetColorA, dgc=self.onGetColorA, width=ui.width(2))
-        ui.button(label="0.00", c=self.onSetColorA000, bgc=(0, 0, 0), width=ui.width1_5)
-        ui.button(label="0.25", c=self.onSetColorA025, bgc=(0.25, 0.25, 0.25), width=ui.width1_5)
-        ui.button(label="0.50", c=self.onSetColorA050, bgc=(0.5, 0.5, 0.5), width=ui.width1_5)
-        ui.button(label="0.75", c=self.onSetColorA075, bgc=(0.75, 0.75, 0.75), width=ui.width1_5)
-        ui.button(label="1.00", c=self.onSetColorA100, bgc=(1.0, 1.0, 1.0), width=ui.width1_5)
-        ui.end_layout()
+        c = PushButtonLRM("0.75")
+        c.clicked.connect(self.onSetColorR075)
+        c.setStyleSheet("background-color: #c00000; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[2].addWidget(c)
 
-        ui.row_layout()
-        self.eb_alpha = ui.eb_float(min=0.0, max=1.0, v=1.0, precision=self.editbox_precision, width=ui.width(2), dc=self.onDragEditBoxAlpha, cc=self.onChangeEditBoxAlpha)
-        self.fs_alpha = ui.float_slider(min=0, max=1.0, value=1.0, width=ui.width(7.5), dc=self.onDragAlpha, cc=self.onChangeSliderAlpha)
-        ui.end_layout()
+        c = PushButtonLRM("1.00")
+        c.clicked.connect(self.onSetColorR100)
+        c.setStyleSheet("background-color: #FF0000; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[2].addWidget(c)
 
-        ui.row_layout()
-        ui.end_layout()
+        rows[2].setContentsMargins(0, 0, 0, separater_height1)
 
-        ui.row_layout()
-        ui.end_layout()
+        c = EditBoxFloatDraggable()
+        c.setValidator(QDoubleValidator())
+        c.validator().setDecimals(self.editbox_precision)
+        c.setText(self.to_real_text(1.0))
+        c.beginDragging.connect(self.onBeginEditBoxDragging)
+        c.endDragging.connect(self.onEndEditBoxDraggingRed)
+        c.dragged.connect(self.onDragEditBoxRed)
+        c.returnPressed.connect(self.onChangeEditBoxRed)
+        c.editingFinished.connect(self.onEdittingFinished)
+        c.setFixedHeight(row_height2)
+        c.setFixedWidth(edit_box_width)
+        rows[3].addWidget(c)
+        self.eb_red = c
 
-        ui.end_layout()
+        c = QSlider(Qt.Horizontal)
+        c.setRange(self.to_inner_value(0.0), self.to_inner_value(1.0))
+        c.setValue(self.to_inner_value(1.0))
+        c.sliderPressed.connect(self.onSliderPressed)
+        c.sliderMoved.connect(self.onDragRed)
+        c.sliderReleased.connect(self.onChangeSliderRed)
+        c.installEventFilter(self)
+        c.setFixedHeight(row_height2)
+        rows[3].addWidget(c)
+        self.fs_red = c
+
+        rows[3].setContentsMargins(0, 0, 0, separater_height2)
+
+        # Green
+        c = PushButtonLRM("G")
+        c.clicked.connect(self.onSetColorG)
+        c.middleClicked.connect(self.onGetColorG)
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width1)
+        rows[4].addWidget(c)
+
+        c = PushButtonLRM("0.00")
+        c.clicked.connect(self.onSetColorG000)
+        c.setStyleSheet("background-color: #000000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[4].addWidget(c)
+
+        c = PushButtonLRM("0.25")
+        c.clicked.connect(self.onSetColorG025)
+        c.setStyleSheet("background-color: #004000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[4].addWidget(c)
+
+        c = PushButtonLRM("0.50")
+        c.clicked.connect(self.onSetColorG050)
+        c.setStyleSheet("background-color: #008000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[4].addWidget(c)
+
+        c = PushButtonLRM("0.75")
+        c.clicked.connect(self.onSetColorG075)
+        c.setStyleSheet("background-color: #00c000; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[4].addWidget(c)
+
+        c = PushButtonLRM("1.00")
+        c.clicked.connect(self.onSetColorG100)
+        c.setStyleSheet("background-color: #00FF00; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[4].addWidget(c)
+
+        rows[4].setContentsMargins(0, 0, 0, separater_height1)
+
+        c = EditBoxFloatDraggable()
+        c.setValidator(QDoubleValidator())
+        c.validator().setDecimals(self.editbox_precision)
+        c.setText(self.to_real_text(1.0))
+        c.beginDragging.connect(self.onBeginEditBoxDragging)
+        c.endDragging.connect(self.onEndEditBoxDraggingGreen)
+        c.dragged.connect(self.onDragEditBoxGreen)
+        c.returnPressed.connect(self.onChangeEditBoxGreen)
+        c.editingFinished.connect(self.onEdittingFinished)
+        c.setFixedHeight(row_height2)
+        c.setFixedWidth(edit_box_width)
+        rows[5].addWidget(c)
+        self.eb_green = c
+
+        c = QSlider(Qt.Horizontal)
+        c.setRange(self.to_inner_value(0.0), self.to_inner_value(1.0))
+        c.setValue(self.to_inner_value(1.0))
+        c.sliderPressed.connect(self.onSliderPressed)
+        c.sliderMoved.connect(self.onDragGreen)
+        c.sliderReleased.connect(self.onChangeSliderGreen)
+        c.installEventFilter(self)
+        c.setFixedHeight(row_height2)
+        rows[5].addWidget(c)
+        self.fs_green = c
+
+        rows[5].setContentsMargins(0, 0, 0, separater_height2)
+
+        # Blue
+        c = PushButtonLRM("B")
+        c.clicked.connect(self.onSetColorB)
+        c.middleClicked.connect(self.onGetColorB)
+        rows[6].addWidget(c)
+
+        c = PushButtonLRM("0.00")
+        c.clicked.connect(self.onSetColorB000)
+        c.setStyleSheet("background-color: #000000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[6].addWidget(c)
+
+        c = PushButtonLRM("0.25")
+        c.clicked.connect(self.onSetColorB025)
+        c.setStyleSheet("background-color: #000040; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[6].addWidget(c)
+
+        c = PushButtonLRM("0.50")
+        c.clicked.connect(self.onSetColorB050)
+        c.setStyleSheet("background-color: #000080; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[6].addWidget(c)
+
+        c = PushButtonLRM("0.75")
+        c.clicked.connect(self.onSetColorB075)
+        c.setStyleSheet("background-color: #0000c0; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[6].addWidget(c)
+
+        c = PushButtonLRM("1.00")
+        c.clicked.connect(self.onSetColorB100)
+        c.setStyleSheet("background-color: #0000FF; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[6].addWidget(c)
+
+        rows[6].setContentsMargins(0, 0, 0, separater_height1)
+
+        c = EditBoxFloatDraggable()
+        c.setValidator(QDoubleValidator())
+        c.validator().setDecimals(self.editbox_precision)
+        c.setText(self.to_real_text(1.0))
+        c.beginDragging.connect(self.onBeginEditBoxDragging)
+        c.endDragging.connect(self.onEndEditBoxDraggingBlue)
+        c.dragged.connect(self.onDragEditBoxBlue)
+        c.returnPressed.connect(self.onChangeEditBoxBlue)
+        c.editingFinished.connect(self.onEdittingFinished)
+        c.setFixedHeight(row_height2)
+        c.setFixedWidth(edit_box_width)
+        rows[7].addWidget(c)
+        self.eb_blue = c
+
+        c = QSlider(Qt.Horizontal)
+        c.setRange(self.to_inner_value(0.0), self.to_inner_value(1.0))
+        c.setValue(self.to_inner_value(1.0))
+        c.sliderPressed.connect(self.onSliderPressed)
+        c.sliderMoved.connect(self.onDragBlue)
+        c.sliderReleased.connect(self.onChangeSliderBlue)
+        c.installEventFilter(self)
+        c.setFixedHeight(row_height2)
+        rows[7].addWidget(c)
+        self.fs_blue = c
+
+        rows[7].setContentsMargins(0, 0, 0, separater_height2)
+
+        # Alpha
+        c = PushButtonLRM("A")
+        c.clicked.connect(self.onSetColorA)
+        c.middleClicked.connect(self.onGetColorA)
+        rows[8].addWidget(c)
+
+        c = PushButtonLRM("0.00")
+        c.clicked.connect(self.onSetColorA000)
+        c.setStyleSheet("background-color: #000000; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[8].addWidget(c)
+
+        c = PushButtonLRM("0.25")
+        c.clicked.connect(self.onSetColorA025)
+        c.setStyleSheet("background-color: #404040; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[8].addWidget(c)
+
+        c = PushButtonLRM("0.50")
+        c.clicked.connect(self.onSetColorA050)
+        c.setStyleSheet("background-color: #808080; color: white;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[8].addWidget(c)
+
+        c = PushButtonLRM("0.75")
+        c.clicked.connect(self.onSetColorA075)
+        c.setStyleSheet("background-color: #c0c0c0; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[8].addWidget(c)
+
+        c = PushButtonLRM("1.00")
+        c.clicked.connect(self.onSetColorA100)
+        c.setStyleSheet("background-color: #FFFFFF; color: black;")
+        c.setFixedHeight(row_height1)
+        c.setFixedWidth(button_width2)
+        rows[8].addWidget(c)
+
+        rows[8].setContentsMargins(0, 0, 0, separater_height1)
+
+        c = EditBoxFloatDraggable()
+        c.setValidator(QDoubleValidator())
+        c.validator().setDecimals(self.editbox_precision)
+        c.setText(self.to_real_text(1.0))
+        c.beginDragging.connect(self.onBeginEditBoxDragging)
+        c.endDragging.connect(self.onEndEditBoxDraggingAlpha)
+        c.dragged.connect(self.onDragEditBoxAlpha)
+        c.returnPressed.connect(self.onChangeEditBoxAlpha)
+        c.editingFinished.connect(self.onEdittingFinished)
+        c.setFixedHeight(row_height2)
+        c.setFixedWidth(edit_box_width)
+        rows[9].addWidget(c)
+        self.eb_alpha = c
+
+        c = QSlider(Qt.Horizontal)
+        c.setRange(self.to_inner_value(0.0), self.to_inner_value(1.0))
+        c.setValue(self.to_inner_value(1.0))
+        c.sliderPressed.connect(self.onSliderPressed)
+        c.sliderMoved.connect(self.onDragAlpha)
+        c.sliderReleased.connect(self.onChangeSliderAlpha)
+        c.installEventFilter(self)
+        c.setFixedHeight(row_height2)
+        rows[9].addWidget(c)
+        self.fs_alpha = c
+
+        rows[9].setContentsMargins(0, 0, 0, separater_height2)
+
+    def moveEvent(self, event):
+        """ウィンドウ位置の保存"""
+        self.settings.setValue("geometry", self.saveGeometry())
+
+    def eventFilter(self, source, event):
+        """イベントフィルター"""
+        if event.type() == QEvent.MouseMove:
+            if source == self.fs_red:
+                channel = "r"
+
+            elif source == self.fs_green:
+                channel = "g"
+
+            elif source == self.fs_blue:
+                channel = "b"
+
+            elif source == self.fs_alpha:
+                channel = "a"
+
+            else:
+                return False
+
+            self._on_drag_slider(channel=channel)
+
+        return False
 
     def _get_color(self, *args):
         """選択している全ての頂点の頂点カラーを平均した値を返す"""
@@ -289,10 +686,10 @@ class NN_ToolWindow(object):
             a_list = [color_components[4*i+3] for i in range(len(color_components)//4)]
             count = len(r_list)
 
-            r = sum(r_list)/count
-            g = sum(g_list)/count
-            b = sum(b_list)/count
-            a = sum(a_list)/count
+            r = float(sum(r_list)) / count
+            g = float(sum(g_list)) / count
+            b = float(sum(b_list)) / count
+            a = float(sum(a_list)) / count
 
             return (r, g, b, a)
 
@@ -316,10 +713,11 @@ class NN_ToolWindow(object):
         color = self._get_color()
 
         if color:
-            ui.set_value(self.fs_red, value=color[0])
-            ui.set_value(self.fs_green, value=color[1])
-            ui.set_value(self.fs_blue, value=color[2])
-            ui.set_value(self.fs_alpha, value=color[3])
+            inner_values = [self.to_inner_value(x) for x in color]
+            self.fs_red.setValue(inner_values[0])
+            self.fs_green.setValue(inner_values[1])
+            self.fs_blue.setValue(inner_values[2])
+            self.fs_alpha.setValue(inner_values[3])
 
             self._sync_slider_and_editbox(from_slider=True)
 
@@ -328,10 +726,10 @@ class NN_ToolWindow(object):
         selection = cmds.ls(selection=True)
 
         if selection:
-            r = ui.get_value(self.fs_red)
-            g = ui.get_value(self.fs_green)
-            b = ui.get_value(self.fs_blue)
-            a = ui.get_value(self.fs_alpha)
+            r = self.to_actual_value(self.fs_red.value())
+            g = self.to_actual_value(self.fs_green.value())
+            b = self.to_actual_value(self.fs_blue.value())
+            a = self.to_actual_value(self.fs_alpha.value())
 
             targets = cmds.polyListComponentConversion(selection, tvf=True)
             cmds.polyColorPerVertex(targets, r=r, g=g, b=b, a=a)
@@ -341,7 +739,7 @@ class NN_ToolWindow(object):
         color = self._get_color()
 
         if color:
-            ui.set_value(self.fs_red, value=color[0])
+            self.fs_red.setValue(self.to_inner_value(color[0]))
 
             self._sync_slider_and_editbox(from_slider=True)
 
@@ -350,7 +748,7 @@ class NN_ToolWindow(object):
         color = self._get_color()
 
         if color:
-            ui.set_value(self.fs_green, value=color[1])
+            self.fs_green.setValue(self.to_inner_value(color[1]))
 
             self._sync_slider_and_editbox(from_slider=True)
 
@@ -359,7 +757,7 @@ class NN_ToolWindow(object):
         color = self._get_color()
 
         if color:
-            ui.set_value(self.fs_blue, value=color[2])
+            self.fs_blue.setValue(self.to_inner_value(color[2]))
 
             self._sync_slider_and_editbox(from_slider=True)
 
@@ -368,59 +766,142 @@ class NN_ToolWindow(object):
         color = self._get_color()
 
         if color:
-            ui.set_value(self.fs_alpha, value=color[3])
+            self.fs_alpha.setValue(self.to_inner_value(color[3]))
 
             self._sync_slider_and_editbox(from_slider=True)
 
-    def _set_unified_color(self, targets, channel, value, via_api):
-        """指定頂点カラーに同一値を設定する｡最終的な設定は cmds経由で Undo 可能｡同一色での塗りつぶし1回なので早い｡
+    def _set_unified_color(self, targets, channel, value, via_api=False):
+        """指定頂点カラーに同一値を設定する｡同一色での塗りつぶし1回なので早い｡
 
         Args:
             targets (list[str]): 対象コンポーネント
             channel (str): 上書きするチャンネル
             value (float): 上書きする値
-
-        TODO: 高速化が必要な場合は via_api で分岐して API での処理を書く
+            via_api (bool, optional): API での操作. Defaults to False.
         """
         if targets:
-            # UV選択なら vf 変換､エッジ選択なら vtx 変換する
+            # UV選択なら vf 変換､エッジ選択なら vtx 変換する｡それ以外の場合はそのまま
             if cmds.selectType(q=True, polymeshUV=True):
                 targets = cmds.polyListComponentConversion(targets, tvf=True)
 
             elif cmds.selectType(q=True, edge=True):
                 targets = cmds.polyListComponentConversion(targets, tv=True)
 
-            # オブジェクト全体の現在の頂点カラーを保存する
-            objects = cmds.polyListComponentConversion(targets)
-            stored_colors = store_colors(objects)
+            if via_api:
+                # API による頂点カラーの設定
 
-            # 指定のチャンネルを上書きする｡ polyColorPerVertex の仕様で他チャンネルが崩れるので
-            # 保存した頂点カラーで復帰する
-            if channel == "r":
-                cmds.polyColorPerVertex(targets, r=value)
-                restore_colors(objects, stored_colors, r=False, g=True, b=True, a=True)
+                # API の場合､速度は気にしなくて良いので全て頂点フェースに変換して後続処理を簡略化する
+                targets = cmds.filterExpand(cmds.polyListComponentConversion(targets, tvf=True), sm=70)
 
-            if channel == "g":
-                cmds.polyColorPerVertex(targets, g=value)
-                restore_colors(objects, stored_colors, r=True, g=False, b=True, a=True)
+                # コンポーネントをオブジェクト毎に分類
+                objects = cmds.polyListComponentConversion(targets)
+                object_name_to_targets = dict()
 
-            if channel == "b":
-                cmds.polyColorPerVertex(targets, b=value)
-                restore_colors(objects, stored_colors, r=True, g=True, b=False, a=True)
+                for target in targets:
+                    obj_name = cmds.polyListComponentConversion(target)[0]
 
-            if channel == "a":
-                cmds.polyColorPerVertex(targets, a=value)
-                restore_colors(objects, stored_colors, r=True, g=True, b=True, a=False)
+                    if obj_name not in object_name_to_targets:
+                        object_name_to_targets[obj_name] = []
+
+                    object_name_to_targets[obj_name].append(target)
+
+                # オブジェクト毎に頂点カラーを設定
+                for obj_name, targets in object_name_to_targets.items():
+                    # 関数オブジェクト初期化
+                    slist = om.MGlobal.getSelectionListByName(obj_name)
+                    obj, component = slist.getComponent(0)
+                    fn_mesh = om.MFnMesh(obj)
+
+                    # 全頂点フェースのカラー取得
+                    vf_colors = fn_mesh.getFaceVertexColors()
+
+                    # 頂点インデックス･フェースインデックスと 頂点フェースインデックス (1次元) の相互変換辞書
+                    vfi_to_fivi = [None] * len(vf_colors)
+                    fivi_to_vfi = dict()
+
+                    for fi in range(fn_mesh.numPolygons):
+                        vertex_indices = fn_mesh.getPolygonVertices(fi)
+
+                        for lvi, gvi in enumerate(vertex_indices):
+                            vfi = fn_mesh.getFaceVertexIndex(fi, lvi)
+                            vfi_to_fivi[vfi] = (fi, gvi)
+                            fivi_to_vfi[(fi, gvi)] = vfi
+
+                    # targets で指定されたコンポーネントの頂点カラーを上書き
+                    for fi, vi in [str_to_vfi(x) for x in targets]:
+                        vfi = fivi_to_vfi[(fi, vi)]
+                        vf_color = vf_colors[vfi]
+
+                        if channel == "r":
+                            vf_color.r = value
+
+                        if channel == "g":
+                            vf_color.g = value
+
+                        if channel == "b":
+                            vf_color.b = value
+
+                        if channel == "a":
+                            vf_color.a = value
+
+                        vf_colors[vfi] = vf_color
+
+                    # 全頂点フェースカラーの設定
+                    face_indices = om.MIntArray()
+                    vertex_indices = om.MIntArray()
+
+                    for i in range(fn_mesh.numPolygons):
+                        polygon_vertices = fn_mesh.getPolygonVertices(i)
+
+                        for j in polygon_vertices:
+                            face_indices.append(i)
+                            vertex_indices.append(j)
+
+                    print(obj_name)
+                    nm.snapshot(targets=[obj_name], color=True)
+
+                    fn_mesh.setFaceVertexColors(vf_colors, face_indices, vertex_indices)
+
+                    nm.snapshot(targets=[obj_name], color=True)
 
             else:
-                pass
+                # コマンドによる頂点カラーの設定
+                # 指定のチャンネルを上書きする｡ polyColorPerVertex の仕様で他チャンネルが崩れるので
+                # 保存した頂点カラーで復帰する
+
+                # オブジェクト全体の現在の頂点カラーを保存する
+                objects = cmds.polyListComponentConversion(targets)
+                stored_colors = store_colors(objects)
+
+                if channel == "r":
+                    cmds.polyColorPerVertex(targets, r=value)
+                    restore_colors(objects, stored_colors, r=False, g=True, b=True, a=True)
+
+                if channel == "g":
+                    cmds.polyColorPerVertex(targets, g=value)
+                    restore_colors(objects, stored_colors, r=True, g=False, b=True, a=True)
+
+                if channel == "b":
+                    cmds.polyColorPerVertex(targets, b=value)
+                    restore_colors(objects, stored_colors, r=True, g=True, b=False, a=True)
+
+                if channel == "a":
+                    cmds.polyColorPerVertex(targets, a=value)
+                    restore_colors(objects, stored_colors, r=True, g=True, b=True, a=False)
+
+                else:
+                    pass
 
     def _blend_color(self, vf_color_caches, channel, v, weight_mul=1.0, mode="copy", via_api=False):
-        """頂点カラーそれぞれに指定した値を設定する｡最終的な設定は cmds経由で Undo 可能｡コンポーネント反復するので遅い｡
+        """頂点カラーそれぞれに指定した値を設定する｡コンポーネント反復するので遅い｡
 
         Args:
             vf_color_caches (dict[str, list[MColor]]): オブジェクト毎の全頂点カラー
             channel (str): 上書きするチャンネル
+            v (float): 上書きする値
+            weight_mul (float, optional): 乗算モードでの倍率. Defaults to 1.0.
+            mode (str, optional): 上書きモード. Defaults to "copy".
+            via_api (bool, optional): API での操作. Defaults to False.
         """
         if not cmds.softSelect(q=True, softSelectEnabled=True):
             return None
@@ -449,7 +930,7 @@ class NN_ToolWindow(object):
                 vi_to_weight[vi] = fn_comp.weight(j).influence
 
             # シンメトリ側に同一のオブジェクトがあればウェイト取得してマージする
-            # 同一オブジェクトを別々に処理する (sl_rich_sel と sl_rich_sel_sym をそれぞれ for する等) と
+            # 同一オブジェクトを別々に処理すると (sl_rich_sel と sl_rich_sel_sym をそれぞれ for する等)
             # スライド中にお互いがお互いをキャッシュで上書きされて使い勝手悪い
             for j in range(sl_rich_sel_sym.length()):
                 sym_obj, sym_comp = sl_rich_sel_sym.getComponent(j)
@@ -484,8 +965,7 @@ class NN_ToolWindow(object):
                     v_itr.next()
             else:
                 # MRichSeleciton が kMeshVertComponent 以外を返すようになったら修正が必要
-                print("unknown comptype")
-                pass
+                raise Exception("unknown comptype")
 
             # ブレンド元の頂点カラーが渡されていればそれを使用する｡なければ現在の頂点フェースカラーを取得
             if obj_name in vf_color_caches.keys():
@@ -523,8 +1003,7 @@ class NN_ToolWindow(object):
                 elif channel == "a":
                     ci = 3
                 else:
-                    print("unknown channel")
-                    ci = 0
+                    raise Exception("unknown channel")
 
                 if mode == "copy":
                     new_vf_colors[vfi][ci] = current_vf_colors[vfi][ci] * (1.0 - w) + v * w
@@ -537,41 +1016,49 @@ class NN_ToolWindow(object):
                     new_vf_colors[vfi][ci] = current_vf_colors[vfi][ci] / lerp(1.0, safe_v, w)
 
                 else:
-                    print("unknown mode")
+                    raise Exception("unknown mode")
 
             if via_api:
                 # API はそのまま全VFに適用
                 fis = [fi for fi, vi in vfi_to_fivi]
                 vis = [vi for fi, vi in vfi_to_fivi]
+
+                nm.snapshot(targets=[obj_name], color=True)
+
                 fn_mesh.setFaceVertexColors(new_vf_colors, fis, vis)
 
+                nm.snapshot(targets=[obj_name], color=True)
+
             else:
+                # cmds はインデックスで反復して適用
+
                 # 一度キャッシュの内容に戻して cmds が作る Undo にドラッグ前の値を記憶させる
                 fis = [fi for fi, vi in vfi_to_fivi]
                 vis = [vi for fi, vi in vfi_to_fivi]
                 fn_mesh.setFaceVertexColors(current_vf_colors, fis, vis)
 
-                # cmds はインデックスで反復して適用
-                for vfi, fivi in enumerate(vfi_to_fivi):
-                    fi = fivi[0]
-                    vi = fivi[1]
+                # 適用処理
+                with UndoChunk():
+                    for vfi, fivi in enumerate(vfi_to_fivi):
+                        fi = fivi[0]
+                        vi = fivi[1]
 
-                    # ウェイトが無ければスキップ
-                    if vi not in selected_vis:
-                        continue
+                        # ウェイトが無ければスキップ
+                        if vi not in selected_vis:
+                            continue
 
-                    # 合成後の色を cmds で上書き
-                    color = new_vf_colors[vfi]
+                        # 合成後の色を cmds で上書き
+                        color = new_vf_colors[vfi]
 
-                    target = vfi_to_str(obj_name, fi, vi)
+                        target = vfi_to_str(obj_name, fi, vi)
 
-                    if len(color) == 4:
-                        r, g, b, a = list(color)
-                        cmds.polyColorPerVertex(target, r=r, g=g, b=b, a=a)
+                        if len(color) == 4:
+                            r, g, b, a = list(color)
+                            cmds.polyColorPerVertex(target, r=r, g=g, b=b, a=a)
 
-                    elif len(color) == 3:
-                        r, g, b = list(color)
-                        cmds.polyColorPerVertex(target, r=r, g=g, b=b)
+                        elif len(color) == 3:
+                            r, g, b = list(color)
+                            cmds.polyColorPerVertex(target, r=r, g=g, b=b)
 
     def _on_set_color(self, channel, drag):
         """スライダーを元に頂点カラーを設定する
@@ -581,193 +1068,166 @@ class NN_ToolWindow(object):
             drag (bool): ドラッグ中なら True ､確定時なら False を指定する｡
         """
         # スライダーの値取得
-        if channel == "r":
-            v = ui.get_value(self.fs_red)
-
-        if channel == "g":
-            v = ui.get_value(self.fs_green)
-
-        if channel == "b":
-            v = ui.get_value(self.fs_blue)
-
-        if channel == "a":
-            v = ui.get_value(self.fs_alpha)
+        slider = self.get_slider(channel)
+        v = self.to_actual_value(slider.value())
 
         selection = cmds.ls(selection=True)
 
         if selection:
+            mode = "mul" if ui.is_alt() else "copy"
+
             # ソフト有効ならコンポーネント毎に色計算､無効なら単色を設定する｡
             # 頂点カラーの変更はドラッグ中は API を使用し､確定時は cmds を使用する｡
             if cmds.softSelect(q=True, softSelectEnabled=True) and not cmds.selectMode(q=True, object=True):
-                mode = "mul" if ui.is_alt() else "copy"
-
+                # ソフト選択有効
                 if drag:
                     self._blend_color(self.vf_color_caches, channel, v, mode=mode, via_api=True)
 
                 else:
-                    self._blend_color(self.vf_color_caches, channel, v, mode=mode, via_api=False)
+                    self._blend_color(self.vf_color_caches, channel, v, mode=mode, via_api=True)  # nm.snapshot が使用できない環境では via_api=False にして Undo 対応する
 
             else:
+                # 通常選択
                 if drag:
                     self._set_unified_color(selection, channel, v, via_api=True)
 
                 else:
-                    self._set_unified_color(selection, channel, v, via_api=False)
+                    self._set_unified_color(selection, channel, v, via_api=True)  # nm.snapshot が使用できない環境では via_api=False にして Undo 対応する
 
     def onSetColorR(self, *args):
         """[R] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
+        self._clear_editboxes_focus()
         self._on_set_color(channel="r", drag=False)
 
     def onSetColorG(self, *args):
         """[G] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
+        self._clear_editboxes_focus()
         self._on_set_color(channel="g", drag=False)
 
     def onSetColorB(self, *args):
         """[B] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
+        self._clear_editboxes_focus()
         self._on_set_color(channel="b", drag=False)
 
     def onSetColorA(self, *args):
         """[A] ボタン押下時のハンドラ｡現在のスライダー値で値を設定する"""
+        self._clear_editboxes_focus()
         self._on_set_color(channel="a", drag=False)
+
+    def _clear_editboxes_focus(self):
+        """全てのエディットボックスのフォーカスを解除する"""
+        edit_boxes = [self.eb_red, self.eb_green, self.eb_blue, self.eb_alpha]
+
+        for eb in edit_boxes:
+            eb.clearFocus()
+
+    def _set_slider_value_with_channel(self, channel, actual_value, sync=False):
+        self._clear_editboxes_focus()
+        v = self.to_inner_value(actual_value)
+        slider = self.get_slider(channel)
+        slider.setValue(v)
+
+        if sync:
+            self._sync_slider_and_editbox(from_slider=True)
 
     def onSetColorR000(self, *args):
         """R を 0.00 に設定する"""
-        v = 0.0
-        ui.set_value(self.fs_red, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("r", 0.0, sync=True)
         self._on_set_color(channel="r", drag=False)
 
     def onSetColorR025(self, *args):
         """R を 0.25 に設定する"""
-        v = 0.25
-        ui.set_value(self.fs_red, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("r", 0.25, sync=True)
         self._on_set_color(channel="r", drag=False)
 
     def onSetColorR050(self, *args):
         """R を 0.50 に設定する"""
-        v = 0.5
-        ui.set_value(self.fs_red, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("r", 0.5, sync=True)
         self._on_set_color(channel="r", drag=False)
 
     def onSetColorR075(self, *args):
         """R を 0.75 に設定する"""
-        v = 0.75
-        ui.set_value(self.fs_red, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("r", 0.75, sync=True)
         self._on_set_color(channel="r", drag=False)
 
     def onSetColorR100(self, *args):
         """R を 1.00 に設定する"""
-        v = 1.0
-        ui.set_value(self.fs_red, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("r", 1.0, sync=True)
         self._on_set_color(channel="r", drag=False)
 
     def onSetColorG000(self, *args):
         """G を 0.00 に設定する"""
-        v = 0.0
-        ui.set_value(self.fs_green, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("g", 0.0, sync=True)
         self._on_set_color(channel="g", drag=False)
 
     def onSetColorG025(self, *args):
         """G を 0.25 に設定する"""
-        v = 0.25
-        ui.set_value(self.fs_green, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("g", 0.25, sync=True)
         self._on_set_color(channel="g", drag=False)
 
     def onSetColorG050(self, *args):
         """G を 0.50 に設定する"""
-        v = 0.5
-        ui.set_value(self.fs_green, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("g", 0.5, sync=True)
         self._on_set_color(channel="g", drag=False)
 
     def onSetColorG075(self, *args):
         """G を 0.75 に設定する"""
-        v = 0.75
-        ui.set_value(self.fs_green, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("g", 0.75, sync=True)
         self._on_set_color(channel="g", drag=False)
 
     def onSetColorG100(self, *args):
         """G を 1.00 に設定する"""
-        v = 1.0
-        ui.set_value(self.fs_green, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("g", 1.0, sync=True)
         self._on_set_color(channel="g", drag=False)
 
     def onSetColorB000(self, *args):
         """B を 0.00 に設定する"""
-        v = 0.0
-        ui.set_value(self.fs_blue, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("b", 0.0, sync=True)
         self._on_set_color(channel="b", drag=False)
 
     def onSetColorB025(self, *args):
         """B を 0.25 に設定する"""
-        v = 0.25
-        ui.set_value(self.fs_blue, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("b", 0.25, sync=True)
         self._on_set_color(channel="b", drag=False)
 
     def onSetColorB050(self, *args):
         """B を 0.50 に設定する"""
-        v = 0.5
-        ui.set_value(self.fs_blue, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("b", 0.5, sync=True)
         self._on_set_color(channel="b", drag=False)
 
     def onSetColorB075(self, *args):
         """B を 0.75 に設定する"""
-        v = 0.75
-        ui.set_value(self.fs_blue, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("b", 0.75, sync=True)
         self._on_set_color(channel="b", drag=False)
 
     def onSetColorB100(self, *args):
         """B を 1.00 に設定する"""
-        v = 1.0
-        ui.set_value(self.fs_blue, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("b", 1.0, sync=True)
         self._on_set_color(channel="b", drag=False)
 
     def onSetColorA000(self, *args):
         """A を 0.00 に設定する"""
-        v = 0.0
-        ui.set_value(self.fs_alpha, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("a", 0.0, sync=True)
         self._on_set_color(channel="a", drag=False)
 
     def onSetColorA025(self, *args):
         """A を 0.25 に設定する"""
-        v = 0.25
-        ui.set_value(self.fs_alpha, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("a", 0.25, sync=True)
         self._on_set_color(channel="a", drag=False)
 
     def onSetColorA050(self, *args):
         """A を 0.50 に設定する"""
-        v = 0.5
-        ui.set_value(self.fs_alpha, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("a", 0.5, sync=True)
         self._on_set_color(channel="a", drag=False)
 
     def onSetColorA075(self, *args):
         """A を 0.75 に設定する"""
-        v = 0.75
-        ui.set_value(self.fs_alpha, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("a", 0.75, sync=True)
         self._on_set_color(channel="a", drag=False)
 
     def onSetColorA100(self, *args):
         """A を 1.00 に設定する"""
-        v = 1.0
-        ui.set_value(self.fs_alpha, value=v)
-        self._sync_slider_and_editbox(from_slider=True)
+        self._set_slider_value_with_channel("a", 1.0, sync=True)
         self._on_set_color(channel="a", drag=False)
 
     def _sync_slider_and_editbox(self, from_slider=False, from_editbox=False):
@@ -783,37 +1243,54 @@ class NN_ToolWindow(object):
 
         # スライダーを元にエディットボックスを変更
         if from_slider:
-            v = ui.get_value(self.fs_red)
-            ui.set_value(self.eb_red, v)
+            v = self.to_actual_value(self.fs_red.value())
+            self.eb_red.setText(self.to_real_text(v))
 
-            v = ui.get_value(self.fs_green)
-            ui.set_value(self.eb_green, v)
+            v = self.to_actual_value(self.fs_green.value())
+            self.eb_green.setText(self.to_real_text(v))
 
-            v = ui.get_value(self.fs_blue)
-            ui.set_value(self.eb_blue, v)
+            v = self.to_actual_value(self.fs_blue.value())
+            self.eb_blue.setText(self.to_real_text(v))
 
-            v = ui.get_value(self.fs_alpha)
-            ui.set_value(self.eb_alpha, v)
+            v = self.to_actual_value(self.fs_alpha.value())
+            self.eb_alpha.setText(self.to_real_text(v))
 
         # エディットボックスを元にスライダーを変更
         if from_editbox:
-            v = ui.get_value(self.eb_red)
-            ui.set_value(self.fs_red, v)
+            v = self.to_inner_value(float(self.eb_red.text()))
+            self.fs_red.setValue(v)
 
-            v = ui.get_value(self.eb_green)
-            ui.set_value(self.fs_green, v)
+            v = self.to_inner_value(float(self.eb_green.text()))
+            self.fs_green.setValue(v)
 
-            v = ui.get_value(self.eb_blue)
-            ui.set_value(self.fs_blue, v)
+            v = self.to_inner_value(float(self.eb_blue.text()))
+            self.fs_blue.setValue(v)
 
-            v = ui.get_value(self.eb_alpha)
-            ui.set_value(self.fs_alpha, v)
+            v = self.to_inner_value(float(self.eb_alpha.text()))
+            self.fs_alpha.setValue(v)
+
+    def onBeginEditBoxDragging(self, *args):
+        """エディットボックスドラッグ開始時"""
+        self._create_vf_color_cache()
+        self._open_chunk()
 
     def _on_drag_editbox(self, channel):
         """エディットボックスのスライド時の処理"""
         # エディットボックスの値をスライダーの値に反映させてスライダードラッグ時の関数を呼ぶ
         self._sync_slider_and_editbox(from_editbox=True)
         self._on_drag_slider(channel=channel)
+
+    def _on_end_editbox_dragging(self, channel):
+        """エディットボックスドラッグ終了時"""
+        selection = cmds.ls(selection=True)
+
+        if selection:
+            # Undo 用の API を使用しない確定処理
+            self._on_set_color(channel=channel, drag=False)
+
+        # キャッシュの削除とチャンクのクローズ
+        self.vf_color_caches = dict()
+        self._close_chunk()
 
     def onDragEditBoxRed(self, *args):
         """Red エディットボックスのスライド操作"""
@@ -831,9 +1308,33 @@ class NN_ToolWindow(object):
         """Alpha エディットボックスのスライド操作"""
         self._on_drag_editbox(channel="a")
 
+    def onEndEditBoxDraggingRed(self, *args):
+        """Red エディットボックスドラッグ終了時"""
+        self._on_end_editbox_dragging(channel="r")
+
+    def onEndEditBoxDraggingGreen(self, *args):
+        """Green エディットボックスドラッグ終了時"""
+        self._on_end_editbox_dragging(channel="g")
+
+    def onEndEditBoxDraggingBlue(self, *args):
+        """Blue エディットボックスドラッグ終了時"""
+        self._on_end_editbox_dragging(channel="b")
+
+    def onEndEditBoxDraggingAlpha(self, *args):
+        """Alpha エディットボックスドラッグ終了時"""
+        self._on_end_editbox_dragging(channel="a")
+
+    def _format_editbox_text(self):
+        """全てのエディットボックスの内容をフォーマッティングする"""
+        editboxs = [self.eb_red, self.eb_green, self.eb_blue, self.eb_alpha]
+        for eb in editboxs:
+            v = float(eb.text())
+            eb.setText(to_real_text(v, eb.precision))
+
     def _on_change_editbox(self, channel):
         """エディットボックス確定時の処理 (Ctrl スライド含む) """
         self._sync_slider_and_editbox(from_editbox=True)
+        self._format_editbox_text()
         self._on_set_color(channel=channel, drag=False)
         self._close_chunk()
 
@@ -853,42 +1354,108 @@ class NN_ToolWindow(object):
         """Alpha エディットボックス確定時のハンドラ"""
         self._on_change_editbox(channel="a")
 
+    def onEdittingFinished(self, *args):
+        """編集完了･フォーカスが外れたときのハンドラ
+
+        頂点カラーの実行はせず､スライダーへの動機とテキストのフォーマッティングのみ行う
+        """
+        self._sync_slider_and_editbox(from_editbox=True)
+        self._format_editbox_text()
+
+    def get_slider(self, channel):
+        if channel == "r":
+            return self.fs_red
+        elif channel == "g":
+            return self.fs_green
+        elif channel == "b":
+            return self.fs_blue
+        elif channel == "a":
+            return self.fs_alpha
+        else:
+            return None
+
+    def get_editbox(self, channel):
+        if channel == "r":
+            return self.eb_red
+        elif channel == "g":
+            return self.eb_green
+        elif channel == "b":
+            return self.eb_blue
+        elif channel == "a":
+            return self.eb_alpha
+        else:
+            return None
+
     def _on_drag_slider(self, channel):
         """スライダードラッグ中の処理"""
         selection = cmds.ls(selection=True)
 
         if selection:
             # スライド開始時の処理
-            if not self.is_chunk_open:
-                # チャンクのオープン
-                cmds.undoInfo(openChunk=True)
-                self.is_chunk_open = True
 
-                # スライド開始時の頂点カラーをキャッシュ
-                obj_names = cmds.polyListComponentConversion(selection)
-                for obj_name in obj_names:
-                    full_path = cmds.ls(obj_name, long=True)[0]
-                    self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)
+            # チャンクのオープン
+            self._open_chunk()
 
+            # b キー押し下げでソフト選択半径変更モードにする
+            b_down = ui.is_key_pressed(ui.vk.VK_B)
+
+            slider = self.get_slider(channel)
+            current_v = self.to_actual_value(slider.value())
+
+            if b_down and not self.brush_size_mode:
+                # 押し下げ時
+                self.brush_size_mode = True
+                self.cached_value = current_v
+                self.cached_size = cmds.softSelect(q=True, ssd=True)
+                self.start_pos = QCursor.pos().y()
+
+            elif b_down and self.brush_size_mode:
+                # 押し下げ継続時
+                mul = 0.1  # TODO:注視点の距離で動的に変更｡画面上での距離と一致させたい
+                lower_limit = 0.0001
+                current_pos = QCursor.pos().y()
+                new_size = self.cached_size + (self.start_pos - current_pos) * mul
+                new_size = max(new_size, lower_limit)
+                cmds.softSelect(ssd=new_size)
+
+                slider.setValue(self.to_inner_value(self.cached_value))
+
+            elif not b_down and self.brush_size_mode:
+                # 押し上げ時
+                self.brush_size_mode = False
+                slider.setValue(self.to_inner_value(self.cached_value))
+
+            else:
+                pass
+
+            # 頂点カラーの設定
             self._on_set_color(channel=channel, drag=True)
 
         self._sync_slider_and_editbox(from_slider=True)
 
     def onDragRed(self, *args):
         """R スライダードラッグ中のハンドラ"""
-        self._on_drag_slider(channel="r")
+        if self.brush_size_mode:
+            slider = self.get_slider("r")
+            slider.setValue(self.to_inner_value(self.cached_value))
 
     def onDragGreen(self, *args):
         """G スライダードラッグ中のハンドラ"""
-        self._on_drag_slider(channel="g")
+        if self.brush_size_mode:
+            slider = self.get_slider("g")
+            slider.setValue(self.to_inner_value(self.cached_value))
 
     def onDragBlue(self, *args):
         """B スライダードラッグ中のハンドラ"""
-        self._on_drag_slider(channel="b")
+        if self.brush_size_mode:
+            slider = self.get_slider("b")
+            slider.setValue(self.to_inner_value(self.cached_value))
 
     def onDragAlpha(self, *args):
         """A スライダードラッグ中のハンドラ"""
-        self._on_drag_slider(channel="a")
+        if self.brush_size_mode:
+            slider = self.get_slider("a")
+            slider.setValue(self.to_inner_value(self.cached_value))
 
     def _on_change_slider(self, channel):
         """スライダー確定時の処理"""
@@ -918,6 +1485,33 @@ class NN_ToolWindow(object):
         """ A スライダー確定時のハンドラ"""
         self._on_change_slider(channel="a")
 
+    def _create_vf_color_cache(self):
+        """現在の頂点カラーをキャッシュする"""
+        selection = cmds.ls(selection=True)
+        obj_names = cmds.polyListComponentConversion(selection)
+
+        for obj_name in obj_names:
+            full_path = cmds.ls(obj_name, long=True)[0]
+            self.vf_color_caches[full_path] = get_all_vertex_colors(full_path)
+
+    def onSliderPressed(self, *args):
+        """スライダーが押された瞬間のハンドラ"""
+        if not self.is_chunk_open:
+            # チャンクのオープン
+            self._open_chunk()
+
+            # スライド開始時の頂点カラーをキャッシュ
+            self._create_vf_color_cache()
+
+        # editingFinished による二重適用を避けるためエディットボックスのフォーカスを事前に外す
+        self._clear_editboxes_focus()
+
+    def _open_chunk(self):
+        """チャンクのオープン処理"""
+        if not self.is_chunk_open:
+            cmds.undoInfo(openChunk=True)
+            self.is_chunk_open = True
+
     def _close_chunk(self):
         """チャンクのクローズ処理"""
         if self.is_chunk_open:
@@ -925,12 +1519,17 @@ class NN_ToolWindow(object):
             self.is_chunk_open = False
 
 
-def showNNToolWindow():
-    NN_ToolWindow().create()
+def maya_main_window():
+    main_window_ptr = omui.MQtUtil.mainWindow()
+    if main_window_ptr is not None:
+        return wrapInstance(int(main_window_ptr), QMainWindow)
+    else:
+        return None
 
 
 def main():
-    showNNToolWindow()
+    window = NN_ToolWindow(parent=maya_main_window())
+    window.create()
 
 
 if __name__ == "__main__":
