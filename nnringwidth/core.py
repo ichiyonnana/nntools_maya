@@ -1,4 +1,3 @@
-# coding:utf-8
 # エッジのリスト選択して実行すると片側固定して幅を統一するやつ
 import maya.cmds as cmds
 import pymel.core as pm

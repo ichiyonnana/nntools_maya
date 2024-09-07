@@ -1,4 +1,3 @@
-# coding:utf-8
 """ 表示関連
 """
 import maya.cmds as cmds

@@ -1,5 +1,3 @@
-# coding:utf-8
-
 import re
 import maya.cmds as cmds
 import pymel.core as pm

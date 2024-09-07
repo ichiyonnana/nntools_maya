@@ -1,4 +1,3 @@
-# coding:utf-8
 """
 UI 操作周りのヘルパー
 https://help.autodesk.com/cloudhelp/2020/JPN/Maya-Tech-Docs/CommandsPython/cat_Windows.html
