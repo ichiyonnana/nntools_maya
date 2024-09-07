@@ -3,6 +3,7 @@ import re
 
 #TODO: toe,head,hips の end 追加処理と方向付け
 
+
 def getCSPNameFromHIKName(name):
     trans_table = [
       ["Hips" ," hips_bb_"],
@@ -81,10 +82,11 @@ def getCSPNameFromHIKName(name):
 
     return name
 
-joints = cmds.ls(selection=True)
 
-for joint in joints:
-    oldname = joint
-    newname = getCSPNameFromHIKName(oldname)
-    cmds.rename(oldname, newname)
+if __name__ == "__main__":
+    joints = cmds.ls(selection=True)
 
+    for joint in joints:
+        oldname = joint
+        newname = getCSPNameFromHIKName(oldname)
+        cmds.rename(oldname, newname)

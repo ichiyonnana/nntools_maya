@@ -10,7 +10,7 @@ import pymel.core as pm
 import maya.cmds as cmds
 import maya.mel as mel
 
-import nnutil as nu
+import nnutil.core as nu
 
 
 window_name = "NN_Straighten"

@@ -1,4 +1,4 @@
-  curve to primitive 作る
+"""TODO: curve to primitive 作る
     cube 2,2,2
     syl 1,2,8
     sphere 8,8
@@ -10,3 +10,4 @@
 
     プリミティブ作成
     トランスフォーム設定
+"""
