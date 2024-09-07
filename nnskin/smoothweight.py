@@ -1,10 +1,11 @@
-# coding:utf-8
 """ ウェイトのスムーズ機能
 
 選択頂点のウェイトをリニアになるようにスムーズ
 
 選択頂点の周囲が十分に多い場合は四次元超平面での近似でウェイトを計算する
 選択頂点や周囲の頂点が極端に少ない場合や平面近似が失敗した場合は加重平均でウェイトを計算する
+
+本体は smooth_weight_by_weighted_plane()
 
 TODO: インフルエンスの主従対応
       ゼロ境界とノーマライズがある以上すべてのインフルエンスをリニアには出来なくて､
@@ -32,7 +33,7 @@ import inspect
 import time
 import random
 
-import nnutil as nu
+import nnutil.core as nu
 import nnskin.matrix as matrix
 
 
@@ -456,7 +457,6 @@ def get_source_points_wa(wvertices, influence, n=1):
             return []
 
 
-@nu.timer
 def smooth_weight_by_weighted_planer(target_vertices=None, force_plane4d=False, force_weightedavarage=False, protect_zero=False, protect_one=False, protect_upper=None, protect_lower=None):
     """ [pm] 指定頂点のウェイトを距離を考慮してスムースする
     選択範囲の境界の頂点の平均を使い､選択頂点の現在のウェイト値は使わない (インフルエンス自体の維持は可能)  
@@ -576,7 +576,6 @@ def smooth_weight_by_weighted_planer(target_vertices=None, force_plane4d=False, 
 
     return True
 
-@nu.timer
 def smooth_weight_each_wa(target_vertices=None, force_plane4d=False, force_weightedavarage=False, protect_zero=False, protect_one=False, protect_upper=None, protect_lower=None):
     """1頂点ずつ隣接頂点と加重平均
     適用順序に依存するので良い結果じゃない
@@ -679,11 +678,3 @@ def propagative_smooth(target_vertices=None, force_plane4d=False, force_weighted
     # 隣接点のみで距離による加重平均
 
     # 伝搬ムラを軽減するために低ホップはソースウェイト､高ホップは全体の平均で計算する
-
-
-
-print("\n"*100)
-if smooth_weight_by_weighted_planer(protect_zero=True, force_weightedavarage=True):
-    print("finish")
-else:
-    print("fail")

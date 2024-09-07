@@ -42,7 +42,7 @@ class NN_ToolWindow(object):
         cmds.setParent("..")
 
 
-      self.rowLayout1 = cmds.rowLayout(numberOfColumns=4)
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=4)
         self.sourceVtxName1 = cmds.textField(v="")
         self.buttonA = cmds.button(l='get vtx1', c=self.onGetVtx1)
         cmds.setParent("..")

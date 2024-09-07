@@ -1,4 +1,7 @@
+"""距離を考慮したウェイトスムース。
 
+メインの関数は smooth_weight_interior
+"""
 import maya.cmds as cmds
 import maya.mel as mel
 import pymel.core as pm
@@ -15,7 +18,7 @@ import time
 import pymel.core as pm
 import pymel.core.nodetypes as nt
 
-import nnutil as nu
+import nnutil.core as nu
 
 
 class WaightVertex:
@@ -368,9 +371,3 @@ def smooth_weight_interior_each_vtx():
 
     for v in target_vertices:
         smooth_weight_interior(target_vertices=[v])
-
-
-print("\n"*100)
-#smooth_weight_linear()
-smooth_weight_interior()
-#smooth_weight_interior_each_vtx()

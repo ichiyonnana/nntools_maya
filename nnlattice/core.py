@@ -9,7 +9,7 @@ import pymel.core as pm
 import pymel.core.datatypes as dt
 import pymel.core.nodetypes as nt
 
-import nnutil as nu
+import nnutil.core as nu
 import nnutil.ui as ui
 import nnutil.display as nd
 

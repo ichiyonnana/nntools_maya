@@ -1,7 +1,9 @@
-from bt_createJointAtCustomPivotAxis import *
 import maya.cmds as cmds
 
+
 def main():
+    import bt_createJointAtCustomPivotAxis
+
     selections = cmds.ls(selection=True, flatten=True)
 
     for obj in selections:
