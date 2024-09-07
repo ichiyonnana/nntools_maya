@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 VK_LBUTTON = 0x01  # マウスの左ボタン
 VK_RBUTTON = 0x02  # マウスの右ボタン
 VK_CANCEL = 0x03  # 制御中断処理

@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 # ダイアログのテンプレ
 # self.window だけユニークならあとはそのままで良い
 import maya.cmds as cmds

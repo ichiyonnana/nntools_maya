@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 # マニピュレーター設定ウィンドウ
 import maya.cmds as cmds
 import maya.mel as mel

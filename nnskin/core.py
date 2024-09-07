@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 import math
 import pymel.core as pm
 import maya.cmds as cmds

@@ -1,6 +1,3 @@
-#! python
-# coding:utf-8
-
 #
 #  OneWayMatchUV
 #    選択シェルからUVへ変換

@@ -1,5 +1,3 @@
-#! python
-# coding:utf-8
 """
 sweepMesh 補助モジュール
 """
