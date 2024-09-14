@@ -921,7 +921,8 @@ class NN_ToolWindow(object):
         pm.dagPose(target_joints, reset=True, n="bindPose1", bindPose=True)
 
     def onMoveSkinedJointTool(self, *args):
-        mel.eval("MoveSkinJointsToolOptions")
+        mel.eval("MoveSkinJointsTool")
+        cmds.manipMoveContext("moveSkinJointsToolCtx", e=True, orientJointEnabled=True)
 
     def onDeletePose(self, *args):
         poses = [x for x in pm.ls(type="dagPose") if "bindPose" in x.name()]
