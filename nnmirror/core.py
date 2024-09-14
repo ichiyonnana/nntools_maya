@@ -908,7 +908,17 @@ class NN_ToolWindow(object):
             nu.lock_trs(obj)
 
     def onResetPose(self, *args):
-        pm.dagPose(reset=True, n="bindPose1", bindPose=True)
+        # 選択ジョイントと存在するならその子ジョイントを対象にしてバインドポーズをリセット
+        selected_joints = (pm.ls(selection=True, type="joint") or [])
+
+        if selected_joints:
+            child_joints = [(pm.listRelatives(x, children=True, type="joint") or [None])[0] for x in selected_joints]
+
+        selected_joints = list(filter(None, selected_joints))
+        child_joints = list(filter(None, child_joints))
+        target_joints = selected_joints + child_joints
+
+        pm.dagPose(target_joints, reset=True, n="bindPose1", bindPose=True)
 
     def onMoveSkinedJointTool(self, *args):
         mel.eval("MoveSkinJointsToolOptions")
