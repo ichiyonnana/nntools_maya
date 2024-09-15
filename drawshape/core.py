@@ -1,7 +1,5 @@
+import maya.cmds as cmds
 import maya.mel as mel
-
-import pymel.core as pm
-import pymel.core.nodetypes as nt
 
 import nnutil.core as nu
 
@@ -29,8 +27,8 @@ class BoundingBox():
         return self
 
     def from_obj_ws(self, obj):
-        dup = pm.duplicate(obj)[0]
-        pm.parent(dup, None)
+        dup = cmds.duplicate(obj)[0]
+        cmds.parent(dup, None)
 
         self.w = dup.boundingBoxMaxX.get() - dup.boundingBoxMinX.get()
         self.h = dup.boundingBoxMaxY.get() - dup.boundingBoxMinY.get()
@@ -40,7 +38,7 @@ class BoundingBox():
         self.y = (dup.boundingBoxMaxY.get() + dup.boundingBoxMinY.get())/2
         self.z = (dup.boundingBoxMaxZ.get() + dup.boundingBoxMinZ.get())/2
 
-        pm.delete(dup)
+        cmds.delete(dup)
 
         return self
 
@@ -54,19 +52,19 @@ axis_z = (0, 0, 1)
 
 
 def unit_cube(axis=axis_y):
-    return pm.polyCube(w=1, h=1, d=1, sx=1, sy=1, sz=1, ax=axis, cuv=4, ch=1)[0]
+    return cmds.polyCube(w=1, h=1, d=1, sx=1, sy=1, sz=1, ax=axis, cuv=4, ch=1)[0]
 
 
 def unit_cylinder(axis=axis_y):
-    return pm.polyCylinder(r=0.5, h=1, sx=8, sy=1, sz=1, ax=axis, rcp=0, cuv=3, ch=1)[0]
+    return cmds.polyCylinder(r=0.5, h=1, sx=8, sy=1, sz=1, ax=axis, rcp=0, cuv=3, ch=1)[0]
 
 
 def unit_sphere(axis=axis_y):
-    return pm.polySphere(r=0.5, sx=8, sy=8, ax=axis, cuv=2, ch=1)[0]
+    return cmds.polySphere(r=0.5, sx=8, sy=8, ax=axis, cuv=2, ch=1)[0]
 
 
 def unit_plane(axis=axis_y):
-    return pm.polyPlane(w=1, h=1, sx=1, sy=1, ax=axis, cuv=2, ch=1)[0]
+    return cmds.polyPlane(w=1, h=1, sx=1, sy=1, ax=axis, cuv=2, ch=1)[0]
 
 
 def replace_cube(obj, axis=axis_y):
@@ -123,16 +121,16 @@ def replace_obj(obj1, obj2):
     name = obj1.name()
     parent = obj1.getParent()
 
-    pm.delete(obj1)
+    cmds.delete(obj1)
 
     obj2.translate.set((b1.x, b1.y, b1.z))
     obj2.scale.set((sx, sy, sz))
 
-    pm.rename(obj2, name)
-    pm.parent(obj2, parent)
+    cmds.rename(obj2, name)
+    cmds.parent(obj2, parent)
 
 
-selections = pm.selected()
+selections = cmds.ls(selection=True)
 
 if selections:
     for obj in selections:
