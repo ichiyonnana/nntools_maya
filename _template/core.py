@@ -1,6 +1,5 @@
 """ツールの概要."""
-
-import pymel.core as pm
+import maya.cmds as cmds
 
 import nnutil.core as nu
 import nnutil.decorator as deco
@@ -27,23 +26,23 @@ class NN_ToolWindow(object):
         self.title = window_name
         self.size = (self.window_width, self.window_height)
 
-        pm.selectPref(trackSelectionOrder=True)
+        cmds.selectPref(trackSelectionOrder=True)
 
         self.is_chunk_open = False
 
     def create(self):
         """ウィンドウの作成."""
-        if pm.window(self.window, exists=True):
-            pm.deleteUI(self.window, window=True)
+        if cmds.window(self.window, exists=True):
+            cmds.deleteUI(self.window, window=True)
 
         # プリファレンスの有無による分岐
-        if pm.windowPref(self.window, exists=True):
+        if cmds.windowPref(self.window, exists=True):
             # ウィンドウのプリファレンスがあれば位置だけ保存して削除
-            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
-            pm.windowPref(self.window, remove=True)
+            position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
+            cmds.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            self.window = pm.window(
+            self.window = cmds.window(
                 self.window,
                 t=self.title,
                 widthHeight=self.size,
@@ -56,7 +55,7 @@ class NN_ToolWindow(object):
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            self.window = pm.window(
+            self.window = cmds.window(
                 self.window,
                 t=self.title,
                 widthHeight=self.size,
@@ -67,7 +66,7 @@ class NN_ToolWindow(object):
             )
 
         self.layout()
-        pm.showWindow(self.window)
+        cmds.showWindow(self.window)
 
     def layout(self):
         """UI レイアウト."""
