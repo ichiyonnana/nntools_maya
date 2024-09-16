@@ -4,7 +4,6 @@ import re
 
 import maya.cmds as cmds
 import maya.mel as mel
-import pymel.core as pm
 import maya.api.OpenMaya as om
 import maya.OpenMayaUI as omui
 
@@ -14,6 +13,7 @@ import nnutil.decorator as nd
 
 from PySide2 import QtWidgets
 import shiboken2
+
 
 def extract_transform_as_locator(objects=None):
     """指定したオブジェクトのトランスフォームをロケーターとして抽出する."""
