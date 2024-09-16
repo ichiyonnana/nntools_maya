@@ -22,7 +22,6 @@ import pymel.core.datatypes as dt
 import maya.api.OpenMaya as om
 
 from . import core as nu
-from . import command as nuc
 from . import ui as ui
 
 
@@ -465,7 +464,7 @@ target_objects = []
 
 
 def snap_to_closest():
-    selections = nuc.get_selection()
+    selections = cmds.ls(selection=True, flatten=True)
     node_type = cmds.nodeType(selections[0])
 
     global target_objects
@@ -502,13 +501,13 @@ def close_hole_all(obj=None):
     """ 指定したオブジェクトの穴をすべて塞ぐ
     """
     if not obj:
-        obj = nuc.get_selection()
+        obj = cmds.ls(selection=True, flatten=True)
 
     cmds.selectMode(component=True)
     cmds.selectType(polymeshEdge=True)
     cmds.select(nu.to_edge(obj))
     mel.eval("ConvertSelectionToEdgePerimeter")
-    edges = nuc.get_selection()
+    edges = cmds.ls(selection=True, flatten=True)
     polyline_list = nu.get_all_polylines(edges)
 
     for polyline in polyline_list:
@@ -724,21 +723,6 @@ def replace_mesh_as_connection():
     for dst in dst_objects:
         if dst not in src_object.outMesh.connections(dst.inMesh):
             src_object.outMesh.connect(dst.inMesh)
-
-
-def weight_paint_mode_with_selected_joint(joint=None, meshes=None):
-    """選択したメッシュに対して選択したジョイントがアクティブな状態でウェイトペイントモードに入る"""
-    if not joint:
-        joint = [x for x in nuc.selected() if isinstance(x, nt.Joint)][0]
-    
-    if not meshes:
-        meshes = [x for x in nuc.selected() if isinstance(x, nt.Transform)]
-
-    if joint and meshes:
-        pm.select(meshes, replace=True)
-        mel.eval("ArtPaintSkinWeightsToolOptions")
-        mel.eval('artSkinInflListChanging "%s" 1' % joint.name())
-        mel.eval("artSkinInflListChanged artAttrSkinPaintCtx")
 
 
 def get_isolated_uv_face():
