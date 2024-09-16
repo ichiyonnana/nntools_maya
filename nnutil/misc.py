@@ -10,12 +10,16 @@ import datetime
 import glob
 import os
 
+from functools import reduce
+
 import maya.cmds as cmds
 import maya.mel as mel
 
 import pymel.core as pm
 import pymel.core.nodetypes as nt
 import pymel.core.datatypes as dt
+
+import maya.api.OpenMaya as om
 
 from . import core as nu
 from . import command as nuc
@@ -609,13 +613,13 @@ def remove_digon_holes_from_objects(objects=None, display_message=True):
 def merge_to_last():
     """ 最後に選択した頂点にマージ """
     # 最終選択頂点座標の取得
-    sel = pm.ls(orderedSelection=True, flatten=True)
-    point = sel[-1].getPosition()
+    sel = cmds.ls(orderedSelection=True, flatten=True)
+    point = cmds.xform(sel[-1], q=True, translation=True, worldSpace=True)
 
     # センターへマージしてから移動
     mel.eval("polyMergeToCenter")
-    vtx = pm.ls(orderedSelection=True, flatten=True)[0]
-    vtx.setPosition(point)
+    vtx = cmds.ls(orderedSelection=True, flatten=True)[0]
+    cmds.xform(vtx, translation=point, worldSpace=True)
 
 
 def merge_in_range(vertices, r, connected=True):
@@ -623,33 +627,42 @@ def merge_in_range(vertices, r, connected=True):
     マージ後の頂点座標は引数で指定した頂点の中央
 
     Args
-        vertices (list[MeshVertex]): マージの基準となる頂点リスト。最初に中央へマージされる
+        vertices (list[str]): マージの基準となる頂点リスト。最初に中央へマージされる
         r (float):          vertices からマージ対象となる頂点までの最大距離
         connected (bool): True: 選択頂点の隣接頂点のみをマージ対象とする
                           False:  選択オブジェクト全体の頂点を対象とする
     """
     # 指定頂点をセンターへマージ
-    base_position = sum([x.getPosition(space="world") for x in vertices]) / len(vertices)
-    pm.polyMergeVertex(vertices, d=100)
-    vtx = pm.selected(flatten=True)[0]
-    
+    cmds.polyMergeVertex(vertices, d=100)
+    center_vtx = cmds.ls(selection=True, flatten=True)[0]
+    base_position = cmds.xform(center_vtx, q=True, translation=True, worldSpace=True)
+
     # マージ判定対象
     target = []
 
     if connected:
-        target = vtx.connectedVertices() + vtx
+        connected_edges = cmds.polyListComponentConversion(center_vtx, te=True)
+        connected_vertices = cmds.filterExpand(cmds.polyListComponentConversion(connected_edges, tv=True), sm=31)
+        target = connected_vertices
+
     else:
-        obj = pm.PyNode(nuc.get_object(vtx))
-        target = obj.vertices()
+        target = cmds.polyListComponentConversion(nu.get_object(center_vtx), tv=True)
 
     # マージ対象
-    vertices_to_merge = [vtx for vtx in target if (vtx.getPosition(space="world") - base_position).length() <= r]
+    vertices_to_merge = []
+    center_pos = om.MVector(base_position)
+    for vtx in target:
+        pos = cmds.xform(vtx, q=True, translation=True, worldSpace=True)
+        print(vtx, pos)
+        pos = om.MVector(pos)
+        if (pos - center_pos).length() <= r:
+            vertices_to_merge.append(vtx)
 
-    pm.polyMergeVertex(vertices_to_merge, d=r)
-    vtx = pm.selected(flatten=True)[0]
+    cmds.polyMergeVertex(vertices_to_merge, d=r)
+    center_vtx = cmds.ls(selection=True, flatten=True)[0]
 
     # 基準頂点の位置へ移動
-    vtx.setPosition(base_position, space="world")
+    cmds.xform(center_vtx, translation=base_position, worldSpace=True)
 
 
 def shorten_filepath():

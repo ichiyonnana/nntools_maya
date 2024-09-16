@@ -2,9 +2,9 @@
 # self.window だけユニークならあとはそのままで良い
 import maya.cmds as cmds
 import maya.mel as mel
-import pymel.core as pm
 
-import nnutil
+import nnutil.core as nu
+import nnutil.misc as nm
 import nnutil.ui as ui
 
 
@@ -77,7 +77,7 @@ def shrinkwrap_for_set():
     base_set, target = cmds.ls(selection=True, flatten=True)
 
     vts = cmds.sets(base_set, q=True)
-    base = nnutil.get_object(vts[0])
+    base = nu.get_object(vts[0])
 
     # シュリンクラップの作成とターゲットメッシュ設定
     shrinkwrap = cmds.deformer(base, type="shrinkWrap")[0]
@@ -101,20 +101,20 @@ class NN_ToolWindow(object):
         self.title = window_name
         self.size = (window_width, 280)
 
-        pm.selectPref(trackSelectionOrder=True)
+        cmds.selectPref(trackSelectionOrder=True)
 
     def create(self):
-        if pm.window(self.window, exists=True):
-            pm.deleteUI(self.window, window=True)
+        if cmds.window(self.window, exists=True):
+            cmds.deleteUI(self.window, window=True)
 
         # プリファレンスの有無による分岐
-        if pm.windowPref(self.window, exists=True):
+        if cmds.windowPref(self.window, exists=True):
             # ウィンドウのプリファレンスがあれば位置だけ保存して削除
-            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
-            pm.windowPref(self.window, remove=True)
+            position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
+            cmds.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -127,7 +127,7 @@ class NN_ToolWindow(object):
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -138,7 +138,7 @@ class NN_ToolWindow(object):
                 )
 
         self.layout()
-        pm.showWindow(self.window)
+        cmds.showWindow(self.window)
 
     def layout(self):
         self.columnLayout = cmds.columnLayout()
@@ -155,7 +155,7 @@ class NN_ToolWindow(object):
         cmds.setParent("..")
 
         # ベベル
-        self.rowLayout1 = cmds.rowLayout( numberOfColumns=16)
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
         self.label1 = cmds.text(label='Bevel', width=header_width)
         self.buttonA = cmds.button(l='0.01', c=self.onSetBevel001, width=bw_single)
         self.buttonA = cmds.button(l='0.05', c=self.onSetBevel005, width=bw_single)
@@ -233,19 +233,19 @@ class NN_ToolWindow(object):
 
     # イベントハンドラ
     def onSetCrease20(self, *args):
-        pm.polyCrease(ch=True, value=2.0, vertexValue=2.0)
+        cmds.polyCrease(ch=True, value=2.0, vertexValue=2.0)
 
     def onSetCrease15(self, *args):
-        pm.polyCrease(ch=True, value=1.5, vertexValue=1.5)
+        cmds.polyCrease(ch=True, value=1.5, vertexValue=1.5)
 
     def onSetCrease10(self, *args):
-        pm.polyCrease(ch=True, value=1.0, vertexValue=1.0)
+        cmds.polyCrease(ch=True, value=1.0, vertexValue=1.0)
 
     def onSetCrease05(self, *args):
-        pm.polyCrease(ch=True, value=0.5, vertexValue=0.5)
+        cmds.polyCrease(ch=True, value=0.5, vertexValue=0.5)
 
     def onSetCrease00(self, *args):
-        pm.polyCrease(ch=True, value=0.0, vertexValue=0.0)
+        cmds.polyCrease(ch=True, value=0.0, vertexValue=0.0)
 
     def onCreaseSetEditor(self, *args):
         try:
@@ -255,7 +255,7 @@ class NN_ToolWindow(object):
             creaseSetEditor.showCreaseSetEditor()
 
     def do_bevel(self, offset, force_parallel, chamfer):
-        pm.polyBevel3(offset=offset, offsetAsFraction=0, autoFit=1, forceParallel=force_parallel, depth=1, mitering=0, miterAlong=0, chamfer=chamfer, segments=1, worldSpace=1, smoothingAngle=30, subdivideNgons=1, mergeVertices=1, mergeVertexTolerance=0.0001, miteringAngle=180, angleTolerance=180, ch=1)
+        cmds.polyBevel3(offset=offset, offsetAsFraction=0, autoFit=1, forceParallel=force_parallel, depth=1, mitering=0, miterAlong=0, chamfer=chamfer, segments=1, worldSpace=1, smoothingAngle=30, subdivideNgons=1, mergeVertices=1, mergeVertexTolerance=0.0001, miteringAngle=180, angleTolerance=180, ch=1)
 
     # ベベル
     def onSetBevel001(self, *args):
@@ -317,25 +317,25 @@ class NN_ToolWindow(object):
         mel.eval("polyMergeToCenter")
 
     def onMergeLast(self, *args):
-        nnutil.merge_to_last()
+        nm.merge_to_last()
 
     def onMergeRange(self, *args):
-        r = pm.softSelect(q=True, ssd=True)
-        selections = [x for x in pm.selected(flatten=True) if type(x) is pm.MeshVertex]
-        nnutil.merge_in_range(selections, r=r, connected=True)
+        r = cmds.softSelect(q=True, ssd=True)
+        selections = [x for x in cmds.ls(selection=True, flatten=True) if nu.type_of_component(x) == "vtx"]
+        nm.merge_in_range(selections, r=r, connected=True)
 
     # 補助
     # 二角形ホール処理
     def onRemoveDigon(self, *args):
-        nnutil.remove_digon_holes_from_objects()
+        nm.remove_digon_holes_from_objects()
 
     def onEdgeRing(self, *args):
-        import align_edgering_length
-        align_edgering_length.main()
+        import nnringwidth.core
+        nnringwidth.core.main()
 
     def onStraighten(self, *args):
-        import nnstraighten
-        nnstraighten.main()
+        import nnstraighten.core
+        nnstraighten.core.main()
 
     def onCreateWrap(self, *args):
         mel.eval("CreateWrap")
@@ -356,58 +356,57 @@ class NN_ToolWindow(object):
 
     # 押し出し側面のクリース
     def onCreaseFromVertex(self, *args):
-        vertices = [x for x in pm.selected(flatten=True) if type(x) is pm.MeshVertex]
+        selected_edges = [x for x in cmds.ls(selection=True, flatten=True) if nu.type_of_component(x) == "edge"]
 
-        for v in vertices:
-            print(v)
-            value = pm.polyCrease(v, query=True, vertexValue=True)
+        for e in selected_edges:
+            vts = cmds.polyListComponentConversion(e, fe=True, tv=True)
 
-            if not value == 0:
-                edges = v.connectedEdges()
-                shortest_edge = sorted(edges, key=lambda x: x.getLength())[0]
-                pm.polyCrease(shortest_edge, value=value)
+            crease_values = [cmds.polyCrease(x, query=True, vertexValue=True)[0] for x in vts]
+
+            if any([x for x in crease_values if x > 0]):
+                cmds.polyCrease(e, value=max(crease_values))
 
     # 設定
     # subdiv レベル設定
     def onSetLevel2(self, *args):
-        for obj in pm.ls(selection=True, flatten=True):
+        for obj in cmds.ls(selection=True, flatten=True):
             lv = 2
-            cmds.setAttr(obj.name() + ".smoothLevel", lv)
+            cmds.setAttr(obj + ".smoothLevel", lv)
 
     def onIncLevel(self, *args):
-        for obj in pm.ls(selection=True, flatten=True):
-            lv = cmds.getAttr(obj.name() + ".smoothLevel")
-            cmds.setAttr(obj.name() + ".smoothLevel", lv+1)
+        for obj in cmds.ls(selection=True, flatten=True):
+            lv = cmds.getAttr(obj + ".smoothLevel")
+            cmds.setAttr(obj + ".smoothLevel", lv+1)
 
     def onDecLevel(self, *args):
-        for obj in pm.ls(selection=True, flatten=True):
-            lv = cmds.getAttr(obj.name() + ".smoothLevel")
-            cmds.setAttr(obj.name() + ".smoothLevel", lv-1)
+        for obj in cmds.ls(selection=True, flatten=True):
+            lv = cmds.getAttr(obj + ".smoothLevel")
+            cmds.setAttr(obj + ".smoothLevel", lv-1)
 
     # UVスムース設定
     def onUVSmoothNone(self, *args):
-        for obj in pm.ls(selection=True, flatten=True):
-            shape_name = obj.getShape().name()
-            pm.setAttr(shape_name + ".useGlobalSmoothDrawType", 0)
-            pm.setAttr(shape_name + ".smoothDrawType", 0)
-            pm.setAttr(shape_name + ".smoothUVs", 1)
-            pm.setAttr(shape_name + ".keepMapBorders", 2)
+        for obj in cmds.ls(selection=True, flatten=True):
+            shape_name = nu.get_shape(obj)
+            cmds.setAttr(shape_name + ".useGlobalSmoothDrawType", 0)
+            cmds.setAttr(shape_name + ".smoothDrawType", 0)
+            cmds.setAttr(shape_name + ".smoothUVs", 1)
+            cmds.setAttr(shape_name + ".keepMapBorders", 2)
 
     def onUVSmoothInternal(self, *args):
-        for obj in pm.ls(selection=True, flatten=True):
-            shape_name = obj.getShape().name()
-            pm.setAttr(shape_name + ".useGlobalSmoothDrawType", 0)
-            pm.setAttr(shape_name + ".smoothDrawType", 0)
-            pm.setAttr(shape_name + ".smoothUVs", 1)
-            pm.setAttr(shape_name + ".keepMapBorders", 1)
+        for obj in cmds.ls(selection=True, flatten=True):
+            shape_name = nu.get_shape(obj)
+            cmds.setAttr(shape_name + ".useGlobalSmoothDrawType", 0)
+            cmds.setAttr(shape_name + ".smoothDrawType", 0)
+            cmds.setAttr(shape_name + ".smoothUVs", 1)
+            cmds.setAttr(shape_name + ".keepMapBorders", 1)
 
     def onUVSmoothAll(self, *args):
-        for obj in pm.ls(selection=True, flatten=True):
-            shape_name = obj.getShape().name()
-            pm.setAttr(shape_name + ".useGlobalSmoothDrawType", 0)
-            pm.setAttr(shape_name + ".smoothDrawType", 0)
-            pm.setAttr(shape_name + ".smoothUVs", 1)
-            pm.setAttr(shape_name + ".keepMapBorders", 0)
+        for obj in cmds.ls(selection=True, flatten=True):
+            shape_name = nu.get_shape(obj)
+            cmds.setAttr(shape_name + ".useGlobalSmoothDrawType", 0)
+            cmds.setAttr(shape_name + ".smoothDrawType", 0)
+            cmds.setAttr(shape_name + ".smoothUVs", 1)
+            cmds.setAttr(shape_name + ".keepMapBorders", 0)
 
 
 def showNNToolWindow():
