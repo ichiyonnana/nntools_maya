@@ -1680,9 +1680,9 @@ def set_normals(shape, normals):
 
 
 def get_points(shape, space=om.MSpace.kObject):
-    """[pm] APIを使用した頂点座標取得｡引数は PyNode"""
+    """APIを使用した頂点座標取得"""
     sel = om.MSelectionList()
-    sel.add(shape.name())
+    sel.add(shape)
     dag = sel.getDagPath(0)
     fn_mesh = om.MFnMesh(dag)
 
@@ -1690,9 +1690,9 @@ def get_points(shape, space=om.MSpace.kObject):
 
 
 def set_points(shape, points, space=om.MSpace.kObject):
-    """[pm] APIを使用した頂点座標設定｡引数は PyNode"""
+    """APIを使用した頂点座標設定"""
     sel = om.MSelectionList()
-    sel.add(shape.name())
+    sel.add(shape)
     dag = sel.getDagPath(0)
     fn_mesh = om.MFnMesh(dag)
 

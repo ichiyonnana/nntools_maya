@@ -36,7 +36,7 @@ def mirror_objects(objects=None, axis=0, direction=1, cut=False, center_toleranc
         for obj in objects:
             if obj.getShape():
                 # シンメトリ面から誤差範囲内にある頂点の座標を 0 にする
-                points = nu.get_points(obj, space=om.MSpace.kObject)
+                points = nu.get_points(obj.name(), space=om.MSpace.kObject)
 
                 for point in points:
                     if axis == 0 and abs(point.x) <= 0.001:
@@ -48,7 +48,7 @@ def mirror_objects(objects=None, axis=0, direction=1, cut=False, center_toleranc
                     if axis == 2 and abs(point.z) <= 0.001:
                         point.z = 0
 
-                nu.set_points(obj, points=points, space=om.MSpace.kObject)
+                nu.set_points(obj.name(), points=points, space=om.MSpace.kObject)
 
                 # ミラーの実行
                 pm.polyMirrorFace(obj, cutMesh=1, axis=axis, axisDirection=direction, mergeMode=merge_mode, mergeThresholdType=1, mergeThreshold=0.01, mirrorAxis=1, mirrorPosition=0, smoothingAngle=180, flipUVs=0, ch=1)
@@ -1031,11 +1031,11 @@ class NN_ToolWindow(object):
         obj = pm.selected(flatten=True)[0]
 
         if ui.is_shift():
-            self.getpos_points = nu.get_points(obj, space=om.MSpace.kWorld)
+            self.getpos_points = nu.get_points(obj.name(), space=om.MSpace.kWorld)
             nd.message("copy points (world space)")
 
         else:
-            self.getpos_points = nu.get_points(obj, space=om.MSpace.kObject)
+            self.getpos_points = nu.get_points(obj.name(), space=om.MSpace.kObject)
             nd.message("copy points (object space)")
 
     def onSetPos(self, *args):
@@ -1043,11 +1043,11 @@ class NN_ToolWindow(object):
 
         for obj in selections:
             if ui.is_shift():
-                nu.set_points(obj, points=self.getpos_points, space=om.MSpace.kWorld)
+                nu.set_points(obj.name(), points=self.getpos_points, space=om.MSpace.kWorld)
                 nd.message("paste points (world space)")
 
             else:
-                nu.set_points(obj, points=self.getpos_points, space=om.MSpace.kObject)
+                nu.set_points(obj.name(), points=self.getpos_points, space=om.MSpace.kObject)
                 nd.message("paste points (object space)")
 
     def onGoZ(self, *args):
