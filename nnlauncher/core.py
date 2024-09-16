@@ -6,7 +6,7 @@ import sys
 if sys.version_info.major >= 3:
     import importlib
 
-import pymel.core as pm
+import maya.cmds as cmds
 
 import nnutil.core as nu
 import nnutil.decorator as deco
@@ -53,19 +53,19 @@ class NN_ToolWindow(object):
         self.is_chunk_open = False
 
     def create(self):
-        if pm.window(self.window, exists=True):
-            pm.deleteUI(self.window, window=True)
+        if cmds.window(self.window, exists=True):
+            cmds.deleteUI(self.window, window=True)
 
         cursor_pos = QtGui.QCursor().pos()
 
         # プリファレンスの有無による分岐
-        if pm.windowPref(self.window, exists=True):
+        if cmds.windowPref(self.window, exists=True):
             # ウィンドウのプリファレンスがあれば位置だけ保存して削除
             position = (cursor_pos.y(), cursor_pos.x())
-            pm.windowPref(self.window, remove=True)
+            cmds.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -78,7 +78,7 @@ class NN_ToolWindow(object):
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -89,7 +89,7 @@ class NN_ToolWindow(object):
                 )
 
         self.layout()
-        pm.showWindow(self.window)
+        cmds.showWindow(self.window)
 
     def layout(self):
         ui.column_layout()
@@ -145,116 +145,116 @@ class NN_ToolWindow(object):
         import nnmirror.core
         nnmirror.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onUV(self, *args):
         """"""
         import nnuvtoolkit.core
         nnuvtoolkit.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onCamera(self, *args):
         """"""
         import nncamera.core
         nncamera.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onRingWidth(self, *args):
         """"""
         import nnringwidth.core
         nnringwidth.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onCurve(self, *args):
         """"""
         import nncurve.core
         nncurve.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onSimplify(self, *args):
         """"""
         import nnsimplify.core
         nnsimplify.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onStraighten(self, *args):
         """"""
         import nnstraighten.core
         nnstraighten.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onLattice(self, *args):
         """"""
         import nnlattice.core
         nnlattice.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onNormal(self, *args):
         """"""
         import altunt.core
         altunt.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onVColor(self, *args):
         """"""
         import nnvcolor.core
         nnvcolor.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onSweep(self, *args):
         """"""
         import nnsweep.core
         nnsweep.core.main()        
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onSKin(self, *args):
         """"""
         import nnskin.core
         nnskin.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onSubdiv(self, *args):
         """"""
         import nnsubdiv.core
         nnsubdiv.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onAnim(self, *args):
         """"""
         import nnanim.core
         nnanim.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onTransform(self, *args):
         """"""
         import nntransform.core
         nntransform.core.main()
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onCloseAll(self, *args):
         """全ての NNTools ダイアログを閉じる"""
         for module_name in self.all_modules:
             module = __import__(module_name)
 
-            if pm.window(module.core.window_name, exists=True):
-                pm.deleteUI(module.core.window_name, window=True)
+            if cmds.window(module.core.window_name, exists=True):
+                cmds.deleteUI(module.core.window_name, window=True)
 
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onReloadAll(self, *args):
         """全ての NNTools のモジュールをリロードする"""
@@ -272,12 +272,12 @@ class NN_ToolWindow(object):
                 reload(module.core)
 
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
     def onClose(self, *args):
         """ランチャーを閉じる"""
         if not ui.is_shift():
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
 
 def smart_launch():
@@ -293,8 +293,8 @@ def main():
     global window
     window = NN_ToolWindow()
 
-    if pm.window(window.window, exists=True):
-        pm.deleteUI(window.window, window=True)
+    if cmds.window(window.window, exists=True):
+        cmds.deleteUI(window.window, window=True)
 
     else:
         window.create()
