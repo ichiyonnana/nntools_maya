@@ -1,13 +1,10 @@
 """
 
 """
-from email.mime import image
 import os
 import re
 
 import maya.cmds as cmds
-import pymel.core as pm
-import pymel.core.nodetypes as nt
 
 import nnutil.core as nu
 import nnutil.decorator as deco
@@ -54,9 +51,7 @@ def is_visible(obj_name):
 
     そのものの visibility が true でも DAG の継承で非表示になっていれば false
     """
-    obj = pm.PyNode(obj_name)
-
-    full_path_name = obj.fullPathName()
+    full_path_name = cmds.ls(obj_name, long=True)[0]
     splited_path = full_path_name.split("|")
     depth = len(splited_path)
 
@@ -69,28 +64,28 @@ def is_visible(obj_name):
     return True
 
 
-def get_parent_camera(pm_object):
+def get_parent_camera(obj):
     """指定したオブジェクトより上の階層にある camera ノードを返す.
 
     指定したオブジェクトからルートの間にある camera ノードを子に持つトランスフォームノードを探し
     オブジェクトに一番階層が近いカメラオブジェクトを返す
 
     Args:
-        pm_object (PyNode): カメラを親に持つオブジェクト
+        pm_object (str): カメラを親に持つオブジェクト
 
     Returns:
         PyNode: camera ノード
     """
-    full_path_name = pm_object.fullPathName()
+    full_path_name = cmds.ls(obj, long=True)[0]
     splited_path = full_path_name.split("|")
     depth = len(splited_path)
 
     for i in reversed(range(1, depth-1)):
         partial_path = "|".join(splited_path[0:i])
-        pm_node = pm.PyNode(partial_path)
+        camera_shape = cmds.listRelatives(partial_path, shapes=True, type="camera", fullPath=True)[0]
 
-        if isinstance(pm_node.getShape(), nt.Camera):
-            return pm_node
+        if camera_shape:
+            return camera_shape
 
     return None
 
@@ -109,17 +104,17 @@ class NN_ToolWindow(object):
         self.image_editor = r"D:\Program Files\Adobe\Adobe Photoshop 2022\Photoshop.exe"
 
     def create(self):
-        if pm.window(self.window, exists=True):
-            pm.deleteUI(self.window, window=True)
+        if cmds.window(self.window, exists=True):
+            cmds.deleteUI(self.window, window=True)
 
         # プリファレンスの有無による分岐
-        if pm.windowPref(self.window, exists=True):
+        if cmds.windowPref(self.window, exists=True):
             # ウィンドウのプリファレンスがあれば位置だけ保存して削除
-            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
-            pm.windowPref(self.window, remove=True)
+            position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
+            cmds.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -132,7 +127,7 @@ class NN_ToolWindow(object):
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -144,7 +139,7 @@ class NN_ToolWindow(object):
 
         self.layout()
         self.onUpdateCameraList()
-        pm.showWindow(self.window)
+        cmds.showWindow(self.window)
 
     def layout(self):
         ui.column_layout()
@@ -158,7 +153,7 @@ class NN_ToolWindow(object):
         ui.button(label="Select", c=self.onSelectCameraObject)
         ui.button(label="Lock", c=self.onLockCamera, dgc=self.onUnLockCamera, annotation="L: Lock\nM: Unlock")
         ui.end_layout()
-        self.camera_list = pm.textScrollList(
+        self.camera_list = cmds.textScrollList(
                                                     numberOfRows=20,
                                                     allowMultiSelection=False,
                                                     append=[""],
@@ -177,7 +172,7 @@ class NN_ToolWindow(object):
         ui.button(label="Dup", c=self.onDuplicateImageplane)
         ui.button(label="Edit", c=self.onEditImage, dgc=self.onSetImageEditor, annotation="L: Launch Editor\nM: Set Editor Path")
         ui.end_layout()
-        self.item_list = pm.textScrollList(
+        self.item_list = cmds.textScrollList(
                                                     numberOfRows=20,
                                                     allowMultiSelection=True,
                                                     append=[""],
@@ -210,7 +205,7 @@ class NN_ToolWindow(object):
 
     def get_selected_camera_item(self):
         """カメラリストUIで選択されているカメラの ListItem オブジェクトを返す"""
-        indices = pm.textScrollList(self.camera_list, q=True, selectIndexedItem=True)
+        indices = cmds.textScrollList(self.camera_list, q=True, selectIndexedItem=True)
 
         if indices:
             return self.camera_list_items[indices[0]-1]
@@ -219,7 +214,7 @@ class NN_ToolWindow(object):
 
     def get_selected_imageplane_items(self):
         """イメージプレーンリストUIで選択されているイメージプレーンの ListItem オブジェクトを返す"""
-        indices = [x - 1 for x in pm.textScrollList(self.item_list, q=True, selectIndexedItem=True)]
+        indices = [x - 1 for x in cmds.textScrollList(self.item_list, q=True, selectIndexedItem=True)]
 
         if indices:
             return [x for i, x in enumerate(self.imageplane_list_items) if i in indices]
@@ -243,7 +238,7 @@ class NN_ToolWindow(object):
             basename = re.sub(r"^.*\|", "", camera)
 
             # 名前の重複があればパスの差異を付与
-            if not pm.uniqueObjExists(basename):
+            if cmds.objExists(basename) and len(cmds.ls(basename)) > 1:
                 duplicates = cmds.ls(basename, long=True)
                 duplicates.remove(item.content)
                 uniq_str = get_unmatch_part(item.content, duplicates[0])
@@ -257,7 +252,7 @@ class NN_ToolWindow(object):
         self.camera_list_items.sort(key=lambda x: x.content)
 
         # アクティブなカメラのリストUI上でのインデックス
-        active_camera_name = pm.PyNode(nu.get_active_camera()).name()
+        active_camera_name = nu.get_active_camera()
         camera_list = [x.content for x in self.camera_list_items]
 
         if active_camera_name in camera_list:
@@ -266,8 +261,8 @@ class NN_ToolWindow(object):
             active_camera_index = 1
 
         # リストUIの更新
-        pm.textScrollList(self.camera_list, e=True, removeAll=True)
-        pm.textScrollList(
+        cmds.textScrollList(self.camera_list, e=True, removeAll=True)
+        cmds.textScrollList(
                             self.camera_list,
                             e=True,
                             numberOfRows=20,
@@ -280,27 +275,27 @@ class NN_ToolWindow(object):
 
     def onClickCameraListItem(self, *args):
         """カメラリストアイテムのクリックのハンドラ｡子供のリストを更新する"""
-        camera = self.get_selected_camera_item()
-        pn_camera = pm.PyNode(camera.content)
-        camera_trs = pn_camera.getParent()
-        all_imageplanes = nu.list_diff(pm.listRelatives(camera_trs, ad=True,  shapes=True), [camera.content])
-        visible_indices = [i+1 for i, x in enumerate(all_imageplanes) if x.visibility.get()]
+        camera = self.get_selected_camera_item().content
+        camera_trs = cmds.listRelatives(camera, parent=True, fullPath=True)[0]
+        all_imageplanes = cmds.listRelatives(camera_trs, ad=True, type="imagePlane") or []
+
+        visible_indices = [i+1 for i, x in enumerate(all_imageplanes) if cmds.getAttr(x + ".visibility")]
 
         # ListItem 配列の更新
         self.imageplane_list_items = []
 
         for imageplane in all_imageplanes:
-            if type(imageplane) is nt.ImagePlane:
+            if cmds.objectType(imageplane, isType="imagePlane"):
                 item = ListItem()
-                item.content = imageplane.fullPathName()
+                item.content = cmds.ls(imageplane, long=True)[0]
                 item.name = re.sub(r"^.*\|", "", item.content)
                 self.imageplane_list_items.append(item)
 
         # イメージプレーンリストUIの更新
-        pm.textScrollList(self.item_list, e=True, removeAll=True)
+        cmds.textScrollList(self.item_list, e=True, removeAll=True)
 
         if self.imageplane_list_items:
-            pm.textScrollList(self.item_list, e=True, append=[x.name for x in self.imageplane_list_items], sii=visible_indices)
+            cmds.textScrollList(self.item_list, e=True, append=[x.name for x in self.imageplane_list_items], sii=visible_indices)
 
     def onDoubleClickCameraListItem(self, *args):
         """カメラリストアイテムのダブルクリックのハンドラ｡アクティブパネルのカメラを切り替える"""
@@ -308,25 +303,27 @@ class NN_ToolWindow(object):
         active_panel = cmds.getPanel(wf=True)
 
         if ui.get_value(self.cb_fix_target):
-            pm.lookThru(self.target_panel, camera_name)
+            cmds.lookThru(self.target_panel, camera_name)
 
         else:
-            pm.lookThru(active_panel, camera_name)
+            cmds.lookThru(active_panel, camera_name)
 
     def onClickImageplaneListItem(self, *args):
         """イメージプレーンリストアイテムのクリック｡ビジビリティの更新"""
-        selected_indices = [x - 1 for x in pm.textScrollList(self.item_list, q=True, selectIndexedItem=True)]
+        selected_indices_onebase = cmds.textScrollList(self.item_list, q=True, selectIndexedItem=True) or []
+        selected_indices = [x - 1 for x in selected_indices_onebase]
 
         for index in range(len(self.imageplane_list_items)):
             imageplane = self.imageplane_list_items[index].content
             # シェープの非表示解除
-            pm.PyNode(imageplane).visibility.set(True)
+            cmds.setAttr(imageplane + ".visibility", True)
 
             # 親トランスフォームノードのビジビリティ変更
+            imageplane_trs = cmds.listRelatives(imageplane, parent=True)[0]
             if index in selected_indices:
-                pm.PyNode(imageplane).getParent().visibility.set(True)
+                cmds.setAttr(imageplane_trs + ".visibility", True)
             else:
-                pm.PyNode(imageplane).getParent().visibility.set(False)
+                cmds.setAttr(imageplane_trs + ".visibility", False)
 
     def onDoubleClickImageplaneListItem(self, *args):
         """アイテムの選択"""
@@ -334,20 +331,22 @@ class NN_ToolWindow(object):
 
     def onSelectCameraObject(self, *args):
         """カメラオブジェクトの選択"""
-        camera = self.get_selected_camera_item()
+        camera_item = self.get_selected_camera_item()
 
-        if camera:
-            pn_camera = pm.PyNode(camera.content)
-            pm.select(pn_camera.getParent())
+        if camera_item:
+            camera_name = camera_item.content
+            camera_trs = cmds.listRelatives(camera_name, parent=True, fullPath=True)[0]
+            cmds.select(camera_trs)
 
     def onSelectImageplane(self, *args):
         """イメージプレーンオブジェクトの選択"""
-        pm.select(clear=True)
-        imageplanes = self.get_selected_imageplane_items()
+        cmds.select(clear=True)
+        imageplane_items = self.get_selected_imageplane_items()
 
-        for imageplane in imageplanes:
-            pn_imageplane = pm.PyNode(imageplane.content)
-            pm.select(pn_imageplane.getParent(), add=True)
+        for imageplane_item in imageplane_items:
+            imageplane = imageplane_item.content
+            imageplane_trs = cmds.listRelatives(imageplane, parent=True)[0]
+            cmds.select(imageplane_trs, add=True)
 
     def onDuplicateImageplane(self, *args):
         """イメージプレーンオブジェクトと参照先の画像ファイルの複製"""
@@ -355,11 +354,12 @@ class NN_ToolWindow(object):
 
     def onEditImage(self, *args):
         """選択されているイメージプレーンを開く"""
-        imageplanes = self.get_selected_imageplane_items()
+        imageplane_items = self.get_selected_imageplane_items()
 
-        for imageplane in imageplanes:
-            pn_imageplane = pm.PyNode(imageplane.content)
-            filename = re.sub(r"/", r"\\", pn_imageplane.imageName.get())
+        for imageplane_item in imageplane_items:
+            imageplane = imageplane_item.content
+            image_name = cmds.getAttr(imageplane + ".imageName")
+            filename = re.sub(r"/", r"\\", image_name)
             cmd = '"%s" %s' % (self.image_editor, filename)
             os.system(cmd)
 
@@ -375,67 +375,67 @@ class NN_ToolWindow(object):
         camera = self.get_selected_camera_item()
 
         if camera:
-            pn_camera = pm.PyNode(camera.content).getParent()
-            pn_camera.translateX.lock()
-            pn_camera.translateY.lock()
-            pn_camera.translateZ.lock()
-            pn_camera.rotateX.lock()
-            pn_camera.rotateY.lock()
-            pn_camera.rotateZ.lock()
-            pn_camera.scaleX.lock()
-            pn_camera.scaleY.lock()
-            pn_camera.scaleZ.lock()
+            camera_trs = cmds.listRelatives(camera.content, parent=True)[0]
+            cmds.setAttr(camera_trs + ".translateX", lock=True)
+            cmds.setAttr(camera_trs + ".translateY", lock=True)
+            cmds.setAttr(camera_trs + ".translateZ", lock=True)
+            cmds.setAttr(camera_trs + ".rotateX", lock=True)
+            cmds.setAttr(camera_trs + ".rotateY", lock=True)
+            cmds.setAttr(camera_trs + ".rotateZ", lock=True)
+            cmds.setAttr(camera_trs + ".scaleX", lock=True)
+            cmds.setAttr(camera_trs + ".scaleY", lock=True)
+            cmds.setAttr(camera_trs + ".scaleZ", lock=True)
 
     def onUnLockCamera(self, *args):
         """カメラオブジェクトのアンロック"""
         camera = self.get_selected_camera_item()
 
         if camera:
-            pn_camera = pm.PyNode(camera.content).getParent()
-            pn_camera.translateX.unlock()
-            pn_camera.translateY.unlock()
-            pn_camera.translateZ.unlock()
-            pn_camera.rotateX.unlock()
-            pn_camera.rotateY.unlock()
-            pn_camera.rotateZ.unlock()
-            pn_camera.scaleX.unlock()
-            pn_camera.scaleY.unlock()
-            pn_camera.scaleZ.unlock()
+            camera_trs = cmds.listRelatives(camera.content, parent=True)[0]
+            cmds.setAttr(camera_trs + ".translateX", lock=False)
+            cmds.setAttr(camera_trs + ".translateY", lock=False)
+            cmds.setAttr(camera_trs + ".translateZ", lock=False)
+            cmds.setAttr(camera_trs + ".rotateX", lock=False)
+            cmds.setAttr(camera_trs + ".rotateY", lock=False)
+            cmds.setAttr(camera_trs + ".rotateZ", lock=False)
+            cmds.setAttr(camera_trs + ".scaleX", lock=False)
+            cmds.setAttr(camera_trs + ".scaleY", lock=False)
+            cmds.setAttr(camera_trs + ".scaleZ", lock=False)
 
     def onLockImageplane(self, *args):
         """イメージプレーンオブジェクトのロック"""
         imageplanes = self.get_selected_imageplane_items()
 
         for imageplane in imageplanes:
-            pn_imageplane = pm.PyNode(imageplane.content).getParent()
-            pn_imageplane.translateX.lock()
-            pn_imageplane.translateY.lock()
-            pn_imageplane.translateZ.lock()
-            pn_imageplane.rotateX.lock()
-            pn_imageplane.rotateY.lock()
-            pn_imageplane.rotateZ.lock()
-            pn_imageplane.scaleX.lock()
-            pn_imageplane.scaleY.lock()
-            pn_imageplane.scaleZ.lock()
+            imageplane_trs = cmds.listRelatives(imageplane.content, parent=True)[0]
+            cmds.setAttr(imageplane_trs + ".translateX", lock=True)
+            cmds.setAttr(imageplane_trs + ".translateY", lock=True)
+            cmds.setAttr(imageplane_trs + ".translateZ", lock=True)
+            cmds.setAttr(imageplane_trs + ".rotateX", lock=True)
+            cmds.setAttr(imageplane_trs + ".rotateY", lock=True)
+            cmds.setAttr(imageplane_trs + ".rotateZ", lock=True)
+            cmds.setAttr(imageplane_trs + ".scaleX", lock=True)
+            cmds.setAttr(imageplane_trs + ".scaleY", lock=True)
+            cmds.setAttr(imageplane_trs + ".scaleZ", lock=True)
 
     def onUnLockImageplane(self, *args):
         imageplanes = self.get_selected_imageplane_items()
 
         for imageplane in imageplanes:
-            pn_imageplane = pm.PyNode(imageplane.content).getParent()
-            pn_imageplane.translateX.unlock()
-            pn_imageplane.translateY.unlock()
-            pn_imageplane.translateZ.unlock()
-            pn_imageplane.rotateX.unlock()
-            pn_imageplane.rotateY.unlock()
-            pn_imageplane.rotateZ.unlock()
-            pn_imageplane.scaleX.unlock()
-            pn_imageplane.scaleY.unlock()
-            pn_imageplane.scaleZ.unlock()
+            imageplane_trs = cmds.listRelatives(imageplane.content, parent=True)[0]
+            cmds.setAttr(imageplane_trs + ".translateX", lock=False)
+            cmds.setAttr(imageplane_trs + ".translateY", lock=False)
+            cmds.setAttr(imageplane_trs + ".translateZ", lock=False)
+            cmds.setAttr(imageplane_trs + ".rotateX", lock=False)
+            cmds.setAttr(imageplane_trs + ".rotateY", lock=False)
+            cmds.setAttr(imageplane_trs + ".rotateZ", lock=False)
+            cmds.setAttr(imageplane_trs + ".scaleX", lock=False)
+            cmds.setAttr(imageplane_trs + ".scaleY", lock=False)
+            cmds.setAttr(imageplane_trs + ".scaleZ", lock=False)
 
     def onToggleDisplay(self, *args):
         """シーン内のすべてのイメージプレーンの Display モード (lokking through camera / in all views) をトグルする"""
-        ips = pm.ls(type="imagePlane")
+        ips = cmds.ls(type="imagePlane")
         current = ips[0].displayOnlyIfCurrent.get()
 
         for ip in ips:
@@ -443,7 +443,7 @@ class NN_ToolWindow(object):
             ip.displayOnlyIfCurrent.set(not current)
             print(ip.displayOnlyIfCurrent.get())
 
-        pm.select(ips)
+        cmds.select(ips)
 
     def onHideCamera(self, *args):
         """全てのパネルのカメラを非表示にする"""
@@ -453,7 +453,7 @@ class NN_ToolWindow(object):
             panel_type = cmds.getPanel(typeOf=panel)
 
             if panel_type == "modelPanel":
-                pm.modelEditor(panel, e=True, cameras=False)
+                cmds.modelEditor(panel, e=True, cameras=False)
 
     def onFixPanel(self, *args):
         """"""
@@ -462,38 +462,39 @@ class NN_ToolWindow(object):
 
     def onLookThroughParent(self, *args):
         """"""
-        ips = pm.ls(type="imagePlane")
+        ips = cmds.ls(type="imagePlane", long=True)
 
         for ip_shape in ips:
             camera_shape = get_parent_camera(ip_shape)
 
             if camera_shape:
-                ip_shape.lookThroughCamera.disconnect()
-                ip_shape.displayOnlyIfCurrent.set(True)
-                camera_shape.message.connect(ip_shape.lookThroughCamera)
+                # cmds.disconnectAttr(ip_shape + ".lookThroughCamera")
+                cmds.setAttr(ip_shape + ".displayOnlyIfCurrent", True)
+                cmds.connectAttr(camera_shape + ".message", ip_shape + ".lookThroughCamera", force=True)
 
-            pm.imagePlane(ip_shape, e=True, lookThrough=camera_shape, showInAllViews=False)
+            cmds.imagePlane(ip_shape, e=True, lookThrough=camera_shape, showInAllViews=False)
 
     def onCreateImageplane(self, *args):
         """"""
-        camera = pm.PyNode(self.get_selected_camera_item().content)
-        ip_trs, ip_shape = pm.imagePlane(width=10, height=10, maintainRatio=1, lookThrough=camera.name(), showInAllViews=False)
+        camera = self.get_selected_camera_item().content
+        ip_trs, ip_shape = cmds.imagePlane(width=10, height=10, maintainRatio=1, lookThrough=camera, showInAllViews=False)
+        camera_trs = cmds.listRelatives(camera, parent=True, fullPath=True)[0]
         print(ip_trs)
         print(camera)
-        pm.parent(ip_trs, camera.getParent())
+        cmds.parent(ip_trs, camera_trs)
 
-        ip_trs.translateX.set(0)
-        ip_trs.translateY.set(0)
-        ip_trs.translateZ.set(-20)
-        ip_trs.rotateX.set(0)
-        ip_trs.rotateY.set(0)
-        ip_trs.rotateZ.set(0)
-        ip_trs.scaleX.set(1)
-        ip_trs.scaleY.set(1)
-        ip_trs.scaleZ.set(1)
+        cmds.setAttr(ip_trs + ".translateX", 0)
+        cmds.setAttr(ip_trs + ".translateY", 0)
+        cmds.setAttr(ip_trs + ".translateZ", -20)
+        cmds.setAttr(ip_trs + ".rotateX", 0)
+        cmds.setAttr(ip_trs + ".rotateY", 0)
+        cmds.setAttr(ip_trs + ".rotateZ", 0)
+        cmds.setAttr(ip_trs + ".scaleX", 1)
+        cmds.setAttr(ip_trs + ".scaleY", 1)
+        cmds.setAttr(ip_trs + ".scaleZ", 1)
 
-        ip_shape.alphaGain.set(0.5)
-        ip_shape.colorGain.set((0.5, 0.5, 0.5))
+        cmds.setAttr(ip_shape + ".alphaGain", 0.5)
+        cmds.setAttr(ip_shape + ".colorGain", 0.5, 0.5, 0.5)
 
     def onTearOff(self, *args):
         """"""
