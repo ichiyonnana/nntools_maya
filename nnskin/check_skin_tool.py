@@ -3,14 +3,11 @@
 """
 import maya.cmds as cmds
 import maya.mel as mel
-import pymel.core as pm
-import pymel.core.nodetypes as nt
 
 import nnutil.core as nu
 import nnutil.decorator as deco
 import nnutil.ui as ui
 import nnutil.display as nd
-import nnutil.misc as nm
 
 
 dialog_name = "NN_SkinChecker"
@@ -20,15 +17,15 @@ default_rotate_factor = 180
 
 
 def is_weight_paint_mode():
-    return pm.currentCtx() == "artAttrSkinContext"
+    return cmds.currentCtx() == "artAttrSkinContext"
 
 
 def activate_weight_paint_mode():
-    pm.setToolTo("artAttrSkinContext")
+    cmds.setToolTo("artAttrSkinContext")
 
 
 def activate_select_mode():
-    pm.setToolTo("selectSuperContext")
+    cmds.setToolTo("selectSuperContext")
 
 
 def focus_object():
@@ -38,21 +35,21 @@ def focus_object():
 def weight_paint_mode_with_selected_joint(joint=None, meshes=[]):
     """選択したメッシュに対して選択したジョイントがアクティブな状態でウェイトペイントモードに入る"""
     if not joint:
-        joint = [x for x in pm.selected(flatten=True) if isinstance(x, nt.Joint)][0]
+        joint = [x for x in cmds.ls(selection=True, flatten=True) if cmds.objectType(x, isType="joint")][0]
 
     if not meshes:
-        meshes = [x for x in pm.selected(flatten=True) if isinstance(x, nt.Transform)]
+        meshes = [x for x in cmds.ls(selection=True, flatten=True) if cmds.objectType(x, isType="transform")]
 
     if joint and meshes:
         print("select: ", meshes)
-        pm.select(meshes, replace=True)
+        cmds.select(meshes, replace=True)
         mel.eval("ArtPaintSkinWeightsToolOptions")
-        mel.eval('artSkinInflListChanging "%s" 1' % joint.name())
+        mel.eval('artSkinInflListChanging "%s" 1' % joint)
         mel.eval("artSkinInflListChanged artAttrSkinPaintCtx")
 
 
 def change_paint_target_influence(joint):
-    mel.eval('artSkinInflListChanging "%s" 1' % joint.name())
+    mel.eval('artSkinInflListChanging "%s" 1' % joint)
     mel.eval("artSkinInflListChanged artAttrSkinPaintCtx")
 
 
@@ -80,7 +77,7 @@ def move_cursor(nnskin_window, offset=0, focus=False, reset=False):
         nd.message("finish")
         if offset < 0:
             nnskin_window.cursor = len(nnskin_window.joints) - 1
-        elif offset >0:
+        elif offset > 0:
             nnskin_window.cursor = 0
 
     # UI 更新
@@ -91,7 +88,7 @@ def move_cursor(nnskin_window, offset=0, focus=False, reset=False):
         change_paint_target_influence(joint=nnskin_window.current_joint())
 
     else:
-        pm.select(nnskin_window.current_joint())
+        cmds.select(nnskin_window.current_joint())
 
     # ジョイントのフォーカス
     if focus:
@@ -100,15 +97,15 @@ def move_cursor(nnskin_window, offset=0, focus=False, reset=False):
 
 class TRS():
     def __init__(self, obj):
-        self.translateX = obj.translateX.get()
-        self.translateY = obj.translateY.get()
-        self.translateZ = obj.translateZ.get()
-        self.rotateX = obj.rotateX.get()
-        self.rotateY = obj.rotateY.get()
-        self.rotateZ = obj.rotateZ.get()
-        self.scaleX = obj.scaleX.get()
-        self.scaleY = obj.scaleY.get()
-        self.scaleZ = obj.scaleZ.get()
+        self.translateX = cmds.getAttr(obj + ".translateX")
+        self.translateY = cmds.getAttr(obj + ".translateY")
+        self.translateZ = cmds.getAttr(obj + ".translateZ")
+        self.rotateX = cmds.getAttr(obj + ".rotateX")
+        self.rotateY = cmds.getAttr(obj + ".rotateY")
+        self.rotateZ = cmds.getAttr(obj + ".rotateZ")
+        self.scaleX = cmds.getAttr(obj + ".scaleX")
+        self.scaleY = cmds.getAttr(obj + ".scaleY")
+        self.scaleZ = cmds.getAttr(obj + ".scaleZ")
 
 
 class NN_ToolWindow(object):
@@ -126,17 +123,17 @@ class NN_ToolWindow(object):
         self.meshes = []
 
     def create(self):
-        if pm.window(self.window, exists=True):
-            pm.deleteUI(self.window, window=True)
+        if cmds.window(self.window, exists=True):
+            cmds.deleteUI(self.window, window=True)
 
         # プリファレンスの有無による分岐
-        if pm.windowPref(self.window, exists=True):
+        if cmds.windowPref(self.window, exists=True):
             # ウィンドウのプリファレンスがあれば位置だけ保存して削除
-            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
-            pm.windowPref(self.window, remove=True)
+            position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
+            cmds.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -149,7 +146,7 @@ class NN_ToolWindow(object):
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -160,7 +157,7 @@ class NN_ToolWindow(object):
                 )
 
         self.layout()
-        pm.showWindow(self.window)
+        cmds.showWindow(self.window)
 
     def layout(self):
         ui.column_layout()
@@ -273,10 +270,10 @@ class NN_ToolWindow(object):
 
     def onSetRoot(self, *args):        
         # 選択以下にある全てのジョイントを取得
-        current_selection = pm.selected(flatten=True)
-        pm.select(hierarchy=True)
-        all_joints = [x for x in pm.selected(flatten=True) if isinstance(x, nt.Joint)]
-        pm.select(current_selection)
+        current_selection = cmds.ls(selection=True, flatten=True)
+        cmds.select(hierarchy=True)
+        all_joints = [x for x in cmds.ls(selection=True, flatten=True) if cmds.objectType(x, isType="joint")]
+        cmds.select(current_selection)
 
         self.root_joint = all_joints[0]
         self.joints = all_joints
@@ -286,12 +283,12 @@ class NN_ToolWindow(object):
         for i, joint in enumerate(self.joints):
             self.neutral_trs[i] = TRS(joint)
 
-        self.meshes = [x.getParent() for x in pm.listRelatives(self.root_joint, allDescendents=True, type="mesh")]
+        self.meshes = [nu.get_parent(x) for x in cmds.listRelatives(self.root_joint, allDescendents=True, type="mesh")]
 
         ui.set_value(self.text_root, self.root_joint)
 
     def onSetJoints(self, *args):
-        selection = pm.selected(flatten=True, type="joint")
+        selection = cmds.ls(selection=True, flatten=True, type="joint")
         if selection:
             self.joints = selection
             self.root_joint = self.joints[0]
@@ -304,7 +301,7 @@ class NN_ToolWindow(object):
         ui.set_value(self.text_root, self.root_joint)
 
     def onSetMeshes(self, *args):
-        selection = pm.selected(flatten=True)
+        selection = cmds.ls(selection=True, flatten=True)
         if selection:
             self.meshes = selection
 
@@ -334,7 +331,7 @@ class NN_ToolWindow(object):
 
         neutral = self.neutral_trs[self.cursor].translateX
         v = ui.get_value(self.fs_tra_x)
-        self.current_joint().translateX.set(neutral + v * self.translate_factor())
+        cmds.setAttr(self.current_joint() + ".translateX", neutral + v * self.translate_factor())
 
     def onChangeTranslateY(self, *args):
         if ui.is_shift():
@@ -342,7 +339,7 @@ class NN_ToolWindow(object):
 
         neutral = self.neutral_trs[self.cursor].translateY
         v = ui.get_value(self.fs_tra_y)
-        self.current_joint().translateY.set(neutral + v * self.translate_factor())
+        cmds.setAttr(self.current_joint() + ".translateY", neutral + v * self.translate_factor())
 
     def onChangeTranslateZ(self, *args):
         if ui.is_shift():
@@ -350,7 +347,7 @@ class NN_ToolWindow(object):
 
         neutral = self.neutral_trs[self.cursor].translateZ
         v = ui.get_value(self.fs_tra_z)
-        self.current_joint().translateZ.set(neutral + v * self.translate_factor())
+        cmds.setAttr(self.current_joint() + ".translateZ", neutral + v * self.translate_factor())
 
     def onChangeRotateX(self, *args):
         if ui.is_shift():
@@ -358,7 +355,7 @@ class NN_ToolWindow(object):
 
         neutral = self.neutral_trs[self.cursor].rotateX
         v = ui.get_value(self.fs_rot_x)
-        self.current_joint().rotateX.set(neutral + v * self.rotate_factor())
+        cmds.setAttr(self.current_joint() + ".rotateX", neutral + v * self.rotate_factor())
 
     def onChangeRotateY(self, *args):
         if ui.is_shift():
@@ -366,7 +363,7 @@ class NN_ToolWindow(object):
 
         neutral = self.neutral_trs[self.cursor].rotateY
         v = ui.get_value(self.fs_rot_y)
-        self.current_joint().rotateY.set(neutral + v * self.rotate_factor())
+        cmds.setAttr(self.current_joint() + ".rotateY", neutral + v * self.rotate_factor())
 
     def onChangeRotateZ(self, *args):
         if ui.is_shift():
@@ -374,12 +371,12 @@ class NN_ToolWindow(object):
 
         neutral = self.neutral_trs[self.cursor].rotateZ
         v = ui.get_value(self.fs_rot_z)
-        self.current_joint().rotateZ.set(neutral + v * self.rotate_factor())
+        cmds.setAttr(self.current_joint() + ".rotateZ", neutral + v * self.rotate_factor())
 
     def onGradation(self, *args):
         if is_weight_paint_mode():
             activate_select_mode()
-            pm.select(self.current_joint())
+            cmds.select(self.current_joint())
 
         else:
             weight_paint_mode_with_selected_joint(joint=self.current_joint(), meshes=self.meshes)
@@ -412,8 +409,6 @@ class NN_ToolWindow(object):
         move_cursor(self, offset=1, focus=False)
 
     def onPaintMode(self, *args):
-        import nnutil.misc as nm
-
         weight_paint_mode_with_selected_joint()
 
     @staticmethod

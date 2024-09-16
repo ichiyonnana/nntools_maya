@@ -2135,6 +2135,20 @@ def get_shape(object, fullPath=False, path=True):
     return shape
 
 
+def get_parent(object, fullPath=False, path=True):
+    """オブジェクトの親を取得する
+
+    Args:
+        object (str): 親を取得するオブジェクト名
+
+    Returns:
+        str or None: 親ノード
+    """
+    parent = (cmds.listRelatives(object, parent=True, fullPath=fullPath, path=path) or [None])[0]
+
+    return parent
+
+
 def get_indices(comp):
     """コンポーネント文字列からインデックスを取得する
 
