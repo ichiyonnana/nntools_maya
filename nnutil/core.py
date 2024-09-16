@@ -2121,7 +2121,7 @@ def exist_file(dir, filename):
     return os.path.exists(path)
 
 
-def get_shape(object):
+def get_shape(object, fullPath=False, path=True):
     """オブジェクトからシェイプを取得する
 
     Args:
@@ -2130,7 +2130,7 @@ def get_shape(object):
     Returns:
         str or None: シェイプノード
     """
-    shape = (cmds.listRelatives(object, shapes=True) or [None])[0]
+    shape = (cmds.listRelatives(object, shapes=True, fullPath=fullPath, path=path) or [None])[0]
 
     return shape
 

@@ -2,13 +2,11 @@
 sweepMesh 補助モジュール
 """
 import maya.cmds as cmds
-import pymel.core as pm
 
 import nnutil.core as nu
 import nnutil.decorator as deco
 import nnutil.ui as ui
 import nnutil.display as nd
-import pymel.core.nodetypes as nt
 
 
 window_name = "NN_Sweep"
@@ -27,7 +25,7 @@ def get_all_sweep_meshes(shape=True):
             if shape:
                 sweep_meshes.append(mesh)
             else:
-                trs = cmds.listRelatives(mesh, parent=True)[0]
+                trs = cmds.listRelatives(mesh, parent=True, path=True)[0]
                 sweep_meshes.append(trs)
 
     return sweep_meshes
@@ -40,10 +38,10 @@ def get_objects_in_herarchy(type=None):
 
     for sel in selections:
         if type:
-            descendent_objects = cmds.listRelatives(sel, allDescendents=True, type=type)
+            descendent_objects = cmds.listRelatives(sel, allDescendents=True, type=type, path=True)
 
         else:
-            descendent_objects = cmds.listRelatives(sel, allDescendents=True)
+            descendent_objects = cmds.listRelatives(sel, allDescendents=True, path=True)
 
         if descendent_objects:
             objects.extend(descendent_objects)
@@ -94,17 +92,17 @@ class NN_ToolWindow(object):
         self.is_chunk_open = False
 
     def create(self):
-        if pm.window(self.window, exists=True):
-            pm.deleteUI(self.window, window=True)
+        if cmds.window(self.window, exists=True):
+            cmds.deleteUI(self.window, window=True)
 
         # プリファレンスの有無による分岐
-        if pm.windowPref(self.window, exists=True):
+        if cmds.windowPref(self.window, exists=True):
             # ウィンドウのプリファレンスがあれば位置だけ保存して削除
-            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
-            pm.windowPref(self.window, remove=True)
+            position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
+            cmds.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            self.window = pm.window(
+            self.window = cmds.window(
                 self.window,
                 t=self.title,
                 widthHeight=self.size,
@@ -117,7 +115,7 @@ class NN_ToolWindow(object):
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            self.window = pm.window(
+            self.window = cmds.window(
                 self.window,
                 t=self.title,
                 widthHeight=self.size,
@@ -128,7 +126,7 @@ class NN_ToolWindow(object):
             )
 
         self.layout()
-        pm.showWindow(self.window)
+        cmds.showWindow(self.window)
 
     def layout(self):
         """UIレイアウト."""
@@ -201,14 +199,14 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label="ScaleX:")
         self.scale_slider_x = ui.float_slider(width=ui.width(5), min=0, max=5, value=1, dc=self.onUpdateScaleX, cc=self.onChangeScaleX)
-        ui.button(label="Reset", c=self.onResetScale)
+        ui.button(label="Reset", c=self.onResetScaleX)
         ui.button(label="GetAttr", c=self.onGetAttr)
         ui.end_layout()
 
         ui.row_layout()
         ui.header(label="ScaleY:")
         self.scale_slider_y = ui.float_slider(width=ui.width(5), min=0, max=5, value=1, dc=self.onUpdateScaleY, cc=self.onChangeScaleY)
-        ui.button(label="Reset", c=self.onResetScale)
+        ui.button(label="Reset", c=self.onResetScaleY)
         ui.end_layout()
 
         ui.row_layout()
@@ -235,15 +233,15 @@ class NN_ToolWindow(object):
 
     def onCreateSweep(self, *args):
         """Testハンドラ"""
-        selections = pm.ls(selection=True)
+        selections = cmds.ls(selection=True)
 
         for curve_trs in selections:
-            if isinstance(curve_trs.getShape(), nt.NurbsCurve):
-                curve_shape = curve_trs.getShape()
+            if cmds.objectType(nu.get_shape(curve_trs), isType="nurbsCurve"):
+                curve_shape = nu.get_shape(curve_trs)
 
                 # スウィープの作成
-                pm.sweepMeshFromCurve(curve_trs, oneNodePerCurve=True)
-                smc_node = pm.listConnections(curve_trs.getShape(), destination=True, type="sweepMeshCreator")[0]
+                cmds.sweepMeshFromCurve(curve_trs, oneNodePerCurve=True)
+                smc_node = cmds.listConnections(nu.get_shape(curve_trs), destination=True, type="sweepMeshCreator")[0]
 
                 # マテリアルの設定
                 material = None
@@ -254,43 +252,35 @@ class NN_ToolWindow(object):
                         material = material_text
 
                 if material:
-                    mesh = cmds.listConnections(smc_node.name(), destination=True, type="mesh")[0]
+                    mesh = cmds.listConnections(smc_node, destination=True, type="mesh")[0]
                     cmds.sets(mesh, e=True, forceElement=material)
 
                 # 断面の設定
-                smc_node.profilePolyType.set(0)
-                smc_node.profilePolySides.set(4)
-                smc_node.taper.set(1)
-                smc_node.interpolationPrecision.set(98)
-                smc_node.interpolationOptimize.set(1)
+                cmds.setAttr(smc_node + ".profilePolyType", 0)
+                cmds.setAttr(smc_node + ".profilePolySides", 4)
+                cmds.setAttr(smc_node + ".taper", 1)
+                cmds.setAttr(smc_node + ".interpolationPrecision", 98)
+                cmds.setAttr(smc_node + ".interpolationOptimize", 1)
 
                 # テーパー設定
-                smc_node.taperCurve[0].taperCurve_Position.set(0.0)
-                smc_node.taperCurve[0].taperCurve_FloatValue.set(1.0)
-                smc_node.taperCurve[0].taperCurve_Interp.set(3)
-
-                smc_node.taperCurve[2].taperCurve_Position.set(0.5)
-                smc_node.taperCurve[2].taperCurve_FloatValue.set(1.0)
-                smc_node.taperCurve[2].taperCurve_Interp.set(3)
-
-                smc_node.taperCurve[1].taperCurve_Position.set(1.0)
-                smc_node.taperCurve[1].taperCurve_FloatValue.set(0.0)
-                smc_node.taperCurve[1].taperCurve_Interp.set(1)
+                cmds.setAttr(smc_node + ".taperCurve[0]", 0.0, 1.0, 3)
+                cmds.setAttr(smc_node + ".taperCurve[2]", 0.5, 1.0, 3)
+                cmds.setAttr(smc_node + ".taperCurve[1]", 1.0, 0.0, 1)
 
                 # メッシュのリファレンス化
                 sweep_mesh = pm.listConnections(smc_node, destination=True, type="mesh")[0]
-                sweep_mesh.overrideEnabled.set(1)
-                sweep_mesh.overrideDisplayType.set(2)
+                cmds.setAttr(sweep_mesh + ".overrideEnabled", 1)
+                cmds.setAttr(sweep_mesh + ".overrideDisplayType", 2)
 
                 # カーブの Draw on top 設定
-                curve_shape.alwaysDrawOnTop.set(1)
+                cmds.setAttr(curve_shape + ".alwaysDrawOnTop", 1)
 
     def _get_selected_curves(self):
         selections = cmds.ls(selection=True)
         curves = []
 
         for obj in selections:
-            descendent_curves = cmds.listRelatives(obj, allDescendents=True, type="nurbsCurve")
+            descendent_curves = cmds.listRelatives(obj, allDescendents=True, type="nurbsCurve", path=True)
             curves.extend(descendent_curves)
 
         curves = list(set(curves))
@@ -359,17 +349,9 @@ class NN_ToolWindow(object):
         for curve in curves:
             smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
             smc_node = pm.PyNode(smc_node_name)
-            smc_node.taperCurve[0].taperCurve_Position.set(0.0)
-            smc_node.taperCurve[0].taperCurve_FloatValue.set(1.0)
-            smc_node.taperCurve[0].taperCurve_Interp.set(3)
-
-            smc_node.taperCurve[2].taperCurve_Position.set(0.5)
-            smc_node.taperCurve[2].taperCurve_FloatValue.set(1.0)
-            smc_node.taperCurve[2].taperCurve_Interp.set(3)
-
-            smc_node.taperCurve[1].taperCurve_Position.set(1.0)
-            smc_node.taperCurve[1].taperCurve_FloatValue.set(0.0)
-            smc_node.taperCurve[1].taperCurve_Interp.set(1)
+            cmds.setAttr(smc_node + ".taperCurve[0]", 0.0, 1.0, 3)
+            cmds.setAttr(smc_node + ".taperCurve[2]", 0.5, 1.0, 3)
+            cmds.setAttr(smc_node + ".taperCurve[1]", 1.0, 0.0, 1)
 
     def onSetTaperBoth(self, *args):
         """"""
@@ -378,17 +360,9 @@ class NN_ToolWindow(object):
         for curve in curves:
             smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
             smc_node = pm.PyNode(smc_node_name)
-            smc_node.taperCurve[0].taperCurve_Position.set(0.0)
-            smc_node.taperCurve[0].taperCurve_FloatValue.set(0.0)
-            smc_node.taperCurve[0].taperCurve_Interp.set(3)
-
-            smc_node.taperCurve[2].taperCurve_Position.set(0.5)
-            smc_node.taperCurve[2].taperCurve_FloatValue.set(1.0)
-            smc_node.taperCurve[2].taperCurve_Interp.set(3)
-
-            smc_node.taperCurve[1].taperCurve_Position.set(1.0)
-            smc_node.taperCurve[1].taperCurve_FloatValue.set(0.0)
-            smc_node.taperCurve[1].taperCurve_Interp.set(1)
+            cmds.setAttr(smc_node + ".taperCurve[0]", 0.0, 0.0, 3)
+            cmds.setAttr(smc_node + ".taperCurve[2]", 0.5, 1.0, 3)
+            cmds.setAttr(smc_node + ".taperCurve[1]", 1.0, 0.0, 1)
 
     def onSetTaperNeither(self, *args):
         """"""
@@ -397,17 +371,9 @@ class NN_ToolWindow(object):
         for curve in curves:
             smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
             smc_node = pm.PyNode(smc_node_name)
-            smc_node.taperCurve[0].taperCurve_Position.set(0.0)
-            smc_node.taperCurve[0].taperCurve_FloatValue.set(1.0)
-            smc_node.taperCurve[0].taperCurve_Interp.set(3)
-
-            smc_node.taperCurve[2].taperCurve_Position.set(0.5)
-            smc_node.taperCurve[2].taperCurve_FloatValue.set(1.0)
-            smc_node.taperCurve[2].taperCurve_Interp.set(3)
-
-            smc_node.taperCurve[1].taperCurve_Position.set(1.0)
-            smc_node.taperCurve[1].taperCurve_FloatValue.set(1.0)
-            smc_node.taperCurve[1].taperCurve_Interp.set(1)
+            cmds.setAttr(smc_node + ".taperCurve[0]", 0.0, 1.0, 3)
+            cmds.setAttr(smc_node + ".taperCurve[2]", 0.5, 1.0, 3)
+            cmds.setAttr(smc_node + ".taperCurve[1]", 1.0, 1.0, 1)
 
     def onReverse(self, *args):
         """選択カーブの方向を反転する"""
@@ -636,7 +602,7 @@ class NN_ToolWindow(object):
         curves = []
 
         for obj in selections:
-            descendent_curves = cmds.listRelatives(obj, allDescendents=True, type="nurbsCurve")
+            descendent_curves = cmds.listRelatives(obj, allDescendents=True, type="nurbsCurve", path=True)
             curves.extend(descendent_curves)
 
         # スライダーの値
@@ -667,7 +633,7 @@ class NN_ToolWindow(object):
         curves = []
 
         for obj in selections:
-            descendent_curves = cmds.listRelatives(obj, allDescendents=True, type="nurbsCurve")
+            descendent_curves = cmds.listRelatives(obj, allDescendents=True, type="nurbsCurve", path=True)
             curves.extend(descendent_curves)
 
         # スライダーの値
@@ -688,10 +654,15 @@ class NN_ToolWindow(object):
             cmds.undoInfo(cck=True)
             self.is_chunk_open = False
 
-    def onResetScale(self, *args):
+    def onResetScaleX(self, *args):
         """スケールのリセット"""
         ui.set_value(self.scale_slider_x, value=1)
-        self.onChangeScale()
+        self._on_update_scale("x")
+
+    def onResetScaleY(self, *args):
+        """スケールのリセット"""
+        ui.set_value(self.scale_slider_y, value=1)
+        self._on_update_scale("y")
 
     def onGetAttr(self, *args):
         """アトリビュートを取得してUIへ設定"""
