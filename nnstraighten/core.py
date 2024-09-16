@@ -1,16 +1,9 @@
 # ダイアログのテンプレ
 # self.window だけユニークならあとはそのままで良い
-import re
-import os
-import sys
-import traceback
-import math
-
-import pymel.core as pm
 import maya.cmds as cmds
-import maya.mel as mel
 
 import nnutil.core as nu
+import nnutil.display as nd
 
 
 window_name = "NN_Straighten"
@@ -31,11 +24,13 @@ color_select = (0.5, 0.75, 1.0)
 bw_single = 24
 bw_double = bw_single*2 + 2
 
+
 def straight_component(vts):
     """
     選択頂点がつながっていればパスの端の点、つながっていなければ最も遠い点で直線にする
     """
     pass
+
 
 def flatten_component(vts_dst, points_dst, vts_src):
     """
@@ -44,6 +39,7 @@ def flatten_component(vts_dst, points_dst, vts_src):
     vts を優先して参照し、len(vts)<3 なら points_dst の先頭から不足分を補う
     """
     pass
+
 
 def flatten_component_avg(vts):
     """
@@ -67,17 +63,17 @@ class NN_ToolWindow(object):
         self.mode = self.MD_NONE
 
     def create(self):
-        if pm.window(self.window, exists=True):
-            pm.deleteUI(self.window, window=True)
+        if cmds.window(self.window, exists=True):
+            cmds.deleteUI(self.window, window=True)
 
         # プリファレンスの有無による分岐
-        if pm.windowPref(self.window, exists=True):
+        if cmds.windowPref(self.window, exists=True):
             # ウィンドウのプリファレンスがあれば位置だけ保存して削除
-            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
-            pm.windowPref(self.window, remove=True)
+            position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
+            cmds.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -90,7 +86,7 @@ class NN_ToolWindow(object):
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -101,28 +97,28 @@ class NN_ToolWindow(object):
                 )
 
         self.layout()
-        pm.showWindow(self.window)
+        cmds.showWindow(self.window)
 
     def layout(self):
         window_width = 140
 
         self.columnLayout = cmds.columnLayout()
 
-        self.rowLayout1 = cmds.rowLayout( numberOfColumns=16 )
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
         self.bt_ = cmds.button(l='Sample [select]', c=self.onSample, dgc=self.onSelectSamplePoint)
         self.bt_ = cmds.button(l='+camera', c=self.onSelectSamplePointFromCamera)
         cmds.setParent("..")
 
         cmds.separator(width=window_width)
 
-        self.rowLayout1 = cmds.rowLayout( numberOfColumns=16 )
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
         self.bt_ = cmds.button(l='Apply', c=self.onApply)
         self.bt_ = cmds.button(l='Flatten (Camera)', c=self.onFlattenWithCamera)
         cmds.setParent("..")
 
         cmds.separator(width=window_width)
 
-        self.rowLayout1 = cmds.rowLayout( numberOfColumns=16 )
+        self.rowLayout1 = cmds.rowLayout(numberOfColumns=16)
         self.bt_ = cmds.button(l='Farthest', c=self.onLinearizeFarthest)
         self.bt_ = cmds.button(l='end-to-end', c=self.onLinearizeEndToEnd)
         cmds.setParent("..")
@@ -133,35 +129,33 @@ class NN_ToolWindow(object):
         selections = nu.get_selection()
         self.sample_vts = nu.to_vtx(selections)
         self.sample_points = [nu.get_vtx_coord(x) for x in self.sample_vts]
-        nu.message("sampling %d points" % len(self.sample_vts))
+        nd.message("sampling %d points" % len(self.sample_vts))
 
     def onSelectSamplePointFromCamera(self, *args):
         selections = nu.get_selection()
         self.sample_vts = nu.to_vtx(selections)[0:2]
         self.sample_points = [nu.get_vtx_coord(x) for x in self.sample_vts]
 
-        
         camera = nu.get_active_camera()
         camerapos = cmds.xform(camera, q=True, ws=True, t=True)
         self.sample_points.append(camerapos)
-        nu.message("sampling 2 points + camera position")
-
+        nd.message("sampling 2 points + camera position")
 
     def onSelectSamplePoint(self, *args):
         cmds.select(self.sample_vts)
-        
+
     def onApply(self, *args):
         vts = nu.to_vtx(nu.get_selection())
 
         num_samples = len(self.sample_points)
         if num_samples == 0:
             # nop
-            nu.message("sample before apply")
+            nd.message("sample before apply")
 
         if len(self.sample_vts) == 2:
             # line
-            end_vtx_pair =self.sample_vts
-            
+            end_vtx_pair = self.sample_vts
+
             fp = [nu.get_vtx_coord(x) for x in end_vtx_pair]
 
             for v in vts:
@@ -169,7 +163,7 @@ class NN_ToolWindow(object):
                 np = nu.nearest_point_on_line(fp[0], fp[1], p)
                 nu.set_vtx_coord(v, np)
 
-            nu.message("linearize")
+            nd.message("linearize")
 
         else:
             # plane
@@ -178,7 +172,7 @@ class NN_ToolWindow(object):
             cross = nu.cross(va, vb)
             p0 = self.sample_points[0]
             # 平面方程式の係数
-            a = cross[0]    
+            a = cross[0]
             b = cross[1]
             c = cross[2]
             d = - a*p0[0] - b*p0[1] - c*p0[2]
@@ -191,7 +185,7 @@ class NN_ToolWindow(object):
                 q = (a*t0 + p[0], b*t0 + p[1], c*t0 + p[2])
                 nu.set_vtx_coord(vtx, q)
 
-            nu.message("flatten")
+            nd.message("flatten")
 
     def onFlattenWithCamera(self, *args):
         """
@@ -207,7 +201,7 @@ class NN_ToolWindow(object):
         num_samples = len(self.sample_points)
         if num_samples == 0:
             # nop
-            nu.message("sample before apply")
+            nd.message("sample before apply")
 
         if len(self.sample_vts) >= 2:
             # plane
@@ -227,12 +221,8 @@ class NN_ToolWindow(object):
                 q = (a*t0 + p[0], b*t0 + p[1], c*t0 + p[2])
                 nu.set_vtx_coord(vtx, q)
 
-            nu.message("flatten with camera")
+            nd.message("flatten with camera")
 
-
-
-
-        
     def onLinearizeFarthest(self, *args):
         """
         選択頂点群の中から一番離れた頂点同士を代表点として直線化
@@ -246,7 +236,6 @@ class NN_ToolWindow(object):
             p = nu.get_vtx_coord(v)
             np = nu.nearest_point_on_line(fp[0], fp[1], p)
             nu.set_vtx_coord(v, np)
-
 
     def onLinearizeEndToEnd(self, *args):
         """
@@ -262,8 +251,8 @@ class NN_ToolWindow(object):
             vts = nu.to_vtx(selections)
 
         elif all([nu.type_of_component(x) == "vtx" for x in selections]):
-           end_vtx_pair = nu.get_end_vtx_v(selections)
-           vts = selections
+            end_vtx_pair = nu.get_end_vtx_v(selections)
+            vts = selections
 
         fp = [nu.get_vtx_coord(x) for x in end_vtx_pair]
 
@@ -273,12 +262,13 @@ class NN_ToolWindow(object):
             nu.set_vtx_coord(v, np)
 
 
-
 def showNNToolWindow():
     NN_ToolWindow().create()
 
+
 def main():
     showNNToolWindow()
+
 
 if __name__ == "__main__":
     main()
