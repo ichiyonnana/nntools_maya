@@ -1,7 +1,6 @@
 import re
 
 import maya.cmds as cmds
-import pymel.core as pm
 import maya.mel as mel
 
 import nnutil.core as nu
@@ -300,6 +299,7 @@ def ari_gridding():
 def _rectilinearize(corner_uv_comps=None, target_texel=15, map_size=1024):
     rectilinearize.main(corner_uv_comps=corner_uv_comps, target_texel=target_texel, map_size=map_size)
 
+
 @nd.repeatable
 def change_uvtk_texel_value(texel):
     """ UVToolkit のテクセル値フィールドを設定する"""
@@ -540,7 +540,7 @@ def flip_in_tile(pivot=None, direction=FD_U):
         cmds.polyEditUV(pu=pivot[0], pv=pivot[1], su=1, sv=-1)
 
     else:
-        raise(Exception("unknown flip mode"))
+        raise Exception("unknown flip mode")
 
 
 @nd.repeatable
@@ -559,8 +559,8 @@ def sew_matching_edges():
 
 
 def get_flip_pivot(ui_pivot_u, ui_pivot_v):
-    uvs = pm.selected(flatten=True)
-    uv_coords = nu.split_n_pair(pm.polyEditUV(uvs, q=True), 2)
+    uvs = cmds.ls(selection=True, flatten=True)
+    uv_coords = nu.split_n_pair(cmds.polyEditUV(uvs, q=True), 2)
     avg_u = sum([uv_coord[0] for uv_coord in uv_coords]) / len(uv_coords)
     avg_v = sum([uv_coord[1] for uv_coord in uv_coords]) / len(uv_coords)
     ui.set_value(ui_pivot_u, avg_u)
@@ -716,8 +716,8 @@ class NN_ToolWindow(object):
         self.size = (1, 1)
 
     def create(self, parent_to_uveditor=False):
-        if pm.window(self.window, exists=True):
-            pm.deleteUI(self.window)
+        if cmds.window(self.window, exists=True):
+            cmds.deleteUI(self.window)
 
         if parent_to_uveditor:
             # UV エディターのウィンドウ名を取得
@@ -728,13 +728,13 @@ class NN_ToolWindow(object):
             print("1")
 
         # プリファレンスの有無による分岐
-        if pm.windowPref(self.window, exists=True):
+        if cmds.windowPref(self.window, exists=True):
             # ウィンドウのプリファレンスがあれば位置だけ保存して削除
-            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
-            pm.windowPref(self.window, remove=True)
+            position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
+            cmds.windowPref(self.window, remove=True)
 
             if parent_to_uveditor and parent_window:
-                pm.window(
+                cmds.window(
                     self.window,
                     t=self.title,
                     maximizeButton=False,
@@ -745,7 +745,7 @@ class NN_ToolWindow(object):
                     resizeToFitChildren=True,
                     parent=parent_window)
             else:
-                pm.window(
+                cmds.window(
                     self.window,
                     t=self.title,
                     maximizeButton=False,
@@ -757,7 +757,7 @@ class NN_ToolWindow(object):
 
         else:
             if parent_to_uveditor and parent_window:
-                pm.window(
+                cmds.window(
                     self.window,
                     t=self.title,
                     maximizeButton=False,
@@ -767,7 +767,7 @@ class NN_ToolWindow(object):
                     resizeToFitChildren=True,
                     parent=parent_window)
             else:
-                pm.window(
+                cmds.window(
                     self.window,
                     t=self.title,
                     maximizeButton=False,
@@ -777,7 +777,7 @@ class NN_ToolWindow(object):
                     sizeable=False)
 
         self.layout()
-        pm.showWindow(self.window)
+        cmds.showWindow(self.window)
 
         ui.set_value(self.mapSize, 1024)
 
@@ -1233,11 +1233,11 @@ class NN_ToolWindow(object):
 
     @nd.undo_chunk
     def onCut(self, *args):
-        pm.polyMapCut()
+        cmds.polyMapCut()
 
     @nd.undo_chunk
     def onSew(self, *args):
-        pm.polyMapSew()
+        cmds.polyMapSew()
 
     @nd.undo_chunk
     def onCreateShell(self, *args):
@@ -1245,7 +1245,7 @@ class NN_ToolWindow(object):
 
     @nd.undo_chunk
     def onMerge(self, *args):
-        pm.polyMergeUV(d=0.0001)
+        cmds.polyMergeUV(d=0.0001)
 
     @nd.undo_chunk
     def onOrientEdge(self, *args):
@@ -1371,6 +1371,7 @@ class NN_ToolWindow(object):
     def onParentToUVEditor(self, *args):
         """UVエディターを親にしてウィンドウを再作成する"""
         self.create(parent_to_uveditor=True)
+
 
 def showNNToolWindow():
     NN_ToolWindow().create()
