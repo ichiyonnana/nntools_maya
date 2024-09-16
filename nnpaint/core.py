@@ -1,36 +1,35 @@
 """
 ツールの概要
 """
-import pymel.core as pm
+import maya.cmds as cmds
+import maya.mel as mel
 
 import nnutil.core as nu
 import nnutil.decorator as deco
 import nnutil.ui as ui
-import pymel.core.nodetypes as nt
 import nnutil.display as nd
 
 window_name = "NN_Tools"
 
 
 def initialize_paint():
-    
     # ペイント用 Lambert 作成
     paint_material = None
 
     # tripleShadingSwitch 接続
     switch = None
 
-    target_objects = pm.selected()
+    target_objects = cmds.ls(selection=True)
 
     for target_object in target_objects:
 
         # 現在のマテリアル取得
         print(target_object)
-        shape = target_object.getShape()
+        shape = nu.get_shape(target_object)
 
-        shading_groups = pm.listConnections(shape, source=False, destination=True, type="shadingEngine")
+        shading_groups = cmds.listConnections(shape, source=False, destination=True, type="shadingEngine")
         for shading_group in shading_groups:
-            materials = pm.ls(pm.listConnections(shading_group, source=True, destination=False), materials=True)
+            materials = cmds.ls(cmds.listConnections(shading_group, source=True, destination=False), materials=True)
 
             for material in materials:
                 print(material)
@@ -49,43 +48,43 @@ def initialize_paint():
 
 
 def enable_paint():
-    selections = pm.selected()
+    selections = cmds.ls(selection=True)
 
     if selections:
-        if isinstance(selections[0], (nt.Mesh, nt.Transform)):
+        if cmds.objectType(selections[0]) in ("mesh", "transform"):
             object = selections[0]
             faces = None
 
-        elif isinstance(selections[0], pm.MeshFace):
-            object = pm.polyListComponentConversion(selections[0])[0]
+        elif nu.type_of_component(selections[0]) == "face":
+            object = cmds.polyListComponentConversion(selections[0])[0]
             faces = selections
-        
+
         # ペイントツール起動
         mel.eval("Art3dPaintToolOptions")
 
 
 def change_brush():
-    mode = pm.alphaBlend_uiToMel("Lighten")
-    current_ctx = pm.currentCtx()
-    pm.art3dPaintCtx(current_ctx, e=True, alphablendmode=mode)
-    
-    mode = pm.alphaBlend_uiToMel("Darken")
-    current_ctx = pm.currentCtx()
-    pm.art3dPaintCtx(current_ctx, e=True, alphablendmode=mode)
+    mode = cmds.alphaBlend_uiToMel("Lighten")
+    current_ctx = cmds.currentCtx()
+    cmds.art3dPaintCtx(current_ctx, e=True, alphablendmode=mode)
 
-    current_ctx = pm.currentCtx()
-    pm.art3dPaintCtx(current_ctx, e=True, reflection=True)
+    mode = cmds.alphaBlend_uiToMel("Darken")
+    current_ctx = cmds.currentCtx()
+    cmds.art3dPaintCtx(current_ctx, e=True, alphablendmode=mode)
 
-    current_ctx = pm.currentCtx()
-    pm.art3dPaintCtx(current_ctx, e=True, reflection=False)
+    current_ctx = cmds.currentCtx()
+    cmds.art3dPaintCtx(current_ctx, e=True, reflection=True)
 
-    mode = pm.attributeToPaint_uiToMel("Ambient")
-    current_ctx = pm.currentCtx()
-    pm.art3dPaintCtx(current_ctx, e=True, painttxtattrname=mode)
+    current_ctx = cmds.currentCtx()
+    cmds.art3dPaintCtx(current_ctx, e=True, reflection=False)
 
-    mode = pm.attributeToPaint_uiToMel("Color")
-    current_ctx = pm.currentCtx()
-    pm.art3dPaintCtx(current_ctx, e=True, painttxtattrname=mode)
+    mode = cmds.attributeToPaint_uiToMel("Ambient")
+    current_ctx = cmds.currentCtx()
+    cmds.art3dPaintCtx(current_ctx, e=True, painttxtattrname=mode)
+
+    mode = cmds.attributeToPaint_uiToMel("Color")
+    current_ctx = cmds.currentCtx()
+    cmds.art3dPaintCtx(current_ctx, e=True, painttxtattrname=mode)
 
 
 class NN_ToolWindow(object):
@@ -97,17 +96,17 @@ class NN_ToolWindow(object):
         self.is_chunk_open = False
 
     def create(self):
-        if pm.window(self.window, exists=True):
-            pm.deleteUI(self.window, window=True)
+        if cmds.window(self.window, exists=True):
+            cmds.deleteUI(self.window, window=True)
 
         # プリファレンスの有無による分岐
-        if pm.windowPref(self.window, exists=True):
+        if cmds.windowPref(self.window, exists=True):
             # ウィンドウのプリファレンスがあれば位置だけ保存して削除
-            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
-            pm.windowPref(self.window, remove=True)
+            position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
+            cmds.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -120,7 +119,7 @@ class NN_ToolWindow(object):
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -131,7 +130,7 @@ class NN_ToolWindow(object):
                 )
 
         self.layout()
-        pm.showWindow(self.window)
+        cmds.showWindow(self.window)
 
     def layout(self):
         ui.column_layout()
