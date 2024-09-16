@@ -1,8 +1,5 @@
 import re
 import maya.cmds as cmds
-import pymel.core as pm
-import pymel.core.nodetypes as nt
-import pymel.core.datatypes as dt
 
 import nnutil.core as nu
 import nnutil.display as nd
@@ -18,7 +15,7 @@ class NN_ToolWindow(object):
         self.title = 'NormalTools'
         self.size = (self.window_width, 95)
 
-        pm.selectPref(trackSelectionOrder=True)
+        cmds.selectPref(trackSelectionOrder=True)
 
     def create(self):
         if cmds.window(self.window, exists=True):
