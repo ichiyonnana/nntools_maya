@@ -1128,6 +1128,10 @@ def type_of_component(comp):
         return "uv"
     elif ".vtxFace[" in comp:
         return "vf"
+    elif ".pt[" in comp:
+        return "lattice_point"
+    elif ".cv[" in comp:
+        return "control_vertex"
     else:
         return None
 
@@ -2116,3 +2120,27 @@ def exist_file(dir, filename):
 
     return os.path.exists(path)
 
+
+def get_shape(object):
+    """オブジェクトからシェイプを取得する
+
+    Args:
+        object (str): シェイプを取得するオブジェクト名
+
+    Returns:
+        str or None: シェイプノード
+    """
+    shape = (cmds.listRelatives(object, shapes=True) or [None])[0]
+
+    return shape
+
+
+def get_indices(comp):
+    """コンポーネント文字列からインデックスを取得する
+
+    Args:
+        comp (str): コンポーネントを表す文字列
+    """
+    indices = re.findall(r"\[(\d+)\]", comp)
+
+    return [int(i) for i in indices]
