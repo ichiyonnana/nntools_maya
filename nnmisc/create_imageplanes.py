@@ -1,8 +1,9 @@
-import pymel.core as pm
-import pymel.core.datatypes as dt
+import maya.cmds as cmds
 import re
 import glob
 import os
+
+import nnutil.core as nu
 
 
 def main():
@@ -12,23 +13,24 @@ def main():
     イメージプレーンはカメラの子にして奥方向 10.1 の位置に配置する｡
     カメラの Near は 10.0 に設定する｡
     """
-    project_root = re.sub(r"scenes.*$", "", pm.sceneName())
+    scene_name = cmds.file(q=True, sceneName=True)
+    project_root = re.sub(r"scenes.*$", "", scene_name)
     files = glob.glob(project_root + "images/*")
 
     camera_grp_name = "cameras"
 
-    if not pm.objExists(camera_grp_name):
-        camera_grp = pm.createNode("transform", name=camera_grp_name)
+    if not cmds.objExists(camera_grp_name):
+        camera_grp = cmds.createNode("transform", name=camera_grp_name)
     else:
-        camera_grp = pm.PyNode(camera_grp_name)
+        camera_grp = camera_grp_name
 
     for file in files:
         ip_name = re.sub(r"\..*$", "", os.path.basename(file))
         cam_name = re.sub(r"^ip", "cam", ip_name)
 
-        if not pm.objExists(ip_name):
-            ip_trs, ip_shape = pm.imagePlane(width=2.5, height=2.5, maintainRatio=1)
-            camera_trs, camera_shape = pm.camera(
+        if not cmds.objExists(ip_name):
+            ip_trs, ip_shape = cmds.imagePlane(width=2.5, height=2.5, maintainRatio=1)
+            camera_trs, camera_shape = cmds.camera(
                     centerOfInterest=5,
                     focalLength=70,
                     lensSqueezeRatio=1,
@@ -51,19 +53,22 @@ def main():
                     zoom=1
                     )
 
-            ip_trs.rename(ip_name)
-            camera_trs.rename(cam_name)
+            ip_trs = cmds.rename(ip_trs, ip_name)
+            ip_shape = nu.get_shape(ip_trs)
+            camera_trs = cmds.rename(camera_trs, cam_name)
+            camera_shape = nu.get_shape(camera_trs)
 
-            ip_shape.imageName.set(file)
+            print(ip_shape)
+            cmds.setAttr(ip_shape + ".imageName", file, type="string")
 
-            pm.parent(ip_trs, camera_trs)
-            pm.parent(camera_trs, camera_grp)
+            cmds.parent(ip_trs, camera_trs)
+            cmds.parent(camera_trs, camera_grp)
 
-            ip_trs.translate.set(dt.Vector(0, 0, -10.1))
-            ip_shape.colorGain.set(dt.Vector(0.5, 0.5, 0.5))
-            ip_shape.alphaGain.set(0.5)
+            cmds.setAttr(ip_trs + ".translate", 0, 0, -10.1)
+            cmds.setAttr(ip_shape + ".colorGain", 0.5, 0.5, 0.5)
+            cmds.setAttr(ip_shape + ".alphaGain", 0.5)
 
-            camera_shape.nearClipPlane.set(10)
+            cmds.setAttr(camera_shape + ".nearClipPlane", 10)
 
 
 if __name__ == "__main__":
