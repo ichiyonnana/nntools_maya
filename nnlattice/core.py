@@ -1,5 +1,6 @@
 """ラティスの分割数変更やポイントの選択･調整を行うツール"""
 import sys
+import re
 from functools import reduce
 
 import maya.cmds as cmds
@@ -740,6 +741,7 @@ class NN_ToolWindow(object):
         ui.header(label='Func')
         ui.button(label='Smooth', c=self.onSmoothLatticePoint)
         self.cb_smooth_completely = ui.check_box(label="completely", v=False)
+        ui.button(label='SymX', c=self.onSymmetrizeX)
         ui.end_layout()
 
         ui.row_layout()
@@ -902,6 +904,19 @@ class NN_ToolWindow(object):
             smooth_lattice_point(ratio=1.0)
         else:
             smooth_lattice_point()
+
+    def onSymmetrizeX(self, *args):
+        selected_points = cmds.filterExpand(selectionMask=46)
+
+        for p in selected_points:
+            print(p)
+            ffd, s, t, u = re.search(r"(.+)\.pt\[(\d+)\]\[(\d+)\]\[(\d+)\]", p).groups()
+            s = int(s)
+            s_div = cmds.getAttr(f"{ffd}.sDivisions")
+            
+            x, y, z = cmds.xform(f"{ffd}.pt[{s_div-s-1}][{t}][{u}]", query=True, translation=True, objectSpace=True)
+            cmds.xform(f"{ffd}.pt[{s}][{t}][{u}]", translation=(-x, y, z), objectSpace=True)
+
 
     def onSelectInner(self, *args):
         select_inner()
