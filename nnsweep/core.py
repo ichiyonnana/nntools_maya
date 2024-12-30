@@ -268,7 +268,7 @@ class NN_ToolWindow(object):
                 cmds.setAttr(smc_node + ".taperCurve[1]", 1.0, 0.0, 1)
 
                 # メッシュのリファレンス化
-                sweep_mesh = pm.listConnections(smc_node, destination=True, type="mesh")[0]
+                sweep_mesh = cmds.listConnections(smc_node, destination=True, type="mesh")[0]
                 cmds.setAttr(sweep_mesh + ".overrideEnabled", 1)
                 cmds.setAttr(sweep_mesh + ".overrideDisplayType", 2)
 
@@ -348,10 +348,9 @@ class NN_ToolWindow(object):
 
         for curve in curves:
             smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
-            smc_node = pm.PyNode(smc_node_name)
-            cmds.setAttr(smc_node + ".taperCurve[0]", 0.0, 1.0, 3)
-            cmds.setAttr(smc_node + ".taperCurve[2]", 0.5, 1.0, 3)
-            cmds.setAttr(smc_node + ".taperCurve[1]", 1.0, 0.0, 1)
+            cmds.setAttr(smc_node_name + ".taperCurve[0]", 0.0, 1.0, 3)
+            cmds.setAttr(smc_node_name + ".taperCurve[2]", 0.5, 1.0, 3)
+            cmds.setAttr(smc_node_name + ".taperCurve[1]", 1.0, 0.0, 1)
 
     def onSetTaperBoth(self, *args):
         """"""
@@ -359,10 +358,9 @@ class NN_ToolWindow(object):
 
         for curve in curves:
             smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
-            smc_node = pm.PyNode(smc_node_name)
-            cmds.setAttr(smc_node + ".taperCurve[0]", 0.0, 0.0, 3)
-            cmds.setAttr(smc_node + ".taperCurve[2]", 0.5, 1.0, 3)
-            cmds.setAttr(smc_node + ".taperCurve[1]", 1.0, 0.0, 1)
+            cmds.setAttr(smc_node_name + ".taperCurve[0]", 0.0, 0.0, 3)
+            cmds.setAttr(smc_node_name + ".taperCurve[2]", 0.5, 1.0, 3)
+            cmds.setAttr(smc_node_name + ".taperCurve[1]", 1.0, 0.0, 1)
 
     def onSetTaperNeither(self, *args):
         """"""
@@ -370,10 +368,9 @@ class NN_ToolWindow(object):
 
         for curve in curves:
             smc_node_name = cmds.listConnections(curve, destination=True, type="sweepMeshCreator")[0]
-            smc_node = pm.PyNode(smc_node_name)
-            cmds.setAttr(smc_node + ".taperCurve[0]", 0.0, 1.0, 3)
-            cmds.setAttr(smc_node + ".taperCurve[2]", 0.5, 1.0, 3)
-            cmds.setAttr(smc_node + ".taperCurve[1]", 1.0, 1.0, 1)
+            cmds.setAttr(smc_node_name + ".taperCurve[0]", 0.0, 1.0, 3)
+            cmds.setAttr(smc_node_name + ".taperCurve[2]", 0.5, 1.0, 3)
+            cmds.setAttr(smc_node_name + ".taperCurve[1]", 1.0, 1.0, 1)
 
     def onReverse(self, *args):
         """選択カーブの方向を反転する"""
@@ -529,7 +526,7 @@ class NN_ToolWindow(object):
         new_value = not current_value
 
         for panel in all_model_panels:
-            pm.modelEditor(panel, e=True, nurbsCurves=new_value)
+            cmds.modelEditor(panel, e=True, nurbsCurves=new_value)
 
     def onToggleMeshType(self, *args):
         """"""
