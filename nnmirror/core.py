@@ -40,13 +40,13 @@ def mirror_objects(objects=None, axis=0, direction=1, cut=False, center_toleranc
                 points = nu.get_points(obj.name(), space=om.MSpace.kObject)
 
                 for point in points:
-                    if axis == 0 and abs(point.x) <= 0.001:
+                    if axis == 0 and abs(point.x) <= center_tolerance:
                         point.x = 0
 
-                    if axis == 1 and abs(point.y) <= 0.001:
+                    if axis == 1 and abs(point.y) <= center_tolerance:
                         point.y = 0
 
-                    if axis == 2 and abs(point.z) <= 0.001:
+                    if axis == 2 and abs(point.z) <= center_tolerance:
                         point.z = 0
 
                 nu.set_points(obj.name(), points=points, space=om.MSpace.kObject)
@@ -403,14 +403,14 @@ class NN_ToolWindow(object):
         ui.column_layout()
 
         ui.row_layout()
-        ui.header(label='Geo')
+        ui.button(label='Geo', width=ui.width(2), c=self.onMirrorFaceOp)
         ui.button(label='X+', c=self.onMirrorFaceXPosi, dgc=self.onCutGeoXPosi, bgc=ui.color_x, annotation="L: Mirror\nM: Cut")
         ui.button(label='X-', c=self.onMirrorFaceXNega, dgc=self.onCutGeoXNega, bgc=ui.color_x, annotation="L: Mirror\nM: Cut")
         ui.button(label='Y+', c=self.onMirrorFaceYPosi, dgc=self.onCutGeoYPosi, bgc=ui.color_y, annotation="L: Mirror\nM: Cut")
         ui.button(label='Y-', c=self.onMirrorFaceYNega, dgc=self.onCutGeoYNega, bgc=ui.color_y, annotation="L: Mirror\nM: Cut")
         ui.button(label='Z+', c=self.onMirrorFaceZPosi, dgc=self.onCutGeoZPosi, bgc=ui.color_z, annotation="L: Mirror\nM: Cut")
         ui.button(label='Z-', c=self.onMirrorFaceZNega, dgc=self.onCutGeoZNega, bgc=ui.color_z, annotation="L: Mirror\nM: Cut")
-        ui.button(label='Op', c=self.onMirrorFaceOp)
+        self.eb_center_threshold = ui.eb_float(v=0.001, width=ui.width2)
         ui.end_layout()
 
         ui.row_layout()
@@ -439,24 +439,23 @@ class NN_ToolWindow(object):
         ui.separator(width=separator_width)
 
         ui.row_layout()
-        ui.header(label='Weight')
+        ui.button(label='Weight', width=ui.width(2), c=self.onMirrorWeightOp)
         ui.button(label='X+', c=self.onMirrorWeightXPosi, bgc=ui.color_x)
         ui.button(label='X-', c=self.onMirrorWeightXNega, bgc=ui.color_x)
         ui.button(label='Y+', c=self.onMirrorWeightYPosi, bgc=ui.color_y)
         ui.button(label='Y-', c=self.onMirrorWeightYNega, bgc=ui.color_y)
         ui.button(label='Z+', c=self.onMirrorWeightZPosi, bgc=ui.color_z)
         ui.button(label='Z-', c=self.onMirrorWeightZNega, bgc=ui.color_z)
-        ui.button(label='Op', c=self.onMirrorWeightOp)
+        self.cb_label_mirror = ui.check_box(label="Label", v=False)
         ui.end_layout()
 
         ui.separator(width=separator_width)
 
         ui.row_layout()
-        ui.header(label='Joint')
+        ui.button(label='Joint', width=ui.width(2), c=self.onMirrorJointOp)
         ui.button(label='X', c=self.onMirrorJointX, dgc=self.onMirrorJointXWorld, bgc=ui.color_x, width=ui.width2, annotation="L: Object (with parent)\nM: World")
         ui.button(label='Y', c=self.onMirrorJointY, dgc=self.onMirrorJointYWorld, bgc=ui.color_y, width=ui.width2, annotation="L: Object (with parent)\nM: World")
         ui.button(label='Z', c=self.onMirrorJointZ, dgc=self.onMirrorJointZWorld, bgc=ui.color_z, width=ui.width2, annotation="L: Object (with parent)\nM: World")
-        ui.button(label='Op', c=self.onMirrorJointOp)
         ui.end_layout()
 
         ui.row_layout()
@@ -573,22 +572,28 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
     def onMirrorFaceXPosi(self, *args):
-        mirror_objects(axis=0, direction=0, cut=False)
+        center_threshold = ui.get_value(self.eb_center_threshold)
+        mirror_objects(axis=0, direction=0, cut=False, center_tolerance=center_threshold)
 
     def onMirrorFaceXNega(self, *args):
-        mirror_objects(axis=0, direction=1, cut=False)
+        center_threshold = ui.get_value(self.eb_center_threshold)
+        mirror_objects(axis=0, direction=1, cut=False, center_tolerance=center_threshold)
 
     def onMirrorFaceYPosi(self, *args):
-        mirror_objects(axis=1, direction=0, cut=False)
+        center_threshold = ui.get_value(self.eb_center_threshold)
+        mirror_objects(axis=1, direction=0, cut=False, center_tolerance=center_threshold)
 
     def onMirrorFaceYNega(self, *args):
-        mirror_objects(axis=1, direction=1, cut=False)
+        center_threshold = ui.get_value(self.eb_center_threshold)
+        mirror_objects(axis=1, direction=1, cut=False, center_tolerance=center_threshold)
 
     def onMirrorFaceZPosi(self, *args):
-        mirror_objects(axis=2, direction=0, cut=False)
+        center_threshold = ui.get_value(self.eb_center_threshold)
+        mirror_objects(axis=2, direction=0, cut=False, center_tolerance=center_threshold)
 
     def onMirrorFaceZNega(self, *args):
-        mirror_objects(axis=2, direction=1, cut=False)
+        center_threshold = ui.get_value(self.eb_center_threshold)
+        mirror_objects(axis=2, direction=1, cut=False, center_tolerance=center_threshold)
 
     def onMirrorFaceOp(self, *args):
         mel.eval('MirrorPolygonGeometryOptions')
@@ -705,22 +710,28 @@ class NN_ToolWindow(object):
         nm.align_horizontally(each_polyline=True, axis="z")
 
     def onMirrorWeightXPosi(self, *args):
-        mel.eval('copySkinWeights -ss  -ds  -mirrorMode YZ -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation closestJoint;')
+        method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
+        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode YZ -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation {method};')
 
     def onMirrorWeightXNega(self, *args):
-        mel.eval('copySkinWeights -ss  -ds  -mirrorMode YZ -surfaceAssociation closestPoint -influenceAssociation closestJoint;')
+        method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
+        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode YZ -surfaceAssociation closestPoint -influenceAssociation {method};')
 
     def onMirrorWeightYPosi(self, *args):
-        mel.eval('copySkinWeights -ss  -ds  -mirrorMode XZ -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation closestJoint;')
+        method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
+        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode XZ -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation {method};')
 
     def onMirrorWeightYNega(self, *args):
-        mel.eval('copySkinWeights -ss  -ds  -mirrorMode XZ -surfaceAssociation closestPoint -influenceAssociation closestJoint;')
+        method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
+        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode XZ -surfaceAssociation closestPoint -influenceAssociation {method};')
 
     def onMirrorWeightZPosi(self, *args):
-        mel.eval('copySkinWeights -ss  -ds  -mirrorMode XY -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation closestJoint;')
+        method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
+        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode XY -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation {method};')
 
     def onMirrorWeightZNega(self, *args):
-        mel.eval('copySkinWeights -ss  -ds  -mirrorMode XY -surfaceAssociation closestPoint -influenceAssociation closestJoint;')
+        method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
+        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode XY -surfaceAssociation closestPoint -influenceAssociation {method};')
 
     def onMirrorWeightOp(self, *args):
         mel.eval('MirrorSkinWeightsOptions')
