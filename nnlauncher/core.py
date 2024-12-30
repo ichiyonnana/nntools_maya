@@ -253,11 +253,16 @@ class NN_ToolWindow(object):
         for module_name in self.all_modules:
             module = __import__(module_name)
 
-            if cmds.window(module.core.window_name, exists=True):
-                cmds.deleteUI(module.core.window_name, window=True)
+            try:
+                if cmds.window(module.core.window_name, exists=True):
+                    cmds.deleteUI(module.core.window_name, window=True)
+            except Exception as e:
+                print(e)
+                continue
 
         if not ui.is_shift():
-            cmds.deleteUI(self.window, window=True)
+            if cmds.window(self.window, exists=True):
+                cmds.deleteUI(self.window, window=True)
 
     def onReloadAll(self, *args):
         """全ての NNTools のモジュールをリロードする"""
