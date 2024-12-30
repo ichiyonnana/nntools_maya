@@ -1585,9 +1585,9 @@ def apply_tweak(target, delete_history=True):
 
     if tweak_nodes:
         tweak_node = tweak_nodes[0]
-        current_points = get_points(shape)
+        current_points = get_points(shape.name())
         pm.delete(tweak_node)
-        set_points(shape, current_points)
+        set_points(shape.name(), current_points)
 
     # pnts の適用
     pm.polyMergeVertex(obj.verts[0])
