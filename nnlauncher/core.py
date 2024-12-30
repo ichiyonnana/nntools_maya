@@ -13,7 +13,10 @@ import nnutil.decorator as deco
 import nnutil.ui as ui
 import nnutil.display as nd
 
-from PySide2 import QtGui
+if int(cmds.about(version=True)) >= 2025:
+    from PySide6 import QtGui
+else:
+    from PySide2 import QtGui
 
 window_name = "NN_Launcher"
 window = None

@@ -3,7 +3,12 @@ import maya.mel as mel
 import re
 import datetime
 import os
-from PySide2 import QtGui
+
+if int(cmds.about(version=True)) >= 2025:
+    from PySide6 import QtGui
+else:
+    from PySide2 import QtGui
+
 
 def main():
     filename = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')+ ".png"

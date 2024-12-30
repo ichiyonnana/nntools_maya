@@ -2,17 +2,23 @@
 import re
 import math
 
-from shiboken2 import wrapInstance
-
 import maya.cmds as cmds
 import maya.mel as mel
 import maya.api.OpenMaya as om
 
 import maya.OpenMayaUI as omui
 
-from PySide2.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QSlider
-from PySide2.QtCore import Qt, QSettings, QEvent, Signal, QPoint
-from PySide2.QtGui import QDoubleValidator, QCursor
+if int(cmds.about(version=True)) >= 2025:
+    from shiboken6 import wrapInstance
+    from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QSlider
+    from PySide6.QtCore import Qt, QSettings, QEvent, Signal, QPoint
+    from PySide6.QtGui import QDoubleValidator, QCursor
+else:
+    from shiboken2 import wrapInstance
+    from PySide2.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QSlider
+    from PySide2.QtCore import Qt, QSettings, QEvent, Signal, QPoint
+    from PySide2.QtGui import QDoubleValidator, QCursor
+
 
 from maya.app.general.mayaMixin import MayaQWidgetBaseMixin
 

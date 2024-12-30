@@ -11,8 +11,13 @@ import nnutil.ui as ui
 import nnutil.misc as nm
 import nnutil.decorator as nd
 
-from PySide2 import QtWidgets
-import shiboken2
+if int(cmds.about(version=True)) >= 2025:
+    from PySide6 import QtWidgets
+    import shiboken6 as shiboken
+
+else:
+    from PySide2 import QtWidgets
+    import shiboken2 as shiboken
 
 
 def extract_transform_as_locator(objects=None):
@@ -536,7 +541,7 @@ def get_maya_window():
     """Mayaのメインウィンドウを取得するヘルパー関数."""
     ptr = omui.MQtUtil.mainWindow()
     if ptr is not None:
-        return shiboken2.wrapInstance(int(ptr), QtWidgets.QWidget)
+        return shiboken.wrapInstance(int(ptr), QtWidgets.QWidget)
 
 
 def resize_editor(window_title, x=-1, y=-1, width=-1, height=-1):
