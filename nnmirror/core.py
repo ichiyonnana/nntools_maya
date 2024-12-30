@@ -710,22 +710,28 @@ class NN_ToolWindow(object):
         nm.align_horizontally(each_polyline=True, axis="z")
 
     def onMirrorWeightXPosi(self, *args):
-        mel.eval('copySkinWeights -ss  -ds  -mirrorMode YZ -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation closestJoint;')
+        method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
+        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode YZ -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation {method};')
 
     def onMirrorWeightXNega(self, *args):
-        mel.eval('copySkinWeights -ss  -ds  -mirrorMode YZ -surfaceAssociation closestPoint -influenceAssociation closestJoint;')
+        method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
+        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode YZ -surfaceAssociation closestPoint -influenceAssociation {method};')
 
     def onMirrorWeightYPosi(self, *args):
-        mel.eval('copySkinWeights -ss  -ds  -mirrorMode XZ -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation closestJoint;')
+        method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
+        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode XZ -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation {method};')
 
     def onMirrorWeightYNega(self, *args):
-        mel.eval('copySkinWeights -ss  -ds  -mirrorMode XZ -surfaceAssociation closestPoint -influenceAssociation closestJoint;')
+        method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
+        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode XZ -surfaceAssociation closestPoint -influenceAssociation {method};')
 
     def onMirrorWeightZPosi(self, *args):
-        mel.eval('copySkinWeights -ss  -ds  -mirrorMode XY -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation closestJoint;')
+        method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
+        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode XY -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation {method};')
 
     def onMirrorWeightZNega(self, *args):
-        mel.eval('copySkinWeights -ss  -ds  -mirrorMode XY -surfaceAssociation closestPoint -influenceAssociation closestJoint;')
+        method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
+        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode XY -surfaceAssociation closestPoint -influenceAssociation {method};')
 
     def onMirrorWeightOp(self, *args):
         mel.eval('MirrorSkinWeightsOptions')
