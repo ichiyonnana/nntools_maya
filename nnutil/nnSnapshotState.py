@@ -1,11 +1,15 @@
 """API の Undo/Redo 用プラグイン"""
 
 import sys
+
+import maya.cmds as cmds
+import maya.mel as mel
 import maya.api.OpenMaya as om
+import maya.api.OpenMayaAnim as oma
 
 
 # コマンド名
-kPluginCmdName = "nnSnapshotState"
+kPluginCmdName = "snapshotState"
 
 
 def maya_useNewAPI():
@@ -13,7 +17,7 @@ def maya_useNewAPI():
     pass
 
 
-class NnSnapshotState(om.MPxCommand):
+class SnapshotState(om.MPxCommand):
     """コマンドクラス"""
     def __init__(self):
         om.MPxCommand.__init__(self)
@@ -23,6 +27,7 @@ class NnSnapshotState(om.MPxCommand):
         self.to_store_positions = False
         self.to_store_colors = False
         self.to_store_smooths = False
+        self.to_store_weights = False
 
     def doIt(self, args):
         """実行時の処理"""
@@ -48,6 +53,17 @@ class NnSnapshotState(om.MPxCommand):
 
             if self.to_store_colors:
                 self.colors = fn_mesh.getFaceVertexColors()
+
+            if self.to_store_weights:
+                slist = om.MGlobal.getSelectionListByName(target)
+                dp_obj, comp = slist.getComponent(0)
+                fn_mesh = om.MFnMesh(dp_obj)
+
+                skin_cluster = mel.eval(f"findRelatedSkinCluster {target}")
+                dg_skincluster = om.MGlobal.getSelectionListByName(skin_cluster).getDependNode(0)
+                fn_skin = oma.MFnSkinCluster(dg_skincluster)
+
+                self.weights = fn_skin.getWeights(dp_obj, om.MObject.kNullObj)[0]
 
     def parseArguments(self, args):
         """引数の解析"""
@@ -76,8 +92,11 @@ class NnSnapshotState(om.MPxCommand):
         if argData.isFlagSet('-sm'):
             self.to_store_smooths = argData.flagArgumentBool('-sm', 0)
 
-    def redoIt(self):
-        """Redo時の処理"""
+        if argData.isFlagSet('-w'):
+            self.to_store_weights = argData.flagArgumentBool('-w', 0)
+
+    def _undo_redo(self):
+        """Undo/Redo時の処理"""
         # オブジェクトの状態を復帰
         for target in self.targets:
             slist = om.MSelectionList()
@@ -107,40 +126,27 @@ class NnSnapshotState(om.MPxCommand):
 
                 fn_mesh.setFaceVertexColors(self.colors, face_indices, vertex_indices)
 
+            if self.to_store_weights:
+                skin_cluster = mel.eval(f"findRelatedSkinCluster {target}")
+                dg_skincluster = om.MGlobal.getSelectionListByName(skin_cluster).getDependNode(0)
+                fn_skin = oma.MFnSkinCluster(dg_skincluster)
+
+                all_influences = om.MIntArray(list(range(len(fn_skin.influenceObjects()))))
+                fn_comp = om.MFnSingleIndexedComponent()
+                all_vtx_comp = fn_comp.create(om.MFn.kMeshVertComponent)
+                fn_comp.addElements(list(range(fn_mesh.numVertices)))
+
+                fn_skin.setWeights(dag, all_vtx_comp, all_influences, self.weights)
+
             fn_mesh.updateSurface()
+
+    def redoIt(self):
+        """Redo時の処理"""
+        self._undo_redo()
 
     def undoIt(self):
         """Undo時の処理"""
-        # オブジェクトの状態を復帰
-        for target in self.targets:
-            slist = om.MSelectionList()
-            slist.add(target)
-            dag = slist.getDagPath(0)
-            fn_mesh = om.MFnMesh(dag)
-
-            if self.to_store_smooths or self.to_store_normals:
-                all_edge_ids = range(fn_mesh.numEdges)
-                fn_mesh.setEdgeSmoothings(all_edge_ids, self.smooths)
-
-            if self.to_store_normals:
-                fn_mesh.setNormals(self.normals)
-
-            if self.to_store_positions:
-                fn_mesh.setPoints(self.positions)
-
-            if self.to_store_colors:
-                face_indices = om.MIntArray()
-                vertex_indices = om.MIntArray()
-
-                for i in range(fn_mesh.numPolygons):
-                    polygon_vertices = fn_mesh.getPolygonVertices(i)
-                    for j in polygon_vertices:
-                        face_indices.append(i)
-                        vertex_indices.append(j)
-
-                fn_mesh.setFaceVertexColors(self.colors, face_indices, vertex_indices)
-
-            fn_mesh.updateSurface()
+        self._undo_redo()
 
     def isUndoable(self):
         """Undo可能ならTrueを返す"""
@@ -149,7 +155,7 @@ class NnSnapshotState(om.MPxCommand):
 
 def cmdCreator():
     """コマンドのクラスを返す"""
-    return NnSnapshotState()
+    return SnapshotState()
 
 
 def syntaxCreator():
@@ -168,6 +174,7 @@ def syntaxCreator():
     syntax.addFlag('-p', '-position', om.MSyntax.kBoolean)
     syntax.addFlag('-c', '-color', om.MSyntax.kBoolean)
     syntax.addFlag('-sm', '-smooth', om.MSyntax.kBoolean)
+    syntax.addFlag('-w', '-weight', om.MSyntax.kBoolean)
 
     return syntax
 
@@ -181,7 +188,7 @@ def initializePlugin(mobject):
     try:
         mplugin.registerCommand(kPluginCmdName, cmdCreator, syntaxCreator)
 
-    except:
+    except Exception:
         sys.stderr.write('Failed to register command: ' + kPluginCmdName)
 
 
@@ -194,5 +201,5 @@ def uninitializePlugin(mobject):
     try:
         mplugin.deregisterCommand(kPluginCmdName)
 
-    except:
+    except Exception:
         sys.stderr.write('Failed to unregister command: ' + kPluginCmdName)
