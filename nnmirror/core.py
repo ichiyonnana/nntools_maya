@@ -40,13 +40,13 @@ def mirror_objects(objects=None, axis=0, direction=1, cut=False, center_toleranc
                 points = nu.get_points(obj.name(), space=om.MSpace.kObject)
 
                 for point in points:
-                    if axis == 0 and abs(point.x) <= 0.001:
+                    if axis == 0 and abs(point.x) <= center_tolerance:
                         point.x = 0
 
-                    if axis == 1 and abs(point.y) <= 0.001:
+                    if axis == 1 and abs(point.y) <= center_tolerance:
                         point.y = 0
 
-                    if axis == 2 and abs(point.z) <= 0.001:
+                    if axis == 2 and abs(point.z) <= center_tolerance:
                         point.z = 0
 
                 nu.set_points(obj.name(), points=points, space=om.MSpace.kObject)
