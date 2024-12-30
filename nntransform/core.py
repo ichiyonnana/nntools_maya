@@ -9,7 +9,8 @@ import traceback
 import maya.cmds as cmds
 import maya.mel as mel
 
-import nnutil
+import nnutil.core as nu
+import nnutil.misc as nm
 
 
 window_name = "NN_Transform"
@@ -166,13 +167,13 @@ class NN_ToolWindow(object):
         objects = cmds.ls(selection=True)
 
         for obj in objects:
-            nnutil.unlock_trs(obj)
+            nu.unlock_trs(obj)
 
     def onLockTRS(self, *args):
         objects = cmds.ls(selection=True)
 
         for obj in objects:
-            nnutil.lock_trs(obj)
+            nu.lock_trs(obj)
 
     def onMatchTransformAll(self, *args):
         mel.eval("MatchTransform;")
@@ -226,7 +227,7 @@ class NN_ToolWindow(object):
         mel.eval("doGroup 0 1 1;")
 
     def onInstanceToMesh(self, *args):
-        nnutil.freeze_instance()
+        nm.freeze_instance()
 
 
 def showNNToolWindow():
