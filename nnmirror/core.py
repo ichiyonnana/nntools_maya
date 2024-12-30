@@ -572,22 +572,28 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
     def onMirrorFaceXPosi(self, *args):
-        mirror_objects(axis=0, direction=0, cut=False)
+        center_threshold = ui.get_value(self.eb_center_threshold)
+        mirror_objects(axis=0, direction=0, cut=False, center_tolerance=center_threshold)
 
     def onMirrorFaceXNega(self, *args):
-        mirror_objects(axis=0, direction=1, cut=False)
+        center_threshold = ui.get_value(self.eb_center_threshold)
+        mirror_objects(axis=0, direction=1, cut=False, center_tolerance=center_threshold)
 
     def onMirrorFaceYPosi(self, *args):
-        mirror_objects(axis=1, direction=0, cut=False)
+        center_threshold = ui.get_value(self.eb_center_threshold)
+        mirror_objects(axis=1, direction=0, cut=False, center_tolerance=center_threshold)
 
     def onMirrorFaceYNega(self, *args):
-        mirror_objects(axis=1, direction=1, cut=False)
+        center_threshold = ui.get_value(self.eb_center_threshold)
+        mirror_objects(axis=1, direction=1, cut=False, center_tolerance=center_threshold)
 
     def onMirrorFaceZPosi(self, *args):
-        mirror_objects(axis=2, direction=0, cut=False)
+        center_threshold = ui.get_value(self.eb_center_threshold)
+        mirror_objects(axis=2, direction=0, cut=False, center_tolerance=center_threshold)
 
     def onMirrorFaceZNega(self, *args):
-        mirror_objects(axis=2, direction=1, cut=False)
+        center_threshold = ui.get_value(self.eb_center_threshold)
+        mirror_objects(axis=2, direction=1, cut=False, center_tolerance=center_threshold)
 
     def onMirrorFaceOp(self, *args):
         mel.eval('MirrorPolygonGeometryOptions')
