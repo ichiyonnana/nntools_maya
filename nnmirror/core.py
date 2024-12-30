@@ -1,3 +1,4 @@
+import copy
 import re
 import os
 import sys
@@ -1039,16 +1040,38 @@ class NN_ToolWindow(object):
             nd.message("copy points (object space)")
 
     def onSetPos(self, *args):
-        selections = pm.selected(flatten=True)
+        selections = cmds.ls(selection=True, flatten=True)
 
-        for obj in selections:
-            if ui.is_shift():
-                nu.set_points(obj.name(), points=self.getpos_points, space=om.MSpace.kWorld)
-                nd.message("paste points (world space)")
+        # 選択がない場合は終了
+        if not selections:
+            return
 
-            else:
-                nu.set_points(obj.name(), points=self.getpos_points, space=om.MSpace.kObject)
-                nd.message("paste points (object space)")
+        # shift が押されている場合はワールドスペースにペースト
+        if ui.is_shift():
+            space = om.MSpace.kWorld
+            nd.message("paste points (world space)")
+        else:
+            space = om.MSpace.kObject
+            nd.message("paste points (object space)")
+
+        # 選択モードによる分岐
+        if cmds.selectMode(q=True, object=True):
+            # オブジェクト選択の場合は全頂点にペースト
+            for obj in selections:
+                nu.set_points(obj, points=self.getpos_points, space=space)
+
+        elif cmds.selectType(q=True, polymeshVertex=True):
+            # 頂点選択の場合は選択頂点のみにペースト
+            obj = nu.get_object(selections[0])
+
+            current_points = nu.get_points(obj, space=space)
+            new_points = [x for x in current_points]
+
+            for vtx in selections:
+                vid = int(re.search(r"\[(\d+)\]", vtx).group(1))
+                new_points[vid] = self.getpos_points[vid]
+
+            nu.set_points(obj, points=self.getpos_points, space=space)
 
     def onGoZ(self, *args):
         mel.eval('source "C:/Users/Public/Pixologic/GoZApps/Maya/GoZBrushFromMaya.mel"')
