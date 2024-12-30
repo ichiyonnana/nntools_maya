@@ -82,10 +82,10 @@ def get_parent_camera(obj):
 
     for i in reversed(range(1, depth-1)):
         partial_path = "|".join(splited_path[0:i])
-        camera_shape = cmds.listRelatives(partial_path, shapes=True, type="camera", fullPath=True)[0]
+        camera_shapes = cmds.listRelatives(partial_path, shapes=True, type="camera", fullPath=True)
 
-        if camera_shape:
-            return camera_shape
+        if camera_shapes:
+            return camera_shapes[0]
 
     return None
 
@@ -255,23 +255,25 @@ class NN_ToolWindow(object):
         active_camera_name = nu.get_active_camera()
         camera_list = [x.content for x in self.camera_list_items]
 
-        if active_camera_name in camera_list:
-            active_camera_index = [x.content for x in self.camera_list_items].index(active_camera_name) + 1
-        else:
-            active_camera_index = 1
-
         # リストUIの更新
         cmds.textScrollList(self.camera_list, e=True, removeAll=True)
-        cmds.textScrollList(
-                            self.camera_list,
-                            e=True,
-                            numberOfRows=20,
-                            allowMultiSelection=False,
-                            append=[x.name for x in self.camera_list_items],
-                            selectIndexedItem=active_camera_index,
-                            selectCommand=self.onClickCameraListItem,
-                            doubleClickCommand=self.onDoubleClickCameraListItem
-                            )
+
+        if active_camera_name in camera_list:
+            active_camera_index = [x.content for x in self.camera_list_items].index(active_camera_name) + 1
+
+            cmds.textScrollList(
+                                self.camera_list,
+                                e=True,
+                                numberOfRows=20,
+                                allowMultiSelection=False,
+                                append=[x.name for x in self.camera_list_items],
+                                selectIndexedItem=active_camera_index,
+                                selectCommand=self.onClickCameraListItem,
+                                doubleClickCommand=self.onDoubleClickCameraListItem
+                                )
+
+        else:
+            active_camera_index = 0
 
     def onClickCameraListItem(self, *args):
         """カメラリストアイテムのクリックのハンドラ｡子供のリストを更新する"""
