@@ -5,11 +5,6 @@ API による Undo 不可能な編集の前後で snapshot() を呼び、必要�
 import os
 import maya.cmds as cmds
 
-# undo/redo 用のプラグインロード
-current_dir = os.path.dirname(__file__) + "/"
-plugin_name = "nnSnapshotState.py"
-cmds.loadPlugin(current_dir + plugin_name)
-
 
 def snapshot(*args, **kwargs):
     """指定したオブジェクトの法線や頂点座標を保存する。Undo/Redo 時は復元を行う。
@@ -21,4 +16,4 @@ def snapshot(*args, **kwargs):
         color (bool, option): True で頂点カラーを保存する
         smooth (bool, option): True でソフトエッジ/ハードエッジを保存する
     """
-    cmds.nnSnapshotState(*args, **kwargs)
+    cmds.snapshotState(*args, **kwargs)
