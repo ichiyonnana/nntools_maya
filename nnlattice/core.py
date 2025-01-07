@@ -9,7 +9,7 @@ import maya.api.OpenMaya as om
 import nnutil.core as nu
 import nnutil.ui as ui
 import nnutil.display as nd
-import nnutil.memento as nme
+import plugin_util.snapshotState as ss
 
 
 window_name = "NN_Lattice"
@@ -641,13 +641,11 @@ def apply_lattice(lattices=[]):
         if cmds.objExists(lattice):
             cmds.delete(lattice)
 
-    nme.snapshot(targets=list(shape_points_table.keys()), position=True)  # API undo 用スナップショット
-
-    # シェイプにラティス削除前の座標を上書き
-    for shape, points in shape_points_table.items():
-        nu.set_points(shape, points)
-
-    nme.snapshot(targets=list(shape_points_table.keys()), position=True)  # API undo 用スナップショット
+    # API undo 用スナップショット
+    with ss.snapshot_state(targets=list(shape_points_table.keys()), position=True):
+        # シェイプにラティス削除前の座標を上書き
+        for shape, points in shape_points_table.items():
+            nu.set_points(shape, points)
 
 
 def reset_lattice(lattices=[]):

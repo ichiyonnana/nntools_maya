@@ -23,7 +23,7 @@ else:
 from maya.app.general.mayaMixin import MayaQWidgetBaseMixin
 
 import nnutil.ui as ui
-import nnutil.memento as nm
+import plugin_util.snapshotState as ss
 
 
 class UndoChunk(object):
@@ -864,11 +864,8 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
                             vertex_indices.append(j)
 
                     print(obj_name)
-                    nm.snapshot(targets=[obj_name], color=True)
-
-                    fn_mesh.setFaceVertexColors(vf_colors, face_indices, vertex_indices)
-
-                    nm.snapshot(targets=[obj_name], color=True)
+                    with ss.snapshot_state(targets=[obj_name], color=True):
+                        fn_mesh.setFaceVertexColors(vf_colors, face_indices, vertex_indices)
 
             else:
                 # コマンドによる頂点カラーの設定
@@ -1029,11 +1026,8 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
                 fis = [fi for fi, vi in vfi_to_fivi]
                 vis = [vi for fi, vi in vfi_to_fivi]
 
-                nm.snapshot(targets=[obj_name], color=True)
-
-                fn_mesh.setFaceVertexColors(new_vf_colors, fis, vis)
-
-                nm.snapshot(targets=[obj_name], color=True)
+                with ss.snapshot_state(targets=[obj_name], color=True):
+                    fn_mesh.setFaceVertexColors(new_vf_colors, fis, vis)
 
             else:
                 # cmds はインデックスで反復して適用
