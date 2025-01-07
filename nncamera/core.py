@@ -258,22 +258,21 @@ class NN_ToolWindow(object):
         # リストUIの更新
         cmds.textScrollList(self.camera_list, e=True, removeAll=True)
 
+        # カメラリストの更新
+        cmds.textScrollList(
+                            self.camera_list,
+                            e=True,
+                            numberOfRows=20,
+                            allowMultiSelection=False,
+                            append=[x.name for x in self.camera_list_items],
+                            selectCommand=self.onClickCameraListItem,
+                            doubleClickCommand=self.onDoubleClickCameraListItem
+                            )
+
+        # カメラリストにアクティブカメラが存在すれば選択状態にする
         if active_camera_name in camera_list:
             active_camera_index = [x.content for x in self.camera_list_items].index(active_camera_name) + 1
-
-            cmds.textScrollList(
-                                self.camera_list,
-                                e=True,
-                                numberOfRows=20,
-                                allowMultiSelection=False,
-                                append=[x.name for x in self.camera_list_items],
-                                selectIndexedItem=active_camera_index,
-                                selectCommand=self.onClickCameraListItem,
-                                doubleClickCommand=self.onDoubleClickCameraListItem
-                                )
-
-        else:
-            active_camera_index = 0
+            cmds.textScrollList(self.camera_list, e=True, selectIndexedItem=active_camera_index)
 
     def onClickCameraListItem(self, *args):
         """カメラリストアイテムのクリックのハンドラ｡子供のリストを更新する"""
