@@ -16,6 +16,9 @@ import nnutil.misc as nm
 import nnutil.display as nd
 import nnutil.ui as ui
 
+import plugin_util.snapshotState as ss
+
+
 window_name = "NN_Mirror"
 window = None
 
@@ -1082,7 +1085,8 @@ class NN_ToolWindow(object):
                 vid = int(re.search(r"\[(\d+)\]", vtx).group(1))
                 new_points[vid] = self.getpos_points[vid]
 
-            nu.set_points(obj, points=self.getpos_points, space=space)
+            with ss.snapshot_state(targets=[obj], position=True):
+                nu.set_points(obj, points=new_points, space=space)
 
     def onGoZ(self, *args):
         mel.eval('source "C:/Users/Public/Pixologic/GoZApps/Maya/GoZBrushFromMaya.mel"')
