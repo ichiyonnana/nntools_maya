@@ -619,3 +619,94 @@ def select_all_skined_meshes_from_root_joint(root_object=None, select=True, resu
         cmds.select(skined_meshes, replace=True)
 
     return skined_meshes
+
+
+def set_component_mode(type):
+    """コンポーネントモードに設定する.
+
+    vertex モードでは CV やラティスポイント等のポイント系コンポーネントも選択可能｡
+
+    Args:
+        type (str): "vertex", "edge", "face", "uv", "vertex_face" のいずれか｡
+    """
+    if type == "vertex":
+        cmds.selectMode(component=True)
+        cmds.selectType(
+            subdivMeshPoint=True,
+            subdivMeshEdge=False,
+            subdivMeshFace=False,
+            subdivMeshUV=False,
+            polymeshVertex=True,
+            polymeshEdge=False,
+            polymeshFace=False,
+            polymeshUV=False,
+            polymeshVtxFace=False,
+            controlVertex=True,
+            latticePoint=True,
+            )
+
+    elif type == "edge":
+        cmds.selectMode(component=True)
+        cmds.selectType(
+            subdivMeshPoint=False,
+            subdivMeshEdge=True,
+            subdivMeshFace=False,
+            subdivMeshUV=False,
+            polymeshVertex=False,
+            polymeshEdge=True,
+            polymeshFace=False,
+            polymeshUV=False,
+            polymeshVtxFace=False,
+            controlVertex=False,
+            latticePoint=False,
+            )
+
+    elif type == "face":
+        cmds.selectMode(component=True)
+        cmds.selectType(
+            subdivMeshPoint=False,
+            subdivMeshEdge=False,
+            subdivMeshFace=True,
+            subdivMeshUV=False,
+            polymeshVertex=False,
+            polymeshEdge=False,
+            polymeshFace=True,
+            polymeshUV=False,
+            polymeshVtxFace=False,
+            controlVertex=False,
+            latticePoint=False,
+            )
+
+    elif type == "uv":
+        cmds.selectMode(component=True)
+        cmds.selectType(
+            subdivMeshPoint=False,
+            subdivMeshEdge=False,
+            subdivMeshFace=False,
+            subdivMeshUV=True,
+            polymeshVertex=False,
+            polymeshEdge=False,
+            polymeshFace=False,
+            polymeshUV=True,
+            polymeshVtxFace=False,
+            controlVertex=False,
+            latticePoint=False,
+            )
+
+    elif type == "vertex_face":
+        cmds.selectMode(component=True)
+        cmds.selectType(
+            subdivMeshPoint=False,
+            subdivMeshEdge=False,
+            subdivMeshFace=False,
+            subdivMeshUV=False,
+            polymeshVertex=False,
+            polymeshEdge=False,
+            polymeshFace=False,
+            polymeshUV=False,
+            polymeshVtxFace=True,
+            controlVertex=False,
+            latticePoint=False,
+            )
+    else:
+        cmds.selectMode(component=True)
