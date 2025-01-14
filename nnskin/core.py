@@ -1,4 +1,5 @@
 import math
+import re
 import maya.cmds as cmds
 import maya.mel as mel
 
@@ -438,6 +439,13 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
         ui.row_layout()
+        ui.header(label="Replace")
+        self.eb_replace_before = ui.eb_text(width=ui.width(3))
+        self.eb_replace_after = ui.eb_text(width=ui.width(3))
+        ui.button(label="Replace", c=self.on_replace)
+        ui.end_layout()
+
+        ui.row_layout()
         ui.header(label="Etc")
         cmds.button(l='Checker', c=self.on_skin_checker)
         cmds.button(l='SIWE', c=self.on_siwe)
@@ -501,6 +509,41 @@ class NN_ToolWindow(object):
     def on_average(self, *args):
         copy_weight()
         paste_weight_as_possible()
+
+    def on_replace(self, *args):
+        # 置換用文字列
+        before = ui.get_value(self.eb_replace_before)
+        after = ui.get_value(self.eb_replace_after)
+
+        if not before or not after:
+            return
+
+        target_vertices = cmds.ls(selection=True, flatten=True)
+        if not target_vertices:
+            return
+
+        skincluster = get_skincluster(target_vertices[0])
+
+        if not skincluster:
+            return
+
+        influences = cmds.skinCluster(skincluster, q=True, influence=True)
+
+        for vtx in target_vertices:
+            weights = cmds.skinPercent(skincluster, vtx, q=True, value=True)
+            influences_with_weights = [influences[i] for i, weight in enumerate(weights) if weight > 0]
+
+            for before_name in influences_with_weights:
+                # 名前の置換
+                after_name = re.sub(before, after, before_name)
+
+                if before_name == after_name:
+                    continue
+
+                # 置換後の名前が存在すればウェイトを移動する
+                if after_name in influences:
+                    print(f"move: {before_name} -> {after_name}")
+                    cmds.skinPercent(skincluster, vtx, transformMoveWeights=[before_name, after_name])
 
     def on_delete_non_connected_orig_mesh(self, *args):
         error_objects = []
