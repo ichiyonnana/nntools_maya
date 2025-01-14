@@ -425,8 +425,8 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label="RingCopy")
-        ui.button(label="Ring Source")
-        ui.button(label="Ring Paste")
+        ui.button(label="Set Ring Source", c=self.on_set_ring_source)
+        ui.button(label="Ring Paste", c=self.on_ring_paste)
         ui.end_layout()
 
         ui.row_layout()
@@ -524,6 +524,47 @@ class NN_ToolWindow(object):
     def on_check_fractions(self, *args):
         import nnskin.check_weights_fractions
         nnskin.check_weights_fractions.main()
+
+    def on_set_ring_source(self, *args):
+        """Ring Paste のソースとなる頂点を保存する"""
+        selection = cmds.ls(selection=True, flatten=True)
+        if not selection:
+            print("Select vertices to set as ring source")
+            return
+
+        self.ring_source_vertices = conv_to_vtx(selection)
+        print(f"Vertices as ring source: {self.ring_source_vertices}")
+
+    def on_ring_paste(self, *args):
+        """選択したエッジ列の中にソースとなる頂点が含まれていればその頂点のウェイトをエッジ列にペーストする"""
+        # 選択エッジを連続するエッジ列ごとに分割
+        selection = cmds.ls(selection=True, flatten=True)
+        if not selection:
+            print("Select vertices to paste ring")
+            return
+
+        edges = cmds.filterExpand(selection, sm=32)
+        if not edges:
+            print("Select edges to paste ring")
+            return
+
+        polylines = nu.get_all_polylines(edges)
+
+        # エッジ列ごとにペースト処理
+        for edges in polylines:
+            target_vertices = conv_to_vtx(edges)
+            print("target vertices: ", target_vertices)
+
+            source_vertices = [x for x in self.ring_source_vertices if x in target_vertices]
+            if not source_vertices:
+                print("No source vertices in selection")
+                continue
+
+            # ソースからターゲットへウェイトをコピー
+            cmds.select(source_vertices)
+            copy_weight()
+            cmds.select(target_vertices)
+            paste_weight()
 
 
 def showNNToolWindow():
