@@ -550,15 +550,6 @@ class NN_ToolWindow(object):
         ui.separator(width=separator_width)
 
         ui.row_layout()
-        ui.header(label='NnTools')
-        ui.button(label='EdgeRing', c=self.onNnEdgeLength)
-        ui.button(label='Curve', c=self.onNnCurve)
-        ui.button(label='Straighten', c=self.onNnStraighten)
-        ui.end_layout()
-
-        ui.separator(width=separator_width)
-
-        ui.row_layout()
         ui.header(label='Mesh')
         ui.button(label='Extract', c=self.onExtract)
         ui.button(label='Duplicate', c=self.onDuplicate)
@@ -1005,18 +996,6 @@ class NN_ToolWindow(object):
 
     def onAriSplitPolygon(self, *args):
         mel.eval("AriSplitPolygon")
-
-    def onNnEdgeLength(self, *args):
-        import align_edgering_length
-        align_edgering_length.main()
-
-    def onNnCurve(self, *args):
-        import nncurve
-        nncurve.main()
-
-    def onNnStraighten(self, *args):
-        import nnstraighten
-        nnstraighten.main()
 
     def onQuadRemesher(self, *args):
         import QuadRemesher
