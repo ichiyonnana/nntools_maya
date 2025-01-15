@@ -452,6 +452,11 @@ class NN_ToolWindow(object):
         self.cb_label_mirror = ui.check_box(label="Label", v=False)
         ui.end_layout()
 
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='copyWeightOp', c=self.onCopyWeightOp)
+        ui.end_layout()
+        
         ui.separator(width=separator_width)
 
         ui.row_layout()
@@ -530,7 +535,6 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='Editor')
         ui.button(label='SIWE', c=self.onEditorSIWE)
-        ui.button(label='copyWeightOp', c=self.onCopyWeightOp)
         ui.end_layout()
 
         ui.separator(width=separator_width)
