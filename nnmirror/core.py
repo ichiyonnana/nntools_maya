@@ -452,6 +452,11 @@ class NN_ToolWindow(object):
         self.cb_label_mirror = ui.check_box(label="Label", v=False)
         ui.end_layout()
 
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='copyWeightOp', c=self.onCopyWeightOp)
+        ui.end_layout()
+        
         ui.separator(width=separator_width)
 
         ui.row_layout()
@@ -469,10 +474,17 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='')
-        ui.button(label='OrientOp', c=self.onOrientJointOp)
         ui.button(label='JointTool', c=self.onJointTool, bgc=ui.color_joint, width=ui.width2)
         ui.button(label='SetRadius', c=self.onSetRadius, width=ui.width2)
         ui.button(label="Add Inf", c=self.onAddInfluence, width=ui.width(2))
+        ui.end_layout()
+
+        ui.separator(width=separator_width)
+
+        ui.row_layout()
+        ui.button(label="Orient", c=self.onOrientJointOp, width=ui.width(2))
+        ui.button(label="Radial", c=self.onOrientRadial, width=ui.width(2))
+        ui.button(label="PreserveY", c=self.onOrientPreserveY, width=ui.width(2))
         ui.end_layout()
 
         ui.separator(width=separator_width)
@@ -530,7 +542,6 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='Editor')
         ui.button(label='SIWE', c=self.onEditorSIWE)
-        ui.button(label='copyWeightOp', c=self.onCopyWeightOp)
         ui.end_layout()
 
         ui.separator(width=separator_width)
@@ -545,15 +556,6 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.header(label='')
         ui.button(label='SplitPolygon', c=self.onAriSplitPolygon)
-        ui.end_layout()
-
-        ui.separator(width=separator_width)
-
-        ui.row_layout()
-        ui.header(label='NnTools')
-        ui.button(label='EdgeRing', c=self.onNnEdgeLength)
-        ui.button(label='Curve', c=self.onNnCurve)
-        ui.button(label='Straighten', c=self.onNnStraighten)
         ui.end_layout()
 
         ui.separator(width=separator_width)
@@ -819,6 +821,74 @@ class NN_ToolWindow(object):
     def onOrientJointOp(self, *args):
         mel.eval('OrientJointOptions')
 
+    def onOrientRadial(self, *args):
+        """ジョイントを親に対して放射状にやるように方向付けする"""
+        for joint in cmds.ls(selection=True, type="joint", long=True):
+            parent = (cmds.listRelatives(joint, parent=True) or [None])[0]
+            child = (cmds.listRelatives(joint, children=True) or [None])[0]
+
+            if not parent:
+                continue
+
+            if not child:
+                cmds.xform(joint, rotation=(0, 0, 0))
+                cmds.setAttr(f"{joint}.jointOrientX", 0)
+                cmds.setAttr(f"{joint}.jointOrientY", 0)
+                cmds.setAttr(f"{joint}.jointOrientZ", 0)
+                continue
+
+            # この復帰用に子の姿勢を保存
+            children = cmds.listRelatives(joint, children=True, fullPath=True)
+            children_matrix = dict()
+            for child in children:
+                children_matrix[child] = cmds.xform(child, q=True, matrix=True, worldSpace=True)
+
+            joint_matrix = cmds.xform(joint, q=True, matrix=True, worldSpace=True)
+            parent_matrix = cmds.xform(parent, q=True, matrix=True, worldSpace=True)
+            child_matrix = cmds.xform(child, q=True, matrix=True, worldSpace=True)
+
+            joint_pos = om.MVector(joint_matrix[12:15])
+            parent_pos = om.MVector(parent_matrix[12:15])
+            child_pos = om.MVector(child_matrix[12:15])
+
+            parent_dir = (joint_pos - parent_pos).normal()
+            child_dir = (child_pos - joint_pos).normal()
+            parent_dir
+
+            # 基底ベクトルの計算
+            x_basis = child_dir
+            z_basis = x_basis ^ parent_dir
+            y_basis = -x_basis ^ z_basis
+
+            # 3ジョイントが直線上になっているときは親のYZ軸を使用する
+            if abs(parent_dir * child_dir) > 0.99:
+                y_basis = om.MVector(parent_matrix[4:7])
+                z_basis = om.MVector(parent_matrix[8:11])
+
+            x_basis.normalize()
+            y_basis.normalize()
+            z_basis.normalize()
+
+            new_matrix = joint_matrix
+            new_matrix[0:3] = list(x_basis)
+            new_matrix[4:7] = list(y_basis)
+            new_matrix[8:11] = list(z_basis)
+
+            # ジョイントの姿勢を変更
+            cmds.xform(joint, m=new_matrix, worldSpace=True)
+
+            # 子の復帰
+            for child in children:
+                cmds.xform(child, m=children_matrix[child], worldSpace=True)
+
+            # 回転のフリーズ
+            cmds.makeIdentity(joint, apply=True, rotate=True)
+
+    def onOrientPreserveY(self, *args):
+        """Y軸を維持してX軸を子に向ける"""
+        import _misc.orient_joint_preserve_secondary as ojps
+        ojps.orient_joint_preserve_secondary(primary="x", secondary="y")
+
     def onJointTool(self, *args):
         mel.eval('JointTool')
 
@@ -1005,18 +1075,6 @@ class NN_ToolWindow(object):
 
     def onAriSplitPolygon(self, *args):
         mel.eval("AriSplitPolygon")
-
-    def onNnEdgeLength(self, *args):
-        import align_edgering_length
-        align_edgering_length.main()
-
-    def onNnCurve(self, *args):
-        import nncurve
-        nncurve.main()
-
-    def onNnStraighten(self, *args):
-        import nnstraighten
-        nnstraighten.main()
 
     def onQuadRemesher(self, *args):
         import QuadRemesher
