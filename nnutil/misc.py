@@ -246,6 +246,23 @@ def straighten_uv_shell():
 
 def make_lattice():
     mel.eval("CreateLattice")
+    lattice_trs = cmds.ls(selection=True)[0]
+    lattice = cmds.listRelatives(lattice_trs, children=True)[0]
+    ffd = cmds.listConnections(lattice, destination=True, type="ffd")[0]
+    base_lattice_trs = cmds.listConnections(ffd, source=True, type="baseLattice")[0]
+
+    # スケールが 0 に近いと制御点を同時に移動出来なくなるので小さい値を入れる
+    if cmds.getAttr(lattice_trs + ".scaleX") < 0.0001:
+        cmds.setAttr(lattice_trs + ".scaleX", 0.0001)
+        cmds.setAttr(base_lattice_trs + ".scaleX", 0.0001)
+
+    if cmds.getAttr(lattice_trs + ".scaleY") < 0.0001:
+        cmds.setAttr(lattice_trs + ".scaleY", 0.0001)
+        cmds.setAttr(base_lattice_trs + ".scaleY", 0.0001)
+
+    if cmds.getAttr(lattice_trs + ".scaleZ") < 0.0001:
+        cmds.setAttr(lattice_trs + ".scaleZ", 0.0001)
+        cmds.setAttr(base_lattice_trs + ".scaleZ", 0.0001)
 
 
 def make_semisphere_bend():
