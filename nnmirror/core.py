@@ -456,7 +456,7 @@ class NN_ToolWindow(object):
         ui.header(label='')
         ui.button(label='copyWeightOp', c=self.onCopyWeightOp)
         ui.end_layout()
-        
+
         ui.separator(width=separator_width)
 
         ui.row_layout()
@@ -485,6 +485,7 @@ class NN_ToolWindow(object):
         ui.button(label="Orient", c=self.onOrientJointOp, width=ui.width(2))
         ui.button(label="Radial", c=self.onOrientRadial, width=ui.width(2))
         ui.button(label="PreserveY", c=self.onOrientPreserveY, width=ui.width(2))
+        ui.button(label="Equalize", c=self.onJointEqualize, width=ui.width(2))
         ui.end_layout()
 
         ui.separator(width=separator_width)
@@ -888,6 +889,16 @@ class NN_ToolWindow(object):
         """Y軸を維持してX軸を子に向ける"""
         import _misc.orient_joint_preserve_secondary as ojps
         ojps.orient_joint_preserve_secondary(primary="x", secondary="y")
+
+    def onJointEqualize(self, *args):
+        """ジョイントの長さを均等にする"""
+        for selected_joint in cmds.ls(selection=True, type="joint"):
+            joints = cmds.listRelatives(ad=True)
+            total_len = sum([cmds.getAttr(x + ".tx") for x in joints])
+            each_len = total_len / len(joints)
+
+            for joint in joints:
+                cmds.setAttr(joint + ".tx", each_len)
 
     def onJointTool(self, *args):
         mel.eval('JointTool')
