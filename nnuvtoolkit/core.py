@@ -99,6 +99,32 @@ def OnewayMatchUV(mode):
 
 
 @nd.repeatable
+def snap_uv_to_pin():
+    """選択UVを同一頂点を共有する別のUVのうちピンされた物にスナップする"""
+    selected_uvs = cmds.ls(selection=True, flatten=True)
+    pinned_uvs = [uv for uv in selected_uvs if cmds.polyPinUV(uv, query=True, value=True)[0]]
+
+    for uv in selected_uvs:
+        # ピン済みはスキップ
+        if uv in pinned_uvs:
+            continue
+
+        # UV を頂点に変換した後 UV に再変換し同一頂点を共有する UV を取得
+        vertices = cmds.polyListComponentConversion(uv, toVertex=True)
+        uv_comps = cmds.polyListComponentConversion(vertices, toUV=True)
+        uv_comps = cmds.filterExpand(uv_comps, selectionMask=35)
+
+        # UV座標を取得
+        uv_coords = [cmds.polyEditUV(uv_comp, query=True) for uv_comp in uv_comps]
+
+        # 頂点を共有する UV にピンされたものがあればスナップする
+        for uv_comp, uv_coord in zip(uv_comps, uv_coords):
+            if uv_comp in selected_uvs and uv_comp in pinned_uvs:
+                cmds.polyEditUV(uv, u=uv_coord[0], v=uv_coord[1], relative=False)
+                break
+
+
+@nd.repeatable
 def half_expand_fold(right_down=True):
     """
     right_down=True で横なら右、縦なら下へ畳む
@@ -812,9 +838,14 @@ class NN_ToolWindow(object):
 
         # MatchUV
         ui.row_layout()
-        ui.text(label='MatchUV')
+        ui.header(label='MatchUV')
         ui.button(label='to Front [back]', c=self.onOnewayMatchUVF, dgc=self.onOnewayMatchUVB, width=ui.button_width3, annotation="L: to Front\nM: to Back")
         ui.button(label='to Pin [unpin]', c=self.onOnewayMatchUVP, dgc=self.onOnewayMatchUVUp, width=ui.button_width3, annotation="L: to Pined\nM: to UnPined")
+        ui.button(label='to Shared', c=self.onOnewayMatchUVS, width=ui.button_width3, annotation="")
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label='')
         ui.button(label='expand/fold', c=self.onExpandFoldRD, dgc=self.onExpandFoldLU, annotation="L: to Right/Bottom\nM: to Left/Top")
         ui.end_layout()
 
@@ -1190,6 +1221,10 @@ class NN_ToolWindow(object):
     @nd.undo_chunk
     def onOnewayMatchUVP(self, *args):
         match_uv_oneway(mode="pin")
+
+    @nd.undo_chunk
+    def onOnewayMatchUVS(self, *args):
+        snap_uv_to_pin()
 
     @nd.undo_chunk
     def onOnewayMatchUVUp(self, *args):
