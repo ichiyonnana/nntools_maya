@@ -710,3 +710,30 @@ def set_component_mode(type):
             )
     else:
         cmds.selectMode(component=True)
+
+
+def edgeflow_each_object(edges=None, value=1):
+    """選択エッジをオブジェクト毎にエッジフローを調整する.
+
+    通常の polyEditEdgeFlow はオブジェクトをまたいで使用できないのでオブジェクト毎に実行するだけの関数｡
+    """
+    if not edges:
+        targets = cmds.ls(selection=True)
+    else:
+        targets = edges
+
+    if not targets:
+        return
+
+    edges_per_obj = dict()
+    nodes = []
+
+    for edge in targets:
+        obj = cmds.polyListComponentConversion(edge)[0]
+        edges_per_obj.setdefault(obj, [])
+        edges_per_obj[obj].append(edge)
+
+    for edges in edges_per_obj.values():
+        nodes.append(cmds.polyEditEdgeFlow(edges, adjustEdgeFlow=value)[0])
+
+    return nodes
