@@ -440,6 +440,10 @@ class NN_ToolWindow(object):
         n = int(cmds.textField(self.tx_rebuild_resolution, q=True, tx=True))
         alignEdgesOnCurve(edges, curve_str, keep_ratio_mode)
 
+        # Alt 押下時は削除
+        if ui.is_alt():
+            cmds.delete(curve)
+
     def onFitSelection(self, *args):
         """ 選択カーブのみ fit to curve """
         select_objects = [nu.get_object(x) for x in cmds.ls(selection=True)]
@@ -455,6 +459,10 @@ class NN_ToolWindow(object):
                 alignEdgesOnCurve(edges, curve_str, keep_ratio_mode)
 
         cmds.select(select_objects)
+
+        # Alt 押下時は削除
+        if ui.is_alt():
+            cmds.delete(curves)
 
     def onFitAll(self, *args):
         """ 全カーブfit to curve """
@@ -586,6 +594,10 @@ class NN_ToolWindow(object):
         """
         all_curves = getAllCurves()
         cmds.select(all_curves)
+
+        # Alt 押下時は削除
+        if ui.is_alt():
+            cmds.delete(all_curves)
 
     def onSelectActive(self, *args):
         """
