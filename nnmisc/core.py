@@ -741,3 +741,47 @@ def edgeflow_each_object(edges=None, value=1, inview_editor=False):
         nie.InviewEditor().show(nodes, "adjustEdgeFlow")
 
     return nodes
+
+
+def init_env():
+    """Maya の環境を初期化する.
+
+    シェルフのタブと表示サイズ｡
+    インクリメンタルセーブの設定｡
+    インクリメンタルセーブのリネーム｡
+    オートセーブの設定｡
+    """
+    import maya.mel as mel
+    import nnmisc.core as nm
+
+    default_shelf_name = "US1_General"
+
+    def cleanup_shelves():
+        """不要なシェルフの削除"""
+        shelf_path = mel.eval("$gShelfTopLevel = $gShelfTopLevel")
+
+        for name in ["MASH", "XGen"]:
+            if cmds.shelfLayout(name, ex=True):
+                cmds.deleteUI(shelf_path + "|" + name, layout=True)
+
+        mel.eval(f'jumpToNamedShelf("{default_shelf_name}");')
+
+    cleanup_shelves()
+
+    mel.eval("ToggleShelf;")
+    mel.eval(f'jumpToNamedShelf("{default_shelf_name}");')
+    nm.resize_editor("Shelf", x=3441, y=0, width=396, height=1517)
+
+    # incremental save
+    cmds.optionVar(intValue=("isIncrementalSaveEnabled", 1))
+    cmds.optionVar(intValue=("incrementalSaveLimitBackups", 0))
+    cmds.optionVar(intValue=("incrementalSaveMaxBackups", 100))
+
+    # rename incremental saves
+    import nnutil.misc as nm
+    nm.rename_incremental_saves()
+
+    # auto save
+    cmds.autoSave(en=True)
+    cmds.autoSave(limitBackups=False)
+    cmds.autoSave(interval=60*4)
