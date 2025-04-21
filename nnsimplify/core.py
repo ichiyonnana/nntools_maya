@@ -145,17 +145,17 @@ class NN_ToolWindow(object):
         self.max_smooth = 100
 
     def create(self):
-        if pm.window(self.window, exists=True):
+        if cmds.window(self.window, exists=True):
             pm.deleteUI(self.window, window=True)
 
         # プリファレンスの有無による分岐
-        if pm.windowPref(self.window, exists=True):
+        if cmds.windowPref(self.window, exists=True):
             # ウィンドウのプリファレンスがあれば位置だけ保存して削除
-            position = pm.windowPref(self.window, q=True, topLeftCorner=True)
-            pm.windowPref(self.window, remove=True)
+            position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
+            cmds.windowPref(self.window, remove=True)
 
             # 前回位置に指定したサイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -168,7 +168,7 @@ class NN_ToolWindow(object):
 
         else:
             # プリファレンスがなければデフォルト位置に指定サイズで表示
-            pm.window(
+            cmds.window(
                 self.window,
                 t=self.title,
                 maximizeButton=False,
@@ -179,7 +179,7 @@ class NN_ToolWindow(object):
                 )
 
         self.layout()
-        pm.showWindow(self.window)
+        cmds.showWindow(self.window)
 
     def layout(self):
         ui.column_layout()

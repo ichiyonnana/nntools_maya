@@ -66,7 +66,7 @@ class InviewEditor(object):
 
             cmds.deleteUI(self.window, window=True)
 
-        if pm.window(self.window, exists=True):
+        if cmds.window(self.window, exists=True):
             cmds.deleteUI(self.window, window=True)
 
         cmds.window(
