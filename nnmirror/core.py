@@ -15,6 +15,7 @@ import nnutil.core as nu
 import nnutil.misc as nm
 import nnutil.display as nd
 import nnutil.ui as ui
+import nnskin.core as nnskin
 
 import plugin_util.snapshotState as ss
 
@@ -259,33 +260,32 @@ def combine_skined_mesh(objects=None):
     name = objects[-1].name()
     parent = objects[-1].getParent()
 
-    if len(all_meshes) == len(skined_meshes):
-        # すべてのメッシュがスキンクラスターを持っていれば polyUniteSkinned で結合する
+    if not skined_meshes:
+        # すべてが静的なメッシュなら polyUnite で結合する
+        object, node = pm.polyUnite(all_meshes, ch=1, mergeUVSets=1, objectPivot=True)
+        pm.parent(object, parent)
+        pm.bakePartialHistory(object, ppt=True)
+        nu.pynode(object).rename(name)
+    
+    else:
+        # バインド済みメッシュが含まれる場合
+        # 全てのメッシュのインフルエンスををまとめたリストを作成
+        all_influences = []
+        for mesh in skined_meshes:
+            influences = nnskin.get_influence_order(mesh) or []
+            all_influences.extend(influences)
+            
+        all_influences = list(set(all_influences))
+
+        # 全てのメッシュのインフルエンス順序を統一する
+        for mesh in all_meshes:
+            nnskin.set_influence_order(mesh.fullPath(), all_influences)
+        
+        # polyUniteSkinned で結合する
         object, node = pm.polyUniteSkinned(all_meshes, ch=1, mergeUVSets=1, objectPivot=True)
         nu.unlock_trs(object)
         pm.parent(object, parent)
         nu.lock_trs(object)
-        pm.bakePartialHistory(object, ppt=True)
-        nu.pynode(object).rename(name)
-
-    elif skined_meshes:
-        # スキンクラスターを持っているメッシュと持っていないメッシュが混在している場合は
-        # 先に適当なメッシュのウェイトをコピーしてから polyUniteSkinned で結合する
-        static_meshes = nu.list_diff(all_meshes, skined_meshes)
-        weight_file_name = "combine_skined_mesh_temp"
-        export_weight([skined_meshes[0]], specified_name=weight_file_name)
-
-        import_weight(static_meshes, specified_name=weight_file_name)
-
-        object, node = pm.polyUniteSkinned(all_meshes, ch=1, mergeUVSets=1, objectPivot=True)
-        pm.parent(object, parent)
-        pm.bakePartialHistory(object, ppt=True)
-        nu.pynode(object).rename(name)
-
-    else:
-        # すべてが静的なメッシュなら polyUnite で結合する
-        object, node = pm.polyUnite(all_meshes, ch=1, mergeUVSets=1, objectPivot=True)
-        pm.parent(object, parent)
         pm.bakePartialHistory(object, ppt=True)
         nu.pynode(object).rename(name)
 
