@@ -347,6 +347,75 @@ def average_weight(selections=None):
     weightclipboard = tmp
 
 
+def get_influence_order(obj):
+    skincluster = get_skincluster(obj)
+
+    if skincluster:
+        return cmds.skinCluster(skincluster, q=True, influence=True)
+
+    if not skincluster:
+        return None
+
+
+def set_influence_order(obj, influence_order):
+    # バインド済みか調べる
+    current_skincluster = get_skincluster(obj)
+    bound = bool(current_skincluster)
+
+    # APIオブジェクトの初期化
+    slist = om.MGlobal.getSelectionListByName(obj)
+    dp_obj, comp = slist.getComponent(0)
+    fn_mesh = om.MFnMesh(dp_obj)
+
+    if bound:
+        # バインド済みならウェイトを保存してアンバインド
+
+        # 現在のウェイトを取得
+        dg_skincluster = om.MGlobal.getSelectionListByName(current_skincluster).getDependNode(0)
+        fn_skin = oma.MFnSkinCluster(dg_skincluster)
+
+        weights = fn_skin.getWeights(dp_obj, om.MObject.kNullObj)[0]
+        influences = cmds.skinCluster(current_skincluster, q=True, influence=True)
+        num_influence = len(influences)
+        num_vtx = fn_mesh.numVertices
+        inf_to_weights = dict()
+
+        # ひとかたまりのウェイトのリストから インフルエンス名:ウェイト の辞書を作成する
+        for i, influence in enumerate(influences):
+            weights_per_vertex = num_vtx * num_influence
+            inf_to_weights[influence] = weights[i::num_influence]
+
+        # バインドポーズに戻す
+        bindpose = cmds.listConnections(current_skincluster, source=True, type="dagPose")
+        cmds.dagPose(bindpose, restore=True )
+        cmds.skinCluster(obj, e=True, unbind=True)
+
+    # 指定の順序でバインド
+    print("インフルエンス順の変更: ", obj, influence_order)
+    cmds.skinCluster(influence_order, obj, bindMethod=0, toSelectedBones=True, removeUnusedInfluence=False)
+
+    if bound:
+        # ウェイトの復帰
+        new_skincluster = get_skincluster(obj)
+        dg_skincluster = om.MGlobal.getSelectionListByName(new_skincluster).getDependNode(0)
+        fn_skin = oma.MFnSkinCluster(dg_skincluster)
+        influence_indices = om.MIntArray(list(range(len(fn_skin.influenceObjects()))))
+        fn_comp = om.MFnSingleIndexedComponent()
+        all_vtx_comp = fn_comp.create(om.MFn.kMeshVertComponent)
+        fn_comp.addElements(list(range(fn_mesh.numVertices)))
+
+        # 保存済みのウェイトを指定のインフルエンス順に並べ直す
+        sorted_weights = []
+        for vi in range(num_vtx):
+            for inf in influence_order:
+                if inf in inf_to_weights:
+                    sorted_weights.append(inf_to_weights[inf][vi])
+                else:
+                    sorted_weights.append(0.0)
+
+        # ウェイトの設定
+        fn_skin.setWeights(dp_obj, all_vtx_comp, influence_indices, om.MDoubleArray(sorted_weights))
+
 ###################################################################################################
 ###################################################################################################
 # UI部
@@ -514,14 +583,15 @@ class NN_ToolWindow(object):
             print("バインドされたメッシュを選択してください｡")
             return
 
-        skincluster = get_skincluster(selections[0])
+        obj = selections[0]
+        skincluster = get_skincluster(obj)
 
         if not skincluster:
             print("バインドされたメッシュを選択してください｡")
             return
 
         # インフルエンスの順序を保存する
-        self.copied_influence_order = cmds.skinCluster(skincluster, q=True, influence=True)
+        self.copied_influence_order = get_influence_order(obj)
         print("インフルエンス順をコピー:", self.copied_influence_order)
 
     def on_paste_influence_order(self, *args):
@@ -532,65 +602,9 @@ class NN_ToolWindow(object):
             print("オブジェクトを選択してください｡")
             return
 
-        # 選択オブジェクトごとの反復
+        # 全オブジェクトのインフルエンス順序を設定する
         for obj in selections:
-            # バインド済みか調べる
-            current_skincluster = get_skincluster(obj)
-            bound = bool(current_skincluster)
-
-            # APIオブジェクトの初期化
-            slist = om.MGlobal.getSelectionListByName(obj)
-            dp_obj, comp = slist.getComponent(0)
-            fn_mesh = om.MFnMesh(dp_obj)
-
-            if bound:
-                # バインド済みならウェイトを保存してアンバインド
-
-                # 現在のウェイトを取得
-                dg_skincluster = om.MGlobal.getSelectionListByName(current_skincluster).getDependNode(0)
-                fn_skin = oma.MFnSkinCluster(dg_skincluster)
-
-                weights = fn_skin.getWeights(dp_obj, om.MObject.kNullObj)[0]
-                influences = cmds.skinCluster(current_skincluster, q=True, influence=True)
-                num_influence = len(influences)
-                num_vtx = fn_mesh.numVertices
-                inf_to_weights = dict()
-
-                # ひとかたまりのウェイトのリストから インフルエンス名:ウェイト の辞書を作成する
-                for i, influence in enumerate(influences):
-                    weights_per_vertex = num_vtx * num_influence
-                    inf_to_weights[influence] = weights[i::num_influence]
-
-                # バインドポーズに戻す
-                bindpose = cmds.listConnections(current_skincluster, source=True, type="dagPose")
-                cmds.dagPose(bindpose, restore=True )
-                cmds.skinCluster(obj, e=True, unbind=True)
-
-            # 指定の順序でバインド
-            print("インフルエンス順の変更: ", obj, self.copied_influence_order)
-            cmds.skinCluster(self.copied_influence_order, obj, bindMethod=0, toSelectedBones=True, removeUnusedInfluence=False)
-
-            if bound:
-                # ウェイトの復帰
-                new_skincluster = get_skincluster(obj)
-                dg_skincluster = om.MGlobal.getSelectionListByName(new_skincluster).getDependNode(0)
-                fn_skin = oma.MFnSkinCluster(dg_skincluster)
-                influence_indices = om.MIntArray(list(range(len(fn_skin.influenceObjects()))))
-                fn_comp = om.MFnSingleIndexedComponent()
-                all_vtx_comp = fn_comp.create(om.MFn.kMeshVertComponent)
-                fn_comp.addElements(list(range(fn_mesh.numVertices)))
-
-                # 保存済みのウェイトを指定のインフルエンス順に並べ直す
-                sorted_weights = []
-                for vi in range(num_vtx):
-                    for inf in self.copied_influence_order:
-                        if inf in inf_to_weights:
-                            sorted_weights.append(inf_to_weights[inf][vi])
-                        else:
-                            sorted_weights.append(0.0)
-
-                # ウェイトの設定
-                fn_skin.setWeights(dp_obj, all_vtx_comp, influence_indices, om.MDoubleArray(sorted_weights))
+            set_influence_order(obj, self.copied_influence_order)
 
         # 選択の復帰
         cmds.select(selections, replace=True)
@@ -675,7 +689,7 @@ class NN_ToolWindow(object):
         error_objects = []
 
         for mesh in cmds.ls(type="mesh"):
-            if cmds.getAttr(mesh + ".intermediateObject") and len(cmds.listConnections(mesh, destination=True)) == 0:
+            if cmds.getAttr(mesh + ".intermediateObject") and not cmds.listConnections(mesh, destination=True):
                 error_objects.append(mesh)
 
         if error_objects:
