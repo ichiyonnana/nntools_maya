@@ -3,6 +3,9 @@ import re
 import maya.cmds as cmds
 import maya.mel as mel
 
+import maya.api.OpenMaya as om
+import maya.api.OpenMayaAnim as oma
+
 import nnutil.core as nu
 import nnutil.ui as ui
 import nnutil.decorator as deco
@@ -355,6 +358,9 @@ class NN_ToolWindow(object):
         self.title = window_name
         self.size = (10, 10)
 
+        self.ring_source_vertices = []
+        self.copied_influence_order = []
+
     def create(self):
         if cmds.window(self.window, exists=True):
             cmds.deleteUI(self.window, window=True)
@@ -439,6 +445,13 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
         ui.row_layout()
+        ui.header(label="Inf Order")
+        cmds.button(l='copy', c=self.on_copy_influence_order)
+        cmds.button(l='paste', c=self.on_paste_influence_order)
+        cmds.button(l='compare', c=self.on_compare_influence_order)
+        ui.end_layout()
+
+        ui.row_layout()
         ui.header(label="Replace")
         self.eb_replace_before = ui.eb_text(width=ui.width(3))
         self.eb_replace_after = ui.eb_text(width=ui.width(3))
@@ -492,6 +505,120 @@ class NN_ToolWindow(object):
     @deco.undo_chunk
     def on_copy_proxy(self, *args):
         copy_from_proxy_vts()
+
+    def on_copy_influence_order(self, *args):
+        """選択オブジェクトのインフルエンス順序を保存する"""
+        selections = cmds.ls(selection=True, flatten=True)
+
+        if not selections:
+            print("バインドされたメッシュを選択してください｡")
+            return
+
+        skincluster = get_skincluster(selections[0])
+
+        if not skincluster:
+            print("バインドされたメッシュを選択してください｡")
+            return
+
+        # インフルエンスの順序を保存する
+        self.copied_influence_order = cmds.skinCluster(skincluster, q=True, influence=True)
+        print("インフルエンス順をコピー:", self.copied_influence_order)
+
+    def on_paste_influence_order(self, *args):
+        """選択オブジェクトのインフルエンス順序をコピーした順序に一致させる"""
+        selections = cmds.ls(selection=True, flatten=True)
+
+        if not selections:
+            print("オブジェクトを選択してください｡")
+            return
+
+        # 選択オブジェクトごとの反復
+        for obj in selections:
+            # バインド済みか調べる
+            current_skincluster = get_skincluster(obj)
+            bound = bool(current_skincluster)
+
+            # APIオブジェクトの初期化
+            slist = om.MGlobal.getSelectionListByName(obj)
+            dp_obj, comp = slist.getComponent(0)
+            fn_mesh = om.MFnMesh(dp_obj)
+
+            if bound:
+                # バインド済みならウェイトを保存してアンバインド
+
+                # 現在のウェイトを取得
+                dg_skincluster = om.MGlobal.getSelectionListByName(current_skincluster).getDependNode(0)
+                fn_skin = oma.MFnSkinCluster(dg_skincluster)
+
+                weights = fn_skin.getWeights(dp_obj, om.MObject.kNullObj)[0]
+                print(type(weights))
+                influences = cmds.skinCluster(current_skincluster, q=True, influence=True)
+                num_influence = len(influences)
+                num_vtx = fn_mesh.numVertices
+                inf_to_weights = dict()
+
+                # ひとかたまりのウェイトのリストから インフルエンス名:ウェイト の辞書を作成する
+                for i, influence in enumerate(influences):
+                    weights_per_vertex = num_vtx * num_influence
+                    inf_to_weights[influence] = weights[i::num_influence]
+
+                # バインドポーズに戻す
+                bindpose = cmds.listConnections(current_skincluster, source=True, type="dagPose")
+                cmds.dagPose(bindpose, restore=True )
+                cmds.skinCluster(obj, e=True, unbind=True)
+
+            # 指定の順序でバインド
+            print("インフルエンス順の変更: ", obj, self.copied_influence_order)
+            cmds.skinCluster(self.copied_influence_order, obj, bindMethod=0, toSelectedBones=True, removeUnusedInfluence=False)
+
+            if bound:
+                # ウェイトの復帰
+                new_skincluster = get_skincluster(obj)
+                dg_skincluster = om.MGlobal.getSelectionListByName(new_skincluster).getDependNode(0)
+                fn_skin = oma.MFnSkinCluster(dg_skincluster)
+                influence_indices = om.MIntArray(list(range(len(fn_skin.influenceObjects()))))
+                fn_comp = om.MFnSingleIndexedComponent()
+                all_vtx_comp = fn_comp.create(om.MFn.kMeshVertComponent)
+                fn_comp.addElements(list(range(fn_mesh.numVertices)))
+
+                # 保存済みのウェイトを指定のインフルエンス順に並べ直す
+                sorted_weights = []
+                for vi in range(num_vtx):
+                    for inf in self.copied_influence_order:
+                        if inf in inf_to_weights:
+                            sorted_weights.append(inf_to_weights[inf][vi])
+                        else:
+                            sorted_weights.append(0.0)
+
+                # ウェイトの設定
+                fn_skin.setWeights(dp_obj, all_vtx_comp, influence_indices, om.MDoubleArray(sorted_weights))
+
+        # 選択の復帰
+        cmds.select(selections, replace=True)
+
+    def on_compare_influence_order(self, *args):
+        """選択オブジェクトのインフルエンス順序を比較する"""
+        selections = cmds.ls(selection=True, flatten=True)
+
+        if not selections or len(selections) < 2:
+            print("バインドされたメッシュを2つ以上選択してください｡")
+            return
+
+        src_skincluster = get_skincluster(selections[0])
+        src_influence_order = cmds.skinCluster(src_skincluster, q=True, influence=True)
+
+        for obj in selections[1:]:
+            dst_skincluster = get_skincluster(obj)
+            dst_influence_order = cmds.skinCluster(dst_skincluster, q=True, influence=True)
+
+            if src_influence_order != dst_influence_order:
+                print(f"不一致: {obj}")
+                print("    ", src_influence_order)
+                print("    ", dst_influence_order)
+            else:
+                print(f"一致: {obj}")
+
+
 
     @deco.undo_chunk
     def on_copy(self, *args):
@@ -560,7 +687,7 @@ class NN_ToolWindow(object):
         import nnskin.check_skin_tool
         nnskin.check_skin_tool.main()
 
-    def on_siwe(self, *args):        
+    def on_siwe(self, *args):
         import siweighteditor.siweighteditor
         siweighteditor.siweighteditor.Option()
 
