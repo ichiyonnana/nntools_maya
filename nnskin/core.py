@@ -551,7 +551,6 @@ class NN_ToolWindow(object):
                 fn_skin = oma.MFnSkinCluster(dg_skincluster)
 
                 weights = fn_skin.getWeights(dp_obj, om.MObject.kNullObj)[0]
-                print(type(weights))
                 influences = cmds.skinCluster(current_skincluster, q=True, influence=True)
                 num_influence = len(influences)
                 num_vtx = fn_mesh.numVertices
