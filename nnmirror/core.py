@@ -464,6 +464,7 @@ class NN_ToolWindow(object):
         ui.button(label='X', c=self.onMirrorJointX, dgc=self.onMirrorJointXWorld, bgc=ui.color_x, width=ui.width2, annotation="L: Object (with parent)\nM: World")
         ui.button(label='Y', c=self.onMirrorJointY, dgc=self.onMirrorJointYWorld, bgc=ui.color_y, width=ui.width2, annotation="L: Object (with parent)\nM: World")
         ui.button(label='Z', c=self.onMirrorJointZ, dgc=self.onMirrorJointZWorld, bgc=ui.color_z, width=ui.width2, annotation="L: Object (with parent)\nM: World")
+        ui.button(label='Symm', c=self.onSymmetrizeJointOriPos, width=ui.width(2), annotation="")
         ui.end_layout()
 
         ui.row_layout()
@@ -484,7 +485,7 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.button(label="Orient", c=self.onOrientJointOp, width=ui.width(2))
         ui.button(label="Radial", c=self.onOrientRadial, width=ui.width(2))
-        ui.button(label="PreserveY", c=self.onOrientPreserveY, width=ui.width(2))
+        ui.button(label="PreserveY", c=self.onOrientPreserveY, dgc=self.onOrientPreserveZ, width=ui.width(2), annotation="L: Preserve Y \nM: Preserve Z")
         ui.button(label="Equalize", c=self.onJointEqualize, width=ui.width(2))
         ui.end_layout()
 
@@ -819,6 +820,83 @@ class NN_ToolWindow(object):
     def onMirrorJointOp(self, *args):
         mel.eval('MirrorJointOptions')
 
+    def _get_opposite_joint(self, joint_name):    
+        prefix_from = ui.get_value(self.eb_prefix_from)
+        prefix_to = ui.get_value(self.eb_prefix_to)
+
+        basename = joint_name.split("|")[-1]
+        
+        if re.search(prefix_from, basename):
+            return re.sub(prefix_from, prefix_to, basename)
+        
+        return None
+
+    def _mirror_joint(self, joint, pos=True, ori=True):
+        opposite_joint = self._get_opposite_joint(joint)
+        if not opposite_joint or not cmds.objExists(opposite_joint):
+            print(f"{joint}に対応するジョイントが見つかりませんでした。")
+            return
+        
+        # ジョイントのワールドマトリクス
+        matrix = cmds.xform(joint, query=True, matrix=True, worldSpace=True)
+
+        # 対向ジョイントのワールドマトリクス
+        opposite_matrix = cmds.xform(opposite_joint, query=True, matrix=True, worldSpace=True)
+
+        # 対向ジョイントの基底ベクトルと位置を取得
+        obx = om.MVector(opposite_matrix[0:3])
+        oby = om.MVector(opposite_matrix[4:7])
+        obz = om.MVector(opposite_matrix[8:11])
+        op = om.MVector(opposite_matrix[12:15])
+
+        # 新しい基底ベクトルと位置を計算
+        new_bx = om.MVector(-obx.x, obx.y, obx.z)
+        new_by = om.MVector(-oby.x, oby.y, oby.z)
+        new_bz = new_bx ^ new_by
+        new_p = om.MVector(-op.x, op.y, op.z)
+
+        # 新しいマトリックスを作成
+        new_matrix = matrix
+        
+        if pos:
+            new_matrix[12:15] = [new_p.x, new_p.y, new_p.z]
+
+        if ori:
+            new_matrix[0:3] = [new_bx.x, new_bx.y, new_bx.z]
+            new_matrix[4:7] = [new_by.x, new_by.y, new_by.z]
+            new_matrix[8:11] = [new_bz.x, new_bz.y, new_bz.z]
+
+        # 子があればワールドマトリックスを取得
+        children = cmds.listRelatives(joint, children=True, fullPath=True)
+        child_matrix = None
+        if children:
+            child_matrix = cmds.xform(children[0], query=True, matrix=True, worldSpace=True)
+
+        # 新しいマトリクスを適用
+        cmds.xform(joint, matrix=new_matrix, worldSpace=True)
+        
+        # 回転をフリーズ
+        cmds.makeIdentity(joint, apply=True, rotate=True)
+
+        # 子を復帰
+        if child_matrix:
+            cmds.xform(children[0], matrix=child_matrix, worldSpace=True)
+            cmds.makeIdentity(children[0], apply=True, rotate=True)
+
+    def onSymmetrizeJointOriPos(self, *args):
+        # 選択されたジョイントを取得
+        selected_joints = cmds.ls(selection=True, type='joint')
+        if not selected_joints:
+            cmds.error("ジョイントを選択してください。")
+            return
+
+        # 階層が浅い順にソート
+        selected_joints.sort(key=lambda x: x.count('|'))
+
+        # ジョイントの対象化
+        for joint in selected_joints:
+            self._mirror_joint(joint)
+
     def onOrientJointOp(self, *args):
         mel.eval('OrientJointOptions')
 
@@ -889,6 +967,11 @@ class NN_ToolWindow(object):
         """Y軸を維持してX軸を子に向ける"""
         import _misc.orient_joint_preserve_secondary as ojps
         ojps.orient_joint_preserve_secondary(primary="x", secondary="y")
+
+    def onOrientPreserveZ(self, *args):
+        """Z軸を維持してX軸を子に向ける"""
+        import _misc.orient_joint_preserve_secondary as ojps
+        ojps.orient_joint_preserve_secondary(primary="x", secondary="z")
 
     def onJointEqualize(self, *args):
         """ジョイントの長さを均等にする"""

@@ -64,7 +64,7 @@ def orient_joint_preserve_secondary(primary="x", secondary="y"):
 
         elif primary == "x" and secondary == "z":
             new_matrix[0:3] = list(new_basis_1)
-            new_matrix[4:7] = list(new_basis_3)
+            new_matrix[4:7] = list(-new_basis_3)
             new_matrix[8:11] = list(new_basis_2)
 
         elif primary == "y" and secondary == "x":
