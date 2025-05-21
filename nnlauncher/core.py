@@ -44,12 +44,14 @@ class NN_ToolWindow(object):
         "nnanim",
         "nntransform",
         "nnsweep",
+        "nnalign",
+        "nnprimitive",
         ]
 
     def __init__(self):
         self.window = window_name
         self.title = window_name
-        self.size = (280, 260)
+        self.size = (280, 240)
 
         self.common_button_height = 1.5
 
@@ -98,47 +100,49 @@ class NN_ToolWindow(object):
         ui.column_layout()
 
         ui.row_layout()
-        ui.header(label="Editor:")
-        ui.button(label="Mirror", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onMirror)
-        ui.button(label="UV", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onUV)
-        ui.button(label="Camera", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onCamera)
+        ui.header(label="Edit:")
+        ui.button(label="Mirror", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onMirror)
+        ui.button(label="UV", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onUV)
+        ui.button(label="Camera", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onCamera)
         ui.end_layout()
 
         ui.row_layout()
         ui.header(label="Align:")
-        ui.button(label="RingWidth", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onRingWidth)
-        ui.button(label="Curve", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onCurve)
-        ui.button(label="Simplify", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onSimplify)
-        ui.button(label="Straighten", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onStraighten)
+        ui.button(label="RingWidth", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onRingWidth)
+        ui.button(label="Curve", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onCurve)
+        ui.button(label="Simplify", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onSimplify)
+        ui.button(label="Straighten", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onStraighten)
         ui.end_layout()
 
         ui.row_layout()
         ui.header(label="Util:")
-        ui.button(label="Lattice", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onLattice)
-        ui.button(label="Normal", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onNormal)
-        ui.button(label="VColor", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onVColor)
-        ui.button(label="Sweep", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onSweep)
+        ui.button(label="Lattice", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onLattice)
+        ui.button(label="Normal", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onNormal)
+        ui.button(label="VColor", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onVColor)
+        ui.button(label="Sweep", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onSweep)
         ui.end_layout()
 
         ui.row_layout()
-        ui.header(label="Etc")
-        ui.button(label="SKin", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onSKin)
-        ui.button(label="Subdiv", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onSubdiv)
-        ui.button(label="Anim", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onAnim)
-        ui.button(label="Transform", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onTransform)
+        ui.header(label="Etc:")
+        ui.button(label="Skin", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onSKin)
+        ui.button(label="Subdiv", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onSubdiv)
+        ui.button(label="Anim", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onAnim)
+        ui.button(label="Transform", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onTransform)
         ui.end_layout()
 
         ui.row_layout()
-        ui.header(label="")
-        ui.button(label="Close All", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onCloseAll)
-        ui.button(label="Reload All", width=ui.width(2), height=ui.height(self.common_button_height), c=self.onReloadAll)
+        ui.header(label="Misc:")
+        ui.button(label="Align", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onAlign)
+        ui.button(label="Primitive", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onPrimitive)
         ui.end_layout()
 
         ui.separator(height=ui.height(0.5))
 
         ui.row_layout()
         ui.header(label="")
-        ui.button(label="Close", width=ui.width(8), height=ui.height(self.common_button_height), c=self.onClose)
+        ui.button(label="Close All", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onCloseAll)
+        ui.button(label="Reload All", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onReloadAll)
+        ui.button(label="Close", width=ui.width(4.4), height=ui.height(self.common_button_height), c=self.onClose)
         ui.end_layout()
 
         ui.end_layout()
@@ -189,6 +193,20 @@ class NN_ToolWindow(object):
         """"""
         import nnstraighten.core
         nnstraighten.core.main()
+        if not ui.is_shift():
+            cmds.deleteUI(self.window, window=True)
+
+    def onAlign(self, *args):
+        """"""
+        import nnalign.core
+        nnalign.core.main()
+        if not ui.is_shift():
+            cmds.deleteUI(self.window, window=True)
+    
+    def onPrimitive(self, *args):
+        """"""
+        import nnprimitive.core
+        nnprimitive.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
 
