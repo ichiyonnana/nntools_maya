@@ -6,6 +6,15 @@
 
 import maya.cmds as cmds
 
+import nnutil.ui as ui
+
+window_name = "NN_Align"
+window = None
+
+
+def get_window():
+    return window
+
 
 def align_component(axis="x", mode="min"):
     """選択コンポーネントの成分値を統一する｡
@@ -137,34 +146,45 @@ def align_z_avg(*args):
 
 
 def create_ui():
-    if cmds.window("myWindow", exists=True):
-        cmds.deleteUI("myWindow", window=True)
+    if cmds.window(window_name, exists=True):
+        cmds.deleteUI(window_name, window=True)
 
-    myWindow = cmds.window("myWindow", title="Align UI", widthHeight=(200, 120))
-    cmds.columnLayout(adjustableColumn=True)
+    window = cmds.window(
+        window_name,
+        t=window_name,
+        maximizeButton=False,
+        minimizeButton=False,
+        widthHeight=(10, 10),
+        sizeable=False,
+        resizeToFitChildren=True
+    )
 
-    cmds.rowLayout(numberOfColumns=4)
-    cmds.text(label='x')
-    cmds.button(label='min', command=align_x_min)
-    cmds.button(label='max', command=align_x_max)
-    cmds.button(label='avg', command=align_x_avg)
-    cmds.setParent('..')
+    ui.column_layout()
 
-    cmds.rowLayout(numberOfColumns=4)
-    cmds.text(label='y')
-    cmds.button(label='min', command=align_y_min)
-    cmds.button(label='max', command=align_y_max)
-    cmds.button(label='avg', command=align_y_avg)
-    cmds.setParent('..')
+    ui.row_layout()
+    ui.header(label='x')
+    ui.button(label='min', c=align_x_min)
+    ui.button(label='max', c=align_x_max)
+    ui.button(label='avg', c=align_x_avg)
+    ui.end_layout()
 
-    cmds.rowLayout(numberOfColumns=4)
-    cmds.text(label='z')
-    cmds.button(label='min', command=align_z_min)
-    cmds.button(label='max', command=align_z_max)
-    cmds.button(label='avg', command=align_z_avg)
-    cmds.setParent('..')
+    ui.row_layout()
+    ui.header(label='y')
+    ui.button(label='min', c=align_y_min)
+    ui.button(label='max', c=align_y_max)
+    ui.button(label='avg', c=align_y_avg)
+    ui.end_layout()
 
-    cmds.showWindow(myWindow)
+    ui.row_layout()
+    ui.header(label='z')
+    ui.button(label='min', c=align_z_min)
+    ui.button(label='max', c=align_z_max)
+    ui.button(label='avg', c=align_z_avg)
+    ui.end_layout()
+
+    ui.end_layout()
+
+    cmds.showWindow(window)
 
 
 def main():
