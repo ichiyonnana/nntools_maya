@@ -613,20 +613,17 @@ class NN_ToolWindow(object):
         """選択オブジェクトのインフルエンス順序を比較する"""
         selections = cmds.ls(selection=True, flatten=True)
 
-        if not selections or len(selections) < 2:
-            print("バインドされたメッシュを2つ以上選択してください｡")
+        if not selections:
+            print("バインドされたメッシュを選択してください｡")
             return
 
-        src_skincluster = get_skincluster(selections[0])
-        src_influence_order = cmds.skinCluster(src_skincluster, q=True, influence=True)
-
-        for obj in selections[1:]:
+        for obj in selections:
             dst_skincluster = get_skincluster(obj)
             dst_influence_order = cmds.skinCluster(dst_skincluster, q=True, influence=True)
 
-            if src_influence_order != dst_influence_order:
+            if self.copied_influence_order != dst_influence_order:
                 print(f"不一致: {obj}")
-                print("    ", src_influence_order)
+                print("    ", self.copied_influence_order)
                 print("    ", dst_influence_order)
             else:
                 print(f"一致: {obj}")
