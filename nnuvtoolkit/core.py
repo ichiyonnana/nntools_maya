@@ -726,7 +726,7 @@ def toggle_checker():
 
 @nd.repeatable
 def draw_edge(map_size):
-    import draw_image as de
+    from . import draw_image as de
     import nnutil.core as nu
 
     save_dir = nu.get_project_root() + "/images/"
