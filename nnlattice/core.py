@@ -79,12 +79,12 @@ def match_latice(from_objects=None, to_object=None):
         # ラティスの処理
         if cmds.objectType(lattice_node, isType="lattice"):
             # 分割数を変更するため変形をリセットする
-            reset_lattice(lattice_node)
+            reset_lattice([lattice_node])
 
             # 分割数を合わせる
-            div_s = cmds.getAttr(lattice + ".sDivisions")
-            div_t = cmds.getAttr(lattice + ".tDivisions")
-            div_u = cmds.getAttr(lattice + ".uDivisions")
+            div_s = cmds.getAttr(to_lattice + ".sDivisions")
+            div_t = cmds.getAttr(to_lattice + ".tDivisions")
+            div_u = cmds.getAttr(to_lattice + ".uDivisions")
 
             cmds.setAttr(lattice_node + ".sDivisions", div_s)
             cmds.setAttr(lattice_node + ".tDivisions", div_t)
@@ -657,7 +657,7 @@ def reset_lattice(lattices=[]):
             raise Exception
 
     for lattice in lattices:
-        cmds.lattice(e=True, latticeReset=True)
+        cmds.lattice(lattice, e=True, latticeReset=True)
 
 
 class NN_ToolWindow(object):
