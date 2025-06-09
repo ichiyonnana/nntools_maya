@@ -313,7 +313,64 @@ def straighten_all():
 
 @nd.repeatable
 def linear_align():
-    mel.eval("texLinearAlignUVs")
+    """選択UVコンポーネントのうち最も遠い2点を始点と終点としてそれ以外のUVを始点終点を結ぶ直線上に整列する｡"""
+    uvs = cmds.ls(selection=True, flatten=True)
+    uvs = cmds.filterExpand(uvs, sm=35)
+    if not uvs or len(uvs) < 2:
+        print("2つ以上のUVを選択してください")
+        return
+
+    # UV座標取得
+    uv_coords = {uv: cmds.polyEditUV(uv, q=True) for uv in uvs}
+
+    # 最も遠い2点を探す
+    max_dist = -1
+    uvA, uvB = None, None
+    uv_list = list(uv_coords.items())
+    for i in range(len(uv_list)):
+        for j in range(i+1, len(uv_list)):
+            a, ca = uv_list[i]
+            b, cb = uv_list[j]
+            d = (ca[0]-cb[0])**2 + (ca[1]-cb[1])**2
+            if d > max_dist:
+                max_dist = d
+                uvA, uvB = a, b
+
+    if uvA is None or uvB is None:
+        print("最遠点ペアが見つかりません")
+        return
+
+    A = uv_coords[uvA]
+    B = uv_coords[uvB]
+    AB = [B[0]-A[0], B[1]-A[1]]
+    ab_len = (AB[0]**2 + AB[1]**2) ** 0.5
+    if ab_len == 0:
+        print("2点が同じ座標です")
+        return
+
+    # 各点を直線上に再配置
+    for uv, C in uv_coords.items():
+        if uv == uvA:
+            cmds.polyEditUV(uv, u=A[0], v=A[1], relative=False)
+        elif uv == uvB:
+            cmds.polyEditUV(uv, u=B[0], v=B[1], relative=False)
+        else:
+            # AC, CBベクトル
+            AC = [C[0]-A[0], C[1]-A[1]]
+            t = (AC[0]*AB[0] + AC[1]*AB[1]) / (ab_len**2)
+            # AC:CB比率
+            ac_len = (AC[0]**2 + AC[1]**2) ** 0.5
+            cb_len = ab_len - ac_len
+            if ab_len == 0:
+                ratio = 0.5
+            else:
+                ratio = ac_len / ab_len
+            # 新しい位置
+            new_u = A[0] + AB[0] * ratio
+            new_v = A[1] + AB[1] * ratio
+            cmds.polyEditUV(uv, u=new_u, v=new_v, relative=False)
+
+    print("UVを直線上に整列しました")
 
 
 @nd.repeatable
