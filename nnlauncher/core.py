@@ -46,6 +46,7 @@ class NN_ToolWindow(object):
         "nnsweep",
         "nnalign",
         "nnprimitive",
+        "nndeform",
         ]
 
     def __init__(self):
@@ -134,6 +135,7 @@ class NN_ToolWindow(object):
         ui.header(label="Misc:")
         ui.button(label="Align", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onAlign)
         ui.button(label="Primitive", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onPrimitive)
+        ui.button(label="Deform", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onDeform)
         ui.end_layout()
 
         ui.separator(height=ui.height(0.5))
@@ -202,11 +204,18 @@ class NN_ToolWindow(object):
         nnalign.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
-    
+
     def onPrimitive(self, *args):
         """"""
         import nnprimitive.core
         nnprimitive.core.main()
+        if not ui.is_shift():
+            cmds.deleteUI(self.window, window=True)
+
+    def onDeform(self, *args):
+        """"""
+        import nndeform.core
+        nndeform.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
 
