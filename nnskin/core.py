@@ -416,6 +416,82 @@ def set_influence_order(obj, influence_order):
         # ウェイトの設定
         fn_skin.setWeights(dp_obj, all_vtx_comp, influence_indices, om.MDoubleArray(sorted_weights))
 
+
+def copy_weights_from_nearest_unselected_vertex(max_distance=1.0):
+    """選択頂点に対して一番近い非選択頂点からウェイトをコピーする｡"""
+    # 選択を頂点に変換
+    selection = cmds.ls(selection=True, flatten=True)
+    vtx_list = cmds.polyListComponentConversion(selection, toVertex=True)
+    sel_vtx = cmds.filterExpand(vtx_list, sm=31) if vtx_list else []
+
+    if not sel_vtx:
+        cmds.warning("頂点を選択してください。")
+        return
+
+    mesh = cmds.polyListComponentConversion(sel_vtx[0])[0]
+    all_vtx = cmds.ls(mesh + ".vtx[*]", flatten=True)
+    sel_set = set(sel_vtx)
+    unsel_vtx = [v for v in all_vtx if v not in sel_set]
+
+    def grid_key(pos):
+        """座標をグリッドキーに変換して返す"""
+        return (int(pos[0] // max_distance), int(pos[1] // max_distance), int(pos[2] // max_distance))
+
+    # 非選択頂点を座標毎に区切って辞書に格納
+    grid = {}  # key: (vtx, pos)
+    for v in unsel_vtx:
+        pos = cmds.pointPosition(v, world=True)
+        key = grid_key(pos)
+        grid.setdefault(key, []).append((v, pos))
+
+    # スキンクラスターを取得
+    sc_list = cmds.ls(cmds.listHistory(mesh), type="skinCluster")
+
+    if not sc_list:
+        cmds.warning("スキンクラスターが見つかりません。")
+        return
+        
+    sc = sc_list[0]
+    influences = cmds.skinCluster(sc, q=True, inf=True)
+
+    # 選択頂点に対して最も近い非選択頂点からウェイトをコピー
+    failed_vtx = []
+    max_dist2 = max_distance * max_distance
+    for v in sel_vtx:
+        # 座標を取得し隣接グリッドから座標を取得
+        pos = cmds.pointPosition(v, world=True)
+        key = grid_key(pos)
+        candidates = []
+        for offset_x in [-1, 0, 1]:
+            for offset_y in [-1, 0, 1]:
+                for offset_z in [-1, 0, 1]:
+                    k = (key[0]+offset_x, key[1]+offset_y, key[2]+offset_z)
+                    candidates.extend(grid.get(k, []))
+
+        # 隣接グリッドから取得した候補頂点から最も近い頂点を選択
+        min_dist2 = None
+        nearest = None
+        for vtx, coord in candidates:
+            dist2 = (pos[0]-coord[0])**2 + (pos[1]-coord[1])**2 + (pos[2]-coord[2])**2
+            if min_dist2 is None or dist2 < min_dist2:
+                min_dist2 = dist2
+                nearest = vtx
+
+        # 指定の距離よりも近い頂点が見つかった場合、ウェイトをコピーする
+        # 見つからなかった場合はコピー失敗頂点としてリストに追加する
+        if nearest and min_dist2 < max_dist2:
+            w = cmds.skinPercent(sc, nearest, q=True, value=True)
+            weight_list = list(zip(influences, w))
+            cmds.skinPercent(sc, v, transformValue=weight_list)
+        else:
+            failed_vtx.append(v)
+
+    # コピー失敗頂点を選択し、メッセージを表示
+    cmds.warning(f"コピー失敗: {len(failed_vtx)}/{len(sel_vtx)}")
+
+    if failed_vtx:
+        cmds.select(failed_vtx, replace=True)
+        
 ###################################################################################################
 ###################################################################################################
 # UI部
@@ -511,6 +587,12 @@ class NN_ToolWindow(object):
         cmds.button(l='paste_p', c=self.on_paste_possible)
         cmds.button(l='paste_f', c=self.on_paste_force)
         cmds.button(l='avg', c=self.on_average)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label="")
+        ui.button(label='copy from nearest', c=self.on_copy_from_nearest)
+        self.eb_max_distance = ui.eb_float(v=1.0)
         ui.end_layout()
 
         ui.row_layout()
@@ -646,6 +728,12 @@ class NN_ToolWindow(object):
     def on_average(self, *args):
         copy_weight()
         paste_weight_as_possible()
+
+    def on_copy_from_nearest(self, *args):
+        max_distance = ui.get_value(self.eb_max_distance)
+        if max_distance <= 0:
+            max_distance = 0.000001
+        copy_weights_from_nearest_unselected_vertex(max_distance=max_distance)
 
     def on_replace(self, *args):
         # 置換用文字列
