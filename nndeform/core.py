@@ -81,6 +81,7 @@ class NN_ToolWindow(object):
     def layout(self):
         """UI レイアウト."""
         ui.column_layout()
+        ui.text(label="=== Sine Deform ===")
 
         ui.row_layout()
         ui.header(label="Radial")
@@ -111,6 +112,8 @@ class NN_ToolWindow(object):
         ui.header(label="")
         ui.button(label="Clear Cache", c=self.on_clear_cache)
         ui.end_layout()
+
+        ui.separator(width=160, height=10)
 
         ui.end_layout()
 
