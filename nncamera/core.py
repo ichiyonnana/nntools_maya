@@ -199,6 +199,7 @@ class NN_ToolWindow(object):
         ui.row_layout()
         ui.button(label="LookThrough Parent", c=self.onLookThroughParent)
         ui.button(label="Create ImagePlane", c=self.onCreateImageplane)
+        ui.button(label="Create from All Images", c=self.onCreatefromAllImages)
         ui.end_layout()
 
         ui.end_layout()
@@ -496,6 +497,11 @@ class NN_ToolWindow(object):
 
         cmds.setAttr(ip_shape + ".alphaGain", 0.5)
         cmds.setAttr(ip_shape + ".colorGain", 0.5, 0.5, 0.5)
+
+    def onCreatefromAllImages(self, *args):
+        """imagesフォルダにある画像からイメージプレーンを作成する"""
+        import nnmisc.create_imageplanes
+        nnmisc.create_imageplanes.main()
 
     def onTearOff(self, *args):
         """"""
