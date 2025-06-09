@@ -322,7 +322,7 @@ def paste_weight_as_possible(selections=None):
     sc = get_skincluster(vts[0])
     for vtx in vts:
         weight_list = [(i, w) for i, w in weightclipboard.items()]
-        cmds.skinPercent(sc, vts, transformValue=weight_list)
+        cmds.skinPercent(sc, vtx, transformValue=weight_list)
 
 
 def paste_weight_force(selections=None):
