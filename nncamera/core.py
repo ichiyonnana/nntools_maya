@@ -80,7 +80,7 @@ def get_parent_camera(obj):
     splited_path = full_path_name.split("|")
     depth = len(splited_path)
 
-    for i in reversed(range(1, depth-1)):
+    for i in reversed(range(2, depth-1)):
         partial_path = "|".join(splited_path[0:i])
         camera_shapes = cmds.listRelatives(partial_path, shapes=True, type="camera", fullPath=True)
 
