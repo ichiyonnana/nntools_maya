@@ -80,7 +80,7 @@ def get_parent_camera(obj):
     splited_path = full_path_name.split("|")
     depth = len(splited_path)
 
-    for i in reversed(range(1, depth-1)):
+    for i in reversed(range(2, depth-1)):
         partial_path = "|".join(splited_path[0:i])
         camera_shapes = cmds.listRelatives(partial_path, shapes=True, type="camera", fullPath=True)
 
@@ -474,7 +474,7 @@ class NN_ToolWindow(object):
                 cmds.setAttr(ip_shape + ".displayOnlyIfCurrent", True)
                 cmds.connectAttr(camera_shape + ".message", ip_shape + ".lookThroughCamera", force=True)
 
-            cmds.imagePlane(ip_shape, e=True, lookThrough=camera_shape, showInAllViews=False)
+                cmds.imagePlane(ip_shape, e=True, lookThrough=camera_shape, showInAllViews=False)
 
     def onCreateImageplane(self, *args):
         """"""
