@@ -820,10 +820,10 @@ class NN_ToolWindow(object):
 
         # エッジ列ごとにペースト処理
         for edges in polylines:
-            target_vertices = conv_to_vtx(edges)
+            target_vertices = [x for x in conv_to_vtx(edges) if x not in self.ring_source_vertices]
             print("target vertices: ", target_vertices)
 
-            source_vertices = [x for x in self.ring_source_vertices if x in target_vertices]
+            source_vertices = [x for x in conv_to_vtx(edges) if x in self.ring_source_vertices]
             if not source_vertices:
                 print("No source vertices in selection")
                 continue
