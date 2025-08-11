@@ -214,7 +214,7 @@ def import_weight(objects=None, method=BM_BILINEAR, specified_name=None, unbind=
                     pm.select(obj, add=True)
                     for joint in nu.list_diff(influence_list, joints_not_exist):
                         pm.select(joint, add=True)
-                    skincluster = pm.skinCluster(tsb=True, mi=max_influence)
+                    skincluster = pm.skinCluster(tsb=True, mi=max_influence, obeyMaxInfluences=False)
 
                 except:
                     print("bind error: " + obj.name())
