@@ -123,7 +123,7 @@ def smooth_weights(protect_zero=True, protect_one=False, distance_weighted=True,
                 new_weights[weight_slice] = [nw * m for nw, m in zip(new_weights[weight_slice], influence_zero_mask)]
 
             # 平均化ターゲット以外のウェイトを元に戻す
-            if average_targets is not None:
+            if average_targets:
                 # インフルエンス名からインデックス取得
                 inf_names = [cmds.ls(inf, shortNames=True)[0] for inf in influences]
                 avg_indices = [ii for ii, name in enumerate(inf_names) if name in average_targets]
@@ -134,10 +134,11 @@ def smooth_weights(protect_zero=True, protect_one=False, distance_weighted=True,
                         idx = num_influences * vid + ii
                         new_weights[idx] = current_weights[idx]
 
-                # ウェイトのブレンド
-                for ii, name in enumerate(inf_names):
-                    idx = num_influences * vid + ii
-                    new_weights[idx] = (1.0-blend_alpha) * current_weights[idx] + blend_alpha * new_weights[idx]
+            # ウェイトのブレンド
+            inf_names = [cmds.ls(inf, shortNames=True)[0] for inf in influences]
+            for ii, name in enumerate(inf_names):
+                idx = num_influences * vid + ii
+                new_weights[idx] = (1.0-blend_alpha) * current_weights[idx] + blend_alpha * new_weights[idx]
 
             # ウェイトの正規化
             total_weight = sum(new_weights[weight_slice])
