@@ -10,7 +10,7 @@ import maya.api.OpenMayaAnim as oma
 import plugin_util.snapshotState as ss
 
 
-def smooth_weights(protect_zero=True, protect_one=False, distance_weighted=True, average_targets=None, normalize_targets=None):
+def smooth_weights(protect_zero=True, protect_one=False, distance_weighted=True, average_targets=None, normalize_targets=None, blend_alpha=1.0):
     """ウェイトを隣接頂点のウェイトの平均に設定する
 
     Args:
@@ -127,14 +127,17 @@ def smooth_weights(protect_zero=True, protect_one=False, distance_weighted=True,
                 # インフルエンス名からインデックス取得
                 inf_names = [cmds.ls(inf, shortNames=True)[0] for inf in influences]
                 avg_indices = [ii for ii, name in enumerate(inf_names) if name in average_targets]
+
+                # インフルエンス毎に反復して保護対象なら現在のウェイトで上書き
                 for ii, name in enumerate(inf_names):
                     if ii not in avg_indices:
-                        # 平均化対象外は元のウェイトで上書き
-                        for ii, name in enumerate(inf_names):
-                            if ii not in avg_indices:
-                                # 平均化対象外は元のウェイトで上書き
-                                idx = num_influences * vid + ii
-                                new_weights[idx] = current_weights[idx]
+                        idx = num_influences * vid + ii
+                        new_weights[idx] = current_weights[idx]
+
+                # ウェイトのブレンド
+                for ii, name in enumerate(inf_names):
+                    idx = num_influences * vid + ii
+                    new_weights[idx] = (1.0-blend_alpha) * current_weights[idx] + blend_alpha * new_weights[idx]
 
             # ウェイトの正規化
             total_weight = sum(new_weights[weight_slice])
@@ -153,6 +156,5 @@ def smooth_weights(protect_zero=True, protect_one=False, distance_weighted=True,
         fn_comp.addElements(list(range(fn_mesh.numVertices)))
         da_weights = om.MDoubleArray(new_weights)
 
-        # ウェイトの設定
         with ss.snapshot_state(targets=[target_object], normal=False, position=False, color=False, smooth=False, weight=True):
             fn_skin.setWeights(dag, all_vtx_comp, all_influences, da_weights)
