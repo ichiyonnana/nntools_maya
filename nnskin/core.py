@@ -10,6 +10,7 @@ import nnutil.core as nu
 import nnutil.ui as ui
 import nnutil.decorator as deco
 
+import nnskin.smooth_weights
 
 window_name = "NN_Skin"
 window = None
@@ -576,6 +577,27 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
         ui.row_layout()
+        ui.header(label="Smooth")
+        ui.text(label="Targets", width=ui.width(1.5))
+        self.eb_smooth_target = ui.eb_text(text="", width=ui.width(3.5))
+        ui.text(label="alpha", width=ui.width(1.5))
+        self.eb_smooth_blend = ui.eb_float(v=1.0, width=ui.width(1))
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label="")
+        self.cb_protect_zero = ui.check_box(label="Protect 0", v=False)
+        self.cb_protect_one = ui.check_box(label="Protect 1", v=False)
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label="")
+        ui.button(label="Smooth", width=ui.width(3), c=self.on_smooth)
+        ui.text(label="iterate", width=ui.width(1.5))
+        self.eb_iterate = ui.eb_int(v=1.0, min=1, max=10, width=ui.width(1.5))
+        ui.end_layout()
+
+        ui.row_layout()
         ui.header(label="RingCopy")
         ui.button(label="Set Ring Source", c=self.on_set_ring_source)
         ui.button(label="Ring Paste", c=self.on_ring_paste)
@@ -792,6 +814,27 @@ class NN_ToolWindow(object):
     def on_check_fractions(self, *args):
         import nnskin.check_weights_fractions
         nnskin.check_weights_fractions.main()
+
+    def on_smooth(self, *args):
+        """ウェイトのスムージング"""
+        protect_zero = ui.get_value(self.cb_protect_zero)
+        protect_one = ui.get_value(self.cb_protect_one)
+        distance_weighted = True
+        smooth_targets_text = ui.get_value(self.eb_smooth_target)
+        average_targets = smooth_targets_text.split(" ") if smooth_targets_text else None
+        normalize_targets = None
+        blend_alpha = ui.get_value(self.eb_smooth_blend)
+        iterate = ui.get_value(self.eb_iterate)
+
+        for _ in range(iterate):
+            nnskin.smooth_weights.smooth_weights(
+                protect_zero=protect_zero,
+                protect_one=protect_one,
+                distance_weighted=distance_weighted,
+                average_targets=average_targets,
+                normalize_targets=normalize_targets,
+                blend_alpha=blend_alpha
+                )
 
     def on_set_ring_source(self, *args):
         """Ring Paste のソースとなる頂点を保存する"""
