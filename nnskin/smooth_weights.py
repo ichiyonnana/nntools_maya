@@ -7,6 +7,8 @@ import maya.mel as mel
 import maya.api.OpenMaya as om
 import maya.api.OpenMayaAnim as oma
 
+import plugin_util.snapshotState as ss
+
 
 def smooth_weights(protect_zero=True, protect_one=False, distance_weighted=True, average_targets=None, normalize_targets=None):
     """ウェイトを隣接頂点のウェイトの平均に設定する
@@ -152,6 +154,5 @@ def smooth_weights(protect_zero=True, protect_one=False, distance_weighted=True,
         da_weights = om.MDoubleArray(new_weights)
 
         # ウェイトの設定
-        # TODO: API用にスナップショット
-        fn_skin.setWeights(dag, all_vtx_comp, all_influences, da_weights)
-        # TODO: API用にスナップショット
+        with ss.snapshot_state(targets=[target_object], normal=False, position=False, color=False, smooth=False, weight=True):
+            fn_skin.setWeights(dag, all_vtx_comp, all_influences, da_weights)
