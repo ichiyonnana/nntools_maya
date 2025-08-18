@@ -94,8 +94,6 @@ def smooth_weights(protect_zero=True, protect_one=False, distance_weighted=True,
                 vitr.next()
                 continue
 
-            print(vid)
-
             weight_slice = slice(num_influences*vid, num_influences*(vid+1))  # 該当頂点のウェイトを取得するスライス
             neighbor_vids = vitr.getConnectedVertices()  # 隣接頂点ID
 
@@ -130,10 +128,11 @@ def smooth_weights(protect_zero=True, protect_one=False, distance_weighted=True,
                 for ii, name in enumerate(inf_names):
                     if ii not in avg_indices:
                         # 平均化対象外は元のウェイトで上書き
-                        print(f"対象外インフルエンスのウェイトを復帰｡ vtx[{vid}], infname: {name}")
-                        print(f"    ({new_weights[weight_slice][ii]}) <=revert= {current_weights[weight_slice][ii]}")
-                        print()
-                        new_weights[weight_slice][ii] = current_weights[weight_slice][ii]
+                        for ii, name in enumerate(inf_names):
+                            if ii not in avg_indices:
+                                # 平均化対象外は元のウェイトで上書き
+                                idx = num_influences * vid + ii
+                                new_weights[idx] = current_weights[idx]
 
             # ウェイトの正規化
             total_weight = sum(new_weights[weight_slice])
@@ -156,6 +155,3 @@ def smooth_weights(protect_zero=True, protect_one=False, distance_weighted=True,
         # TODO: API用にスナップショット
         fn_skin.setWeights(dag, all_vtx_comp, all_influences, da_weights)
         # TODO: API用にスナップショット
-
-
-smooth_weights(protect_zero=False, protect_one=False, distance_weighted=True)
