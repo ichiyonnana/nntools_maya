@@ -565,11 +565,17 @@ def ari_uvratio_options():
 
 @nd.repeatable
 def unfold_u():
+    selection = cmds.ls(selection=True)
+    new_selection = cmds.polyListComponentConversion(selection, tuv=True)
+    cmds.select(new_selection, replace=True)
     mel.eval("unfold -i 5000 -ss 0.001 -gb 0 -gmb 0.5 -pub 0 -ps 0 -oa 2 -us off")
 
 
 @nd.repeatable
 def unfold_v():
+    selection = cmds.ls(selection=True)
+    new_selection = cmds.polyListComponentConversion(selection, tuv=True)
+    cmds.select(new_selection, replace=True)
     mel.eval("unfold -i 5000 -ss 0.001 -gb 0 -gmb 0.5 -pub 0 -ps 0 -oa 1 -us off")
 
 
