@@ -6,7 +6,7 @@ def rp(): return random.randint(0, 1000)
 subpaths = []
 for _ in range(20):
     points = [(rp(), rp()), (rp(), rp()), (rp(), rp()), (rp(), rp())]
-    subpaths.append(SubPath([Point(x, y) for x, y in points]))
+    subpaths.append(SubPath([UVCoord(u, v) for u, v in points]))
 
 shape = Shape(subpaths)
 create_shape_with_photoshop([shape])
@@ -16,16 +16,16 @@ import subprocess
 import tempfile
 
 
-class Point:
-    """2次元座標点を表すクラス。
+class UVCoord:
+    """UV座標を表すクラス。
 
     Args:
-        x (float): X座標
-        y (float): Y座標
+        u (float): U座標
+        v (float): V座標
     """
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
+    def __init__(self, u, v):
+        self.u = u
+        self.v = v
 
 
 class SubPath:
@@ -58,7 +58,7 @@ def make_points_block(points):
     """
     points_block = ""
     for point in points:
-        points_block += f"points.push(xy({point.x},{point.y}));\n"
+        points_block += f"points.push(convertUvToXy({point.u},{point.v}, width, height));\n"
     return points_block
 
 
@@ -96,7 +96,9 @@ def make_jsx_code(shapes):
         str: JSXコード全体
     """
     jsx_code = r"""
-        function xy(x, y){
+        function convertUvToXy(u, v, width, height){
+            var x = u * width;
+            var y = (1 - v) * height;
             var pObj = new PathPointInfo(); // パス情報オブジェクトを作成
             pObj.kind = PointKind.CORNERPOINT;
             pObj.anchor = [x, y];   // アンカー座標
@@ -107,6 +109,8 @@ def make_jsx_code(shapes):
 
         var doc = app.activeDocument;
         var activeLayer = doc.activeLayer;
+        var width = doc.width.as('px');
+        var height = doc.height.as('px');
     """
 
     for shape in shapes:
