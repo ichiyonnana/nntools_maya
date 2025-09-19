@@ -68,6 +68,17 @@ def group_uvs_by_shell(fn_mesh, face_uvs):
     return shellid_to_uvids
 
 
+def get_uvs_from_vertex(fn_mesh, vid):
+    """指定頂点IDが持つ全てのUVインデックスを取得"""
+    uvids = set()
+    for fid in range(fn_mesh.numPolygons):
+        verts = fn_mesh.getPolygonVertices(fid)
+        for i, v in enumerate(verts):
+            if v == vid:
+                uvids.add(fn_mesh.getPolygonUVid(fid, i))
+    return list(uvids)
+
+
 def get_shell_uv_border(fn_mesh, shellid_to_uvs, fid_to_uvs, target_face_ids):
     """
     指定したフェースがもつ UV 空間でのボーダーを取得する関数。
@@ -89,7 +100,7 @@ def get_shell_uv_border(fn_mesh, shellid_to_uvs, fid_to_uvs, target_face_ids):
     edge_components = cmds.polyListComponentConversion(face_strs, toEdge=True)
     edge_components = cmds.ls(edge_components, flatten=True) if edge_components else []
 
-    # ボーダーエッジのみ取得
+    # 3D空間でのボーダーエッジのみ取得
     border_edge_components = cmds.polyListComponentConversion(face_strs, toEdge=True, border=True)
     border_edge_components = cmds.ls(border_edge_components, flatten=True) if border_edge_components else []
     border_edge_ids = set()
@@ -98,7 +109,7 @@ def get_shell_uv_border(fn_mesh, shellid_to_uvs, fid_to_uvs, target_face_ids):
         if m:
             border_edge_ids.add(int(m.group(1)))
 
-    # テクスチャボーダーエッジのみ取得
+    # UV空間でのボーダーエッジのみ取得
     tex_border_edge_ids = set()
     for ec in edge_components:
         m = re.search(r"\.e\[(\d+)\]", ec)
@@ -108,46 +119,46 @@ def get_shell_uv_border(fn_mesh, shellid_to_uvs, fid_to_uvs, target_face_ids):
         # エッジのUV情報を取得
         tuv = cmds.polyListComponentConversion(f"{mesh_name}.e[{eid}]", fromEdge=True, toUV=True)
         tuv = cmds.ls(tuv, flatten=True) if tuv else []
-        if len(tuv) == 4:
+        if len(tuv) > 2:
             tex_border_edge_ids.add(eid)
 
-    # UV空間でのボーダーエッジのIDセット
+    # 対象フェースの3DもしくはUVで境界となるエッジIDの集合
     all_border_edge_ids = border_edge_ids | tex_border_edge_ids
 
-    # UVに分解しシェルごとに整理
+    # 返す値
     shellid_to_border_uvids = dict()
     shellid_to_uvedges = dict()
-    uv_shell_ids = fn_mesh.getUvShellsIds()[1]
-
     for shell_id in shellid_to_uvs:
         shellid_to_border_uvids[shell_id] = set()
         shellid_to_uvedges[shell_id] = set()
 
-    # UVエッジに再構成しシェル毎にまとめる
+    # エッジ毎に処理
     for eid in all_border_edge_ids:
         # エッジに接続するフェースを取得
         edge_iter = om.MItMeshEdge(fn_mesh.object())
         edge_iter.setIndex(eid)
         connected_faces = edge_iter.getConnectedFaces()
-        # 各フェースでのUVインデックスを取得
+
+        # エッジを構成する頂点の頂点インデックスを取得
+        vid1 = edge_iter.vertexId(0)
+        vid2 = edge_iter.vertexId(1)
+
+        # 頂点IDからUVIDを取得
+        uvs = get_uvs_from_vertex(fn_mesh, vid1) + get_uvs_from_vertex(fn_mesh, vid2)
+
+        uv_shell_ids = fn_mesh.getUvShellsIds()[1]
+
+        # フェース毎に処理
         for fid in connected_faces:
             if fid not in fid_to_uvs:
                 continue
-            uvlist = fid_to_uvs[fid]
-            verts = fn_mesh.getPolygonVertices(fid)
-            num_verts = len(verts)
-            for i in range(num_verts):
-                v1 = verts[i]
-                v2 = verts[(i+1) % num_verts]
-                if set([v1, v2]) == set([edge_iter.vertexId(0), edge_iter.vertexId(1)]):
-                    uvi1 = uvlist[i]
-                    uvi2 = uvlist[(i+1) % num_verts]
-                    shell_id1 = uv_shell_ids[uvi1]
-                    shell_id2 = uv_shell_ids[uvi2]
-                    if shell_id1 == shell_id2:
-                        shellid_to_border_uvids[shell_id1].add(uvi1)
-                        shellid_to_border_uvids[shell_id1].add(uvi2)
-                        shellid_to_uvedges[shell_id1].add(UVEdge(uvi1, uvi2))
+
+            shell_id = uv_shell_ids[fid_to_uvs[fid][0]]
+            uvid1, uvid2 = set(fid_to_uvs[fid]) & set(uvs)
+
+            shellid_to_border_uvids[shell_id].add(uvid1)
+            shellid_to_border_uvids[shell_id].add(uvid2)
+            shellid_to_uvedges[shell_id].add(UVEdge(uvid1, uvid2))
 
     return shellid_to_border_uvids, shellid_to_uvedges
 
