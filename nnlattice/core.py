@@ -149,8 +149,7 @@ def add_lattice_menber(lattice=None, targets=None):
         ffd = cmds.listConnections(shape, type="ffd")[0]
 
     # メンバーの追加
-    object_set = [x for x in cmds.listConnections(ffd) if cmds.objectType(x, isType="objectSet")][0]
-    cmds.sets(targets, add=object_set)
+    cmds.deformer(ffd, e=True, geometry=targets)
 
 
 def get_lattice_menber(lattice):
@@ -175,8 +174,7 @@ def get_lattice_menber(lattice):
         ffd = cmds.listConnections(nu.get_shape(lattice), type="ffd")[0]
 
     # メンバーの取得
-    object_set = [x for x in cmds.listConnections(ffd) if cmds.objectType(x, isType="objectSet")][0]
-    members = [nu.get_object(x) for x in cmds.sets(object_set, q=True)]
+    members = cmds.deformer(ffd, q=True, geometry=True)
 
     return members
 
