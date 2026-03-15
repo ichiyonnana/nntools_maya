@@ -74,7 +74,21 @@ def curve_function(x, mode, formula=None):
 
     if mode == "formula":
         def f(x):
-            return eval(formula)
+            variables = {
+                "x": x,
+                "xi": 1.0-x,
+                't': x * math.pi * 2,
+                'sin': math.sin,
+                'cos': math.cos,
+                'tan': math.tan,
+                'pi': math.pi,
+                'sqrt': math.sqrt,
+                'asin': math.asin,
+                'acos': math.acos,
+                'atan': math.atan
+            }
+
+            return eval(formula, variables)
 
         y_min = float('inf')
         y_max = float('-inf')
@@ -549,15 +563,15 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label="Set")
-        cmds.button(l='End (Avg)', c=self.on_set_end_point)
-        cmds.button(l='End (Multi)', c=self.on_set_multi_end_point)
+        cmds.button(l='End (Avg)', width=ui.width(2.5), c=self.on_set_end_point)
+        cmds.button(l='End (Multi)', width=ui.width(2.5), c=self.on_set_multi_end_point)
         ui.end_layout()
 
         ui.row_layout()
         ui.header(label="Linearize")
-        cmds.button(l='Specified', c=self.on_linearize_specified)
+        cmds.button(l='Specified', width=ui.width(2), c=self.on_linearize_specified)
         cmds.button(l='End to End')
-        cmds.button(l='Farthest', c=self.on_linearize_farthest)
+        cmds.button(l='Farthest', width=ui.width(2), c=self.on_linearize_farthest)
         ui.end_layout()
 
         ui.row_layout()
@@ -565,23 +579,20 @@ class NN_ToolWindow(object):
         self.rbc_mode = ui.radio_collection()
         ui.radio_button(label="Linear", width=ui.width(2), select=True)
         ui.radio_button(label="Cosine", width=ui.width(2))
-        ui.radio_button(label="Gaussian", width=ui.width(2))
-        ui.radio_button(label="Formula", width=ui.width(2))
+        ui.radio_button(label="Formula", width=ui.width(2.5))
         ui.end_layout()  # radio_collection
         ui.end_layout()
 
         ui.row_layout()
         ui.header(label="Formula")
         ui.text(label="f(x) = ", width=ui.width(1.5))
-        self.eb_formula = ui.eb_text(text="", width=ui.width(6))
+        self.eb_formula = ui.eb_text(text="", width=ui.width(5.5))
         ui.end_layout()
 
         ui.row_layout()
         ui.header(label="Smooth")
         ui.text(label="Targets", width=ui.width(1.5))
-        self.eb_smooth_target = ui.eb_text(text="", width=ui.width(3.5))
-        ui.text(label="alpha", width=ui.width(1.5))
-        self.eb_smooth_blend = ui.eb_float(v=1.0, width=ui.width(1))
+        self.eb_smooth_target = ui.eb_text(text="", width=ui.width(5.5))
         ui.end_layout()
 
         ui.row_layout()
@@ -592,9 +603,15 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label="")
-        ui.button(label="Smooth", width=ui.width(3), c=self.on_smooth)
         ui.text(label="iterate", width=ui.width(1.5))
-        self.eb_iterate = ui.eb_int(v=1.0, min=1, max=10, width=ui.width(1.5))
+        self.eb_iterate = ui.eb_int(v=1.0, min=1, max=10, width=ui.width(1))
+        ui.text(label="alpha", width=ui.width(1.5))
+        self.eb_smooth_blend = ui.eb_float(v=1.0, width=ui.width(1))
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label="")
+        ui.button(label="Smooth", width=ui.width(3), c=self.on_smooth)
         ui.end_layout()
 
         ui.row_layout()
@@ -626,8 +643,12 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label="Replace")
-        self.eb_replace_before = ui.eb_text(width=ui.width(3))
-        self.eb_replace_after = ui.eb_text(width=ui.width(3))
+        self.eb_replace_before = ui.eb_text(width=ui.width(5))
+        ui.end_layout()
+
+        ui.row_layout()
+        ui.header(label="")
+        self.eb_replace_after = ui.eb_text(width=ui.width(5))
         ui.button(label="Replace", c=self.on_replace)
         ui.end_layout()
 
