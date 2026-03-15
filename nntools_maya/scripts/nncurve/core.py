@@ -272,13 +272,13 @@ class NN_ToolWindow(object):
         ui.button(label='Active', c=self.onSetActive, width=ui.width(2))
         ui.button(label='Fit to Curve', c=self.onFitActive, width=ui.width(2.5))
         ui.button(label='Smooth', c=self.onSmoothActive, width=ui.width(2.5))
+        ui.button(label='Remake', c=self.onReMakeCurve, width=ui.width(2.5))
         ui.end_layout()
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='Remake', c=self.onReMakeCurve, width=ui.width(2.5))
-        ui.button(label='Reassign', c=self.onReAssignEdges, width=ui.width(2.5))
-        ui.end_layout()
+        #ui.row_layout()
+        #ui.header(label='')
+        #ui.button(label='Reassign', c=self.onReAssignEdges, width=ui.width(2.5))
+        #ui.end_layout()
 
         ui.row_layout()
         ui.header(label="")
@@ -305,7 +305,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Selected')
-        ui.button(label='Fit', c=self.onFitSelection)
+        ui.button(label='Fit', c=self.onFitSelection, width=ui.width(2))
         ui.button(label='Rebuild [Op]', c=self.onRebuildSelection, dgc=self.onRebuildOp, width=ui.width(2.8))
         ui.button(label='Smooth [Op]', c=self.onSmoothSelection, dgc=self.onSmoothOp, width=ui.width(2.8))
         ui.end_layout()
@@ -314,8 +314,9 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label='Select')
-        ui.button(label='All', c=self.onSelectAll)
-        ui.button(label='Visible [invis]', c=self.onSelectVisible, dgc=self.onSelectInvisible)
+        ui.button(label='All', c=self.onSelectAll, width=ui.width(2))
+        ui.button(label='Visible [invis]', c=self.onSelectVisible, dgc=self.onSelectInvisible, width=ui.width(2.8))
+        ui.button(label='1stCV', c=self.onSelect1stCV)
         ui.end_layout()
 
         ui.separator(width=window_width)
@@ -652,6 +653,22 @@ class NN_ToolWindow(object):
         all_curves = getAllCurves()
         invisible_curves = [c for c in all_curves if not cmds.getAttr(c+".visibility")]
         cmds.select(invisible_curves)
+
+    def onSelect1stCV(self, *args):
+        """
+        最初のCVのみ選択する
+        """
+        curves = [x for x in cmds.ls(selection=True) if isValid(x)]
+
+        first_cvs = []
+
+        for curve in curves:
+            first_cvs.append(curve + ".cv[0]")
+
+        cmds.selectMode(component=True)
+        cmds.selectType(controlVertex=True)
+        cmds.select(first_cvs, replace=True)
+        print(first_cvs)
 
     def onEnableDrawOnTop(self, *args):
         selections = nu.get_selection()
