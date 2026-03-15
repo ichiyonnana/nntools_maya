@@ -3,6 +3,7 @@ Maya 向けモデリング補助ツールです｡
 
 # Installation
 install.bat を実行してください。
+
 実行には PyMEL が必要です｡ PyMEL を簡単にインストールするスクリプトを用意してあります→ [pymel_installer](https://github.com/ichiyonnana/pymel_installer)
 
 PyMEL はいずれ不要にする予定です。
