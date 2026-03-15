@@ -22,7 +22,7 @@ def make_curve_from_edges(edges, n=4):
     """ [pm] エッジからカーブを生成する
 
     エッジ列からカーブを生成して､カーブを返す
-    エッジ列がひとつながりでない場合はどれか一つだけがカーブ生成される (polyToCurve の振る舞いに従う) 
+    エッジ列がひとつながりでない場合はどれか一つだけがカーブ生成される (polyToCurve の振る舞いに従う)
     複数カーブが必要な場合､エッジ列の適切な分割は関数の外で行い複数回呼ぶ
 
     Args:
@@ -97,7 +97,7 @@ def fit_vertices_to_curve(vertices, curve, keep_ratio=True, multiplier=1.0,  aut
     # 最初の頂点がカーブの始点より終点に近ければカーブ方向が逆と判断してカーブを反転させる
     if auto_reverse:
         match_direction(curve, vertices)
-    
+
     if keep_ratio:
         length_list = [0] + core.length_each_vertices(vertices)
         total_path = sum(length_list)
@@ -114,7 +114,7 @@ def fit_vertices_to_curve(vertices, curve, keep_ratio=True, multiplier=1.0,  aut
     # 実際のコンポーネント移動
     for i in range(len(vertices)):
         vertices[i].setPosition(new_positions[i], space=space)
-        
+
     pm.select(current_selections, replace=True)
 
 
@@ -138,7 +138,7 @@ def fit_vertices_to_curve_lerp(vertices, curve1, curve2, alpha, keep_ratio=True,
     if auto_reverse:
         match_direction(curve1, vertices)
         match_direction(curve2, vertices)
-    
+
     if keep_ratio:
         length_list = [0] + core.length_each_vertices(vertices)
         total_path = sum(length_list)
@@ -157,7 +157,7 @@ def fit_vertices_to_curve_lerp(vertices, curve1, curve2, alpha, keep_ratio=True,
     for i in range(len(vertices)):
         new_position = new_positions1[i] * (1.0-alpha) + new_positions2[i] * alpha
         vertices[i].setPosition(new_position, space=space)
-        
+
     pm.select(current_selections, replace=True)
 
 
@@ -178,7 +178,7 @@ def match_direction(curve, vertices, space="world"):
     curve_first_point = curve.getPointAtParam(param=0, space=space)
     curve_last_point = curve.getPointAtParam(param=1, space=space)
     first_vertex_point = vertices[0].getPosition(space=space)
-    
+
     if (curve_last_point - first_vertex_point).length() < (curve_first_point - first_vertex_point).length():
         curve.reverse()
         return True

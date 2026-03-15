@@ -37,10 +37,10 @@ def simplify_edges(edges=None, span=4, keep_ratio=True):
         edges: 簡略化対象のエッジ列
         span: 簡略化に使用するカーブのスパン数｡ 0 で直線､ n で n+2 のスパン数になる
     """
-    
+
     if not edges:
         edges = [x for x in pm.selected(flatten=True) if type(x) == pm.MeshEdge]
-    
+
     if not edges:
         return
 
@@ -49,7 +49,7 @@ def simplify_edges(edges=None, span=4, keep_ratio=True):
     span_c = math.ceil(span)
 
     for i, target_edges in enumerate(edges_list):
-                
+
         if span_f == span_c:
             print("fast mode")
             curve1 = nc.make_curve_from_edges(target_edges, n=span_f)
@@ -83,7 +83,7 @@ def smooth_edges(edges=None, span=4, smooth=1, keep_ratio=True):
     """
     if not edges:
         edges = [x for x in pm.selected(flatten=True) if type(x) == pm.MeshEdge]
-    
+
     if not edges:
         return
 
@@ -116,7 +116,7 @@ def equalize_edges(edges=None, multiplier=1.0):
 
     if not edges:
         return
-        
+
     span = equalize_span
 
     edges_list = nu.get_all_polylines(edges)
@@ -126,9 +126,9 @@ def equalize_edges(edges=None, multiplier=1.0):
         curve = nc.make_curve_from_edges(edges, n=span)
         vertices = nu.sort_vertices(nu.to_vtx(edges, pn=True))
         nc.match_direction(curve, vertices)
-        nc.fit_vertices_to_curve(vertices, curve, keep_ratio=False, multiplier=multiplier)        
+        nc.fit_vertices_to_curve(vertices, curve, keep_ratio=False, multiplier=multiplier)
         pm.delete(curve)
-        
+
     print("finish")
 
 
@@ -193,14 +193,14 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.button(label="Smooth", c=self.onSmooth)
-        self.smooth_slider = ui.float_slider(min=0, max=self.max_smooth, value=self.max_smooth/2, step=1, 
+        self.smooth_slider = ui.float_slider(min=0, max=self.max_smooth, value=self.max_smooth/2, step=1,
                                              dc=self.onUpdateSmoothSlider, cc=self.onChangeSmoothSlider, width=ui.button_width5)
         self.smooth_label = ui.text(label=str(self.max_smooth/2), width=ui.button_width2)
         ui.end_layout()
 
         ui.row_layout()
         ui.button(label="Equalize", c=self.onEqualize, dgc=self.onEqualizeReverse)
-        self.equalize_slider = ui.float_slider(min=0.5, max=1.0, value=1.0, step=0.1, 
+        self.equalize_slider = ui.float_slider(min=0.5, max=1.0, value=1.0, step=0.1,
                                                dc=self.onUpdateEqualizeSlider, cc=self.onChangeEqualizeSlider, width=ui.button_width5)
         self.equalize_label = ui.text(label=1.0, width=ui.button_width2)
         ui.end_layout()
@@ -233,7 +233,7 @@ class NN_ToolWindow(object):
         multiplier = ui.get_value(self.equalize_slider)
         equalize_edges(multiplier=1/multiplier)
 
-    def updateLabel(self, *args): 
+    def updateLabel(self, *args):
         """ 現在のスライダーの値でラベルを更新 """
         v = ui.get_value(self.simplify_slider)
         v = round(v, 1)
@@ -255,7 +255,7 @@ class NN_ToolWindow(object):
         if mods & 1:
             v = ui.get_value(self.simplify_slider)
             ui.set_value(self.simplify_slider, round(v, 0))
-            
+
         self.updateLabel()
 
     def onChangeSimplifySlider(self, *args):
