@@ -292,13 +292,13 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label="Options")
-        self.cb_keep_ratio_mode = cmds.checkBox(l='keep ratio', v=True, cc=self.onSetKeepRatio)
+        self.cb_keep_ratio_mode = cmds.checkBox(l='Keep Ratio', v=True, cc=self.onSetKeepRatio)
         ui.end_layout()
 
         ui.row_layout()
         ui.header(label="")
-        self.cb_surface_constraint = cmds.checkBox(l='surface constraint', v=False, cc=self.onSetSurfaceConstraint)
-        self.cb_preserve_uv = cmds.checkBox(l='preserve uv', v=False, cc=self.onSetPreserveUV)
+        self.cb_surface_constraint = cmds.checkBox(l='Surface Constraint', v=False, cc=self.onSetSurfaceConstraint)
+        self.cb_preserve_uv = cmds.checkBox(l='Preserve UVs', v=False, cc=self.onSetPreserveUV)
         ui.end_layout()
 
         ui.separator(width=window_width)
