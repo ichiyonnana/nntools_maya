@@ -30,12 +30,14 @@ smooth_span = 16
 
 
 @nu.no_warning
-def simplify_edges(edges=None, span=4, keep_ratio=True):
+def simplify_edges(edges=None, span=4, keep_ratio=True, surface_constraint=False, preserve_uv=False):
     """ 指定した連続エッジの形状を簡略化する
 
     Args:
         edges: 簡略化対象のエッジ列
         span: 簡略化に使用するカーブのスパン数｡ 0 で直線､ n で n+2 のスパン数になる
+        surface_constraint: True でサーフェスに拘束して移動する
+        preserve_uv: True で UV を保持して移動する
     """
 
     if not edges:
@@ -55,7 +57,7 @@ def simplify_edges(edges=None, span=4, keep_ratio=True):
             curve1 = nc.make_curve_from_edges(target_edges, n=span_f)
             vertices = nu.sort_vertices(nu.to_vtx(target_edges, pn=True))
             nc.match_direction(curve1, vertices)
-            nc.fit_vertices_to_curve(vertices, curve=curve1, keep_ratio=keep_ratio)
+            nc.fit_vertices_to_curve(vertices, curve=curve1, keep_ratio=keep_ratio, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
             pm.delete(curve1)
 
         else:
@@ -65,7 +67,7 @@ def simplify_edges(edges=None, span=4, keep_ratio=True):
             vertices = nu.sort_vertices(nu.to_vtx(target_edges, pn=True))
             nc.match_direction(curve1, vertices)
             nc.match_direction(curve2, vertices)
-            nc.fit_vertices_to_curve_lerp(vertices, curve1=curve1, curve2=curve2, alpha=alpha, keep_ratio=keep_ratio)
+            nc.fit_vertices_to_curve_lerp(vertices, curve1=curve1, curve2=curve2, alpha=alpha, keep_ratio=keep_ratio, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
             pm.delete(curve1)
             pm.delete(curve2)
 
@@ -73,13 +75,15 @@ def simplify_edges(edges=None, span=4, keep_ratio=True):
 
 
 @nu.no_warning
-def smooth_edges(edges=None, span=4, smooth=1, keep_ratio=True):
+def smooth_edges(edges=None, span=4, smooth=1, keep_ratio=True, surface_constraint=False, preserve_uv=False):
     """ 指定した連続エッジの形状を平滑化する
 
     Args:
         edges: 平滑化対象のエッジ列
         span: 簡略化に使用するカーブのスパン数｡ 0 で直線､ n で n+2 のスパン数になる
         smooth: スムースの反復回数
+        surface_constraint: True でサーフェスに拘束して移動する
+        preserve_uv: True で UV を保持して移動する
     """
     if not edges:
         edges = [x for x in pm.selected(flatten=True) if type(x) == pm.MeshEdge]
@@ -96,7 +100,7 @@ def smooth_edges(edges=None, span=4, smooth=1, keep_ratio=True):
         pm.smoothCurve(cv_str, ch=1, rpo=1, s=smooth)
         vertices = nu.sort_vertices(nu.to_vtx(target_edges, pn=True))
         nc.match_direction(curve, vertices)
-        nc.fit_vertices_to_curve(vertices, curve, keep_ratio=keep_ratio)
+        nc.fit_vertices_to_curve(vertices, curve, keep_ratio=keep_ratio, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
         pm.delete(curve)
 
     pm.select(edges, replace=True)
@@ -104,12 +108,14 @@ def smooth_edges(edges=None, span=4, smooth=1, keep_ratio=True):
 
 
 @nu.no_warning
-def equalize_edges(edges=None, multiplier=1.0):
+def equalize_edges(edges=None, multiplier=1.0, surface_constraint=False, preserve_uv=False):
     """ 指定したエッジの間隔を均一にする
 
     Argas:
         edges (list[MeshEdge]): 均一化対象のエッジ列
         multiplier (float, optinal): エッジ長の比率の指数
+        surface_constraint: True でサーフェスに拘束して移動する
+        preserve_uv: True で UV を保持して移動する
     """
     if not edges:
         edges = [x for x in pm.selected(flatten=True) if type(x) == pm.MeshEdge]
@@ -126,7 +132,7 @@ def equalize_edges(edges=None, multiplier=1.0):
         curve = nc.make_curve_from_edges(edges, n=span)
         vertices = nu.sort_vertices(nu.to_vtx(edges, pn=True))
         nc.match_direction(curve, vertices)
-        nc.fit_vertices_to_curve(vertices, curve, keep_ratio=False, multiplier=multiplier)
+        nc.fit_vertices_to_curve(vertices, curve, keep_ratio=False, multiplier=multiplier, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
         pm.delete(curve)
 
     print("finish")
@@ -205,13 +211,20 @@ class NN_ToolWindow(object):
         self.equalize_label = ui.text(label=1.0, width=ui.button_width2)
         ui.end_layout()
 
+        ui.row_layout()
+        self.cb_surface_constraint = ui.check_box(label="Surface Constraint", value=True, width=ui.width(4.5), height=ui.height(1))
+        self.cb_preserve_uv = ui.check_box(label="Preserve UVs", value=True, width=ui.width(4.5), height=ui.height(1))
+        ui.end_layout()
+
         ui.end_layout()
 
     @nu.undo_chunk
     def onSimplify(self, *args):
         """ Simplify の実行 """
         span = ui.get_value(self.simplify_slider)
-        simplify_edges(edges=None, span=span)
+        surface_constraint = ui.get_value(self.cb_surface_constraint)
+        preserve_uv = ui.get_value(self.cb_preserve_uv)
+        simplify_edges(edges=None, span=span, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
         self.last_simplify_span = span
 
     @nu.undo_chunk
@@ -219,19 +232,25 @@ class NN_ToolWindow(object):
         """ Smooth の実行 """
         span = smooth_span
         smooth = ui.get_value(self.smooth_slider)
-        smooth_edges(edges=None, span=span, smooth=smooth)
+        surface_constraint = ui.get_value(self.cb_surface_constraint)
+        preserve_uv = ui.get_value(self.cb_preserve_uv)
+        smooth_edges(edges=None, span=span, smooth=smooth, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
 
     @nu.undo_chunk
     def onEqualize(self, *args):
         """ エッジ間隔の均一化 """
         multiplier = ui.get_value(self.equalize_slider)
-        equalize_edges(multiplier=multiplier)
+        surface_constraint = ui.get_value(self.cb_surface_constraint)
+        preserve_uv = ui.get_value(self.cb_preserve_uv)
+        equalize_edges(multiplier=multiplier, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
 
     @nu.undo_chunk
     def onEqualizeReverse(self, *args):
         """ エッジ間隔の均一化 """
         multiplier = ui.get_value(self.equalize_slider)
-        equalize_edges(multiplier=1/multiplier)
+        surface_constraint = ui.get_value(self.cb_surface_constraint)
+        preserve_uv = ui.get_value(self.cb_preserve_uv)
+        equalize_edges(multiplier=1/multiplier, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
 
     def updateLabel(self, *args):
         """ 現在のスライダーの値でラベルを更新 """
