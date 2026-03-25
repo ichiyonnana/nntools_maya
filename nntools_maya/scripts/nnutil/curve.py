@@ -80,7 +80,7 @@ def get_points_at_params(curve, params, space="world"):
     return points
 
 
-def fit_vertices_to_curve(vertices, curve, keep_ratio=True, multiplier=1.0,  auto_reverse=True, space="world"):
+def fit_vertices_to_curve(vertices, curve, keep_ratio=True, multiplier=1.0, auto_reverse=True, space="world", surface_constraint=False, preserve_uv=False):
     """ [pm] 頂点リストをカーブの形状に合わせる
 
     Args:
@@ -89,10 +89,13 @@ def fit_vertices_to_curve(vertices, curve, keep_ratio=True, multiplier=1.0,  aut
         keep_ratio (bool, optional): True で元の頂点間の比率を維持し､ False で均一化する｡ Defaults to True.
         multiplier (float): keep_ratio=False 時に使用される｡ n番目の長さと n+1番目の長さの比率｡ 1.0 で均等
         auto_reverse (bool, optional): 頂点の並び順とカーブの方向が不一致の場合に自動で調整する
+        surface_constraint (bool, optional): True でサーフェスに拘束して移動する
+        preserve_uv (bool, optional): True で UV を保持して移動する
     """
     current_selections = pm.selected(flatten=True)
 
     params = []
+    xformConstraint = "surface" if surface_constraint else "none"
 
     # 最初の頂点がカーブの始点より終点に近ければカーブ方向が逆と判断してカーブを反転させる
     if auto_reverse:
@@ -113,12 +116,12 @@ def fit_vertices_to_curve(vertices, curve, keep_ratio=True, multiplier=1.0,  aut
 
     # 実際のコンポーネント移動
     for i in range(len(vertices)):
-        vertices[i].setPosition(new_positions[i], space=space)
+        cmds.move(*new_positions[i], str(vertices[i]), ws=True, absolute=True, xformConstraint=xformConstraint, preserveUV=preserve_uv)
 
     pm.select(current_selections, replace=True)
 
 
-def fit_vertices_to_curve_lerp(vertices, curve1, curve2, alpha, keep_ratio=True, multiplier=1.0, auto_reverse=True, space="world"):
+def fit_vertices_to_curve_lerp(vertices, curve1, curve2, alpha, keep_ratio=True, multiplier=1.0, auto_reverse=True, space="world", surface_constraint=False, preserve_uv=False):
     """ [pm] 頂点リストを複数のカーブを合成した形状に合わせる
 
     Args:
@@ -129,10 +132,13 @@ def fit_vertices_to_curve_lerp(vertices, curve1, curve2, alpha, keep_ratio=True,
         keep_ratio (bool, optional): True で元の頂点間の比率を維持し､ False で均一化する｡ Defaults to True.
         multiplier (float): keep_ratio=False 時に使用される｡ n番目の長さと n+1番目の長さの比率｡ 1.0 で均等
         auto_reverse (bool, optional): 頂点の並び順とカーブの方向が不一致の場合に自動で調整する
+        surface_constraint (bool, optional): True でサーフェスに拘束して移動する
+        preserve_uv (bool, optional): True で UV を保持して移動する
     """
     current_selections = pm.selected(flatten=True)
 
     params = []
+    xformConstraint = "surface" if surface_constraint else "none"
 
     # 最初の頂点がカーブの始点より終点に近ければカーブ方向が逆と判断してカーブを反転させる
     if auto_reverse:
@@ -156,7 +162,7 @@ def fit_vertices_to_curve_lerp(vertices, curve1, curve2, alpha, keep_ratio=True,
     # 実際のコンポーネント移動
     for i in range(len(vertices)):
         new_position = new_positions1[i] * (1.0-alpha) + new_positions2[i] * alpha
-        vertices[i].setPosition(new_position, space=space)
+        cmds.move(*new_position, str(vertices[i]), ws=True, absolute=True, xformConstraint=xformConstraint, preserveUV=preserve_uv)
 
     pm.select(current_selections, replace=True)
 

@@ -107,11 +107,11 @@ def makeCurve(edges, n=4):
     return [curve, edges]
 
 
-def alignEdgesOnCurve(edges, curve, keep_ratio_mode=True, surface_constraint=False, preserve_uv=False, n=4):
+def alignEdgesOnCurve(edges, curve, equalize_mode=False, surface_constraint=False, preserve_uv=False, n=4):
     """
     edges 編集するエッジ
     curve 整形に使用するカーブ
-    keep_ratio_mode Trueなら元のエッジの長さの比率を維持する, False なら頂点をカーブ上に均等配置する
+    equalize_mode Trueなら頂点をカーブ上に均等配置する, False なら元のエッジの長さの比率を維持する
     """
     if surface_constraint:
         xformConstraint = "surface"
@@ -145,16 +145,16 @@ def alignEdgesOnCurve(edges, curve, keep_ratio_mode=True, surface_constraint=Fal
     # 各頂点の移動先の座標を計算
     new_positions = []
 
-    if keep_ratio_mode:
-        # 頂点列間の比率を維持してカーブに再配置
-        for i in range(len(sorted_vts)):
-            u = nu.vtxListPath(sorted_vts, i)/nu.vtxListPath(sorted_vts)
-            new_positions.append(cmds.pointOnCurve(target_curve, pr=u, p=True))
-
-    else:  # even space mode
+    if equalize_mode:
         # 頂点列間の比率を無視してカーブに等間隔で配置
         for i in range(len(sorted_vts)):
             u = float(i)/(len(sorted_vts)-1)
+            new_positions.append(cmds.pointOnCurve(target_curve, pr=u, p=True))
+
+    else:  # keep ratio mode
+        # 頂点列間の比率を維持してカーブに再配置
+        for i in range(len(sorted_vts)):
+            u = nu.vtxListPath(sorted_vts, i)/nu.vtxListPath(sorted_vts)
             new_positions.append(cmds.pointOnCurve(target_curve, pr=u, p=True))
 
     # 実際のコンポーネント移動
@@ -292,13 +292,13 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label="Options")
-        self.cb_keep_ratio_mode = cmds.checkBox(l='keep ratio', v=True, cc=self.onSetKeepRatio)
+        self.cb_equalize = cmds.checkBox(l='Equalize', v=False, cc=self.onSetEqualize)
         ui.end_layout()
 
         ui.row_layout()
         ui.header(label="")
-        self.cb_surface_constraint = cmds.checkBox(l='surface constraint', v=False, cc=self.onSetSurfaceConstraint)
-        self.cb_preserve_uv = cmds.checkBox(l='preserve uv', v=False, cc=self.onSetPreserveUV)
+        self.cb_surface_constraint = cmds.checkBox(l='Surface Constraint', v=False, cc=self.onSetSurfaceConstraint)
+        self.cb_preserve_uv = cmds.checkBox(l='Preserve UVs', v=False, cc=self.onSetPreserveUV)
         ui.end_layout()
 
         ui.separator(width=window_width)
@@ -331,7 +331,7 @@ class NN_ToolWindow(object):
 
         ui.end_layout()
 
-    def onSetKeepRatio(self, *args):
+    def onSetEqualize(self, *args):
         pass
 
     def onSetSurfaceConstraint(self, *args):
@@ -344,7 +344,7 @@ class NN_ToolWindow(object):
         """
         カーブ生成とアトリビュート設定
         """
-        keep_ratio_mode = cmds.checkBox(self.cb_keep_ratio_mode, q=True, v=True)
+        equalize_mode = cmds.checkBox(self.cb_equalize, q=True, v=True)
         surface_constraint_mode = cmds.checkBox(self.cb_surface_constraint, q=True, v=True)
         preserve_uv_mode = cmds.checkBox(self.cb_preserve_uv, q=True, v=True)
         resolution = int(cmds.textField(self.tx_rebuild_resolution, q=True, tx=True))
@@ -459,12 +459,12 @@ class NN_ToolWindow(object):
         edges = edges_str.split(component_separator)
         curve_str = cmds.textField(self.ed_curve, q=True, tx=True)
         curve = curve_str
-        keep_ratio_mode = cmds.checkBox(self.cb_keep_ratio_mode, q=True, v=True)
+        equalize_mode = cmds.checkBox(self.cb_equalize, q=True, v=True)
         surface_constraint = cmds.checkBox(self.cb_surface_constraint, q=True, v=True)
         preserve_uv = cmds.checkBox(self.cb_preserve_uv, q=True, v=True)
 
         n = int(cmds.textField(self.tx_rebuild_resolution, q=True, tx=True))
-        alignEdgesOnCurve(edges, curve_str, keep_ratio_mode, surface_constraint, preserve_uv)
+        alignEdgesOnCurve(edges, curve_str, equalize_mode, surface_constraint, preserve_uv)
 
         # Alt 押下時は削除
         if ui.is_alt():
@@ -481,10 +481,10 @@ class NN_ToolWindow(object):
                 attr_fullname = curve_str + "." + attr_name
                 edges_str = cmds.getAttr(attr_fullname)
                 edges = edges_str.split(component_separator)
-                keep_ratio_mode = cmds.checkBox(self.cb_keep_ratio_mode, q=True, v=True)
+                equalize_mode = cmds.checkBox(self.cb_equalize, q=True, v=True)
                 surface_constraint = cmds.checkBox(self.cb_surface_constraint, q=True, v=True)
                 preserve_uv = cmds.checkBox(self.cb_preserve_uv, q=True, v=True)
-                alignEdgesOnCurve(edges, curve_str, keep_ratio_mode, surface_constraint, preserve_uv)
+                alignEdgesOnCurve(edges, curve_str, equalize_mode, surface_constraint, preserve_uv)
 
 
         cmds.select(select_objects)
@@ -503,10 +503,10 @@ class NN_ToolWindow(object):
                 attr_fullname = curve_str + "." + attr_name
                 edges_str = cmds.getAttr(attr_fullname)
                 edges = edges_str.split(component_separator)
-                keep_ratio_mode = cmds.checkBox(self.cb_keep_ratio_mode, q=True, v=True)
+                equalize_mode = cmds.checkBox(self.cb_equalize, q=True, v=True)
                 surface_constraint = cmds.checkBox(self.cb_surface_constraint, q=True, v=True)
                 preserve_uv = cmds.checkBox(self.cb_preserve_uv, q=True, v=True)
-                alignEdgesOnCurve(edges, curve_str, keep_ratio_mode, surface_constraint, preserve_uv)
+                alignEdgesOnCurve(edges, curve_str, equalize_mode, surface_constraint, preserve_uv)
 
 
     def onReMakeCurve(self, *args):
