@@ -966,12 +966,12 @@ class NN_ToolWindow(object):
     def onOrientPreserveY(self, *args):
         """Y軸を維持してX軸を子に向ける"""
         from . import orient_joint_preserve_secondary as ojps
-        ojps.orient_joint_preserve_secondary(primary="x", secondary="y")
+        ojps.orient_joint_preserve_secondary(primary="x", secondary="y", zero_leaf_orient=True)
 
     def onOrientPreserveZ(self, *args):
         """Z軸を維持してX軸を子に向ける"""
         import nnutil.orient_joint_preserve_secondary as ojps
-        ojps.orient_joint_preserve_secondary(primary="x", secondary="z")
+        ojps.orient_joint_preserve_secondary(primary="x", secondary="z", zero_leaf_orient=True)
 
     def onJointEqualize(self, *args):
         """ジョイントの長さを均等にする"""

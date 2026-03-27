@@ -2,7 +2,7 @@ import maya.cmds as cmds
 import maya.api.OpenMaya as om
 
 
-def orient_joint_preserve_secondary(primary="x", secondary="y"):
+def orient_joint_preserve_secondary(primary="x", secondary="y", zero_leaf_orient=True):
     """選択されたすべてのジョイントを対象に､ジョイントの補助軸を保持したままジョイントの主軸の向きを変更する｡
 
     Args:
@@ -30,6 +30,8 @@ def orient_joint_preserve_secondary(primary="x", secondary="y"):
         child = (cmds.listRelatives(joint) or [None])[0]
 
         if not child:
+            if zero_leaf_orient:
+                cmds.setAttr(joint + ".jointOrient", 0, 0, 0)
             continue
 
         # ジョイントとその子の位置を取得
