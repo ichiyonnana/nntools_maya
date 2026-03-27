@@ -55,20 +55,15 @@ def get_isolation_visibility(obj_name):
     すべてのパネルのうち一つでも非表示になっている場合は False
     """
     # すべての isolation 用のセット取得
-    filter = om.MIteratorType()
-    filter.filterList = [om.MFn.kSet]
-    it_dn = om.MItDependencyNodes(filter)
-
+    # 全ノードスキャンを避けるため名前で直接引く (パネル番号は余裕を持って 100 まで)
     all_isolateion_sets = []
 
-    while not it_dn.isDone():
-        node = it_dn.thisNode()
-        fn_node = om.MFnDependencyNode(node)
-
-        if re.match(r"modelPanel\dViewSelectedSet", fn_node.name()):
-            all_isolateion_sets.append(node)
-
-        it_dn.next()
+    for i in range(1, 101):
+        try:
+            slist = om.MGlobal.getSelectionListByName(f"modelPanel{i}ViewSelectedSet")
+            all_isolateion_sets.append(slist.getDependNode(0))
+        except RuntimeError:
+            pass
 
     if not all_isolateion_sets:
         return True
