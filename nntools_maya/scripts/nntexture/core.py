@@ -115,8 +115,9 @@ class NN_ToolWindow(object):
                 points = []
                 for uvi in path:
                     u, v = cmds.polyEditUV(f"{mesh}.map[{uvi}]", query=True)
-                    u %= 1.0
-                    v %= 1.0
+                    # 1.0 が 0.0 になるのを防ぐため % は使わない
+                    u = (u % 1.0) or (1.0 if u else 0.0)
+                    v = (v % 1.0) or (1.0 if v else 0.0)
                     points.append(UVCoord(u, v))
                 subpath = SubPath(points)
                 subpaths.append(subpath)
