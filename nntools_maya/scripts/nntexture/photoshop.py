@@ -109,8 +109,9 @@ def make_jsx_code(shapes):
 
         var doc = app.activeDocument;
         var activeLayer = doc.activeLayer;
-        var width = doc.width.as('px');
-        var height = doc.height.as('px');
+        // PathPointInfo の anchor はポイント単位で解釈されるため px ではなく pt で取得
+        var width = doc.width.as('pt');
+        var height = doc.height.as('pt');
     """
 
     for shape in shapes:
