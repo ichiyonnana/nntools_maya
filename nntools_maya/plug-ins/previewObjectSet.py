@@ -205,6 +205,17 @@ class UserData(om.MUserData):
 class PreviewObjectSetOverride(omr.MPxDrawOverride):
     def __init__(self, obj):
         omr.MPxDrawOverride.__init__(self, obj, PreviewObjectSetOverride.draw)
+        self._dirty = True
+        # アトリビュート変更時にダーティフラグを立てる
+        # ※セット内容の変更やメッシュ頂点の変化は検知しないため、それらが変わった場合は
+        #   アトリビュートを一度触って手動でリフレッシュする必要がある
+        self._node_cb = om.MNodeMessage.addAttributeChangedCallback(obj, self._mark_dirty)
+
+    def __del__(self):
+        om.MMessage.removeCallback(self._node_cb)
+
+    def _mark_dirty(self, *_):
+        self._dirty = True
 
     @staticmethod
     def draw(context, data):
