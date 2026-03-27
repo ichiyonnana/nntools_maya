@@ -324,19 +324,13 @@ class PreviewObjectSetOverride(omr.MPxDrawOverride):
         """
         if data:
             if data.lines:
-                for line in data.lines:
-                    beginPos = line[0]
-                    endPos = line[1]
-                    color = data.lineColor
-                    width = data.lineWidth
+                points = om.MPointArray([p for line in data.lines for p in line])
 
-                    drawManager.beginDrawable()
-
-                    drawManager.setColor(color)
-                    drawManager.setLineWidth(width)
-                    drawManager.line(beginPos, endPos)
-
-                    drawManager.endDrawable()
+                drawManager.beginDrawable()
+                drawManager.setColor(data.lineColor)
+                drawManager.setLineWidth(data.lineWidth)
+                drawManager.lineList(points, False)
+                drawManager.endDrawable()
 
         return True
 
