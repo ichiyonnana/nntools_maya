@@ -48,6 +48,7 @@ class NN_ToolWindow(object):
         "nnprimitive",
         "nndeform",
         "nntexture",
+        "nnline",
         ]
 
     def __init__(self):
@@ -140,6 +141,11 @@ class NN_ToolWindow(object):
         ui.button(label="Texture", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onTexture)
         ui.end_layout()
 
+        ui.row_layout()
+        ui.header(label="")
+        ui.button(label="Line", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onLine)
+        ui.end_layout()
+
         ui.separator(height=ui.height(0.5))
 
         ui.row_layout()
@@ -225,6 +231,13 @@ class NN_ToolWindow(object):
         """"""
         import nntexture.core
         nntexture.core.main()
+        if not ui.is_shift():
+            cmds.deleteUI(self.window, window=True)
+
+    def onLine(self, *args):
+        """"""
+        import nnline.core
+        nnline.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
 
