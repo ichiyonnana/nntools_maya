@@ -112,12 +112,14 @@ class PreviewObjectSet(omui.MPxLocatorNode):
     default_line_width = 4.0
     default_line_color = 0.0
     default_line_alpha = 1.0
+    default_camera_offset = 0.025
 
     display = None
     setName = None
     lineWidth = None
     lineColor = None
     lineAlpha = None
+    cameraOffset = None
 
     def __init__(self):
         omui.MPxLocatorNode.__init__(self)
@@ -180,6 +182,16 @@ class PreviewObjectSet(omui.MPxLocatorNode):
         fn_attr.writable = True
         fn_attr.readable = True
         PreviewObjectSet.addAttribute(PreviewObjectSet.lineAlpha)
+
+        # (float) カメラ方向へのオフセット量
+        fn_attr = om.MFnNumericAttribute()
+        PreviewObjectSet.cameraOffset = fn_attr.create("cameraOffset", "co", om.MFnNumericData.kFloat, PreviewObjectSet.default_camera_offset)
+        fn_attr.storable = True
+        fn_attr.writable = True
+        fn_attr.readable = True
+        fn_attr.setMin(0.0)
+        fn_attr.setMax(0.1)
+        PreviewObjectSet.addAttribute(PreviewObjectSet.cameraOffset)
 
         return True
 
@@ -267,6 +279,7 @@ class PreviewObjectSetOverride(omr.MPxDrawOverride):
                 g = lineColorPlug.child(1).asFloat()
                 b = lineColorPlug.child(2).asFloat()
                 lineAlpha = fnNode.findPlug("lineAlpha", False).asFloat()
+                cameraOffset = fnNode.findPlug("cameraOffset", False).asFloat()
 
                 # UserData オブジェクト構築
                 newData.lines = []
@@ -303,9 +316,9 @@ class PreviewObjectSetOverride(omr.MPxDrawOverride):
                             offset1 = (camera_pos - p1).normalize()
                             offset2 = (camera_pos - p2).normalize()
 
-                            # カメラ側に半分ずらす
-                            p1 += offset1 * 0.05 * lineWidth
-                            p2 += offset2 * 0.05 * lineWidth
+                            # そのままだとポリゴンに半分埋まっているのでカメラ側に少しオフセットする
+                            p1 += offset1 * cameraOffset * lineWidth
+                            p2 += offset2 * cameraOffset * lineWidth
 
                             newData.lines.append((p1, p2))
 
