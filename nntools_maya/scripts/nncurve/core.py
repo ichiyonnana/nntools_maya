@@ -351,7 +351,7 @@ class NN_ToolWindow(object):
 
         selections = cmds.ls(selection=True, flatten=True)
 
-        polyline_list = nu.get_all_polylines(selections)    
+        polyline_list = nu.get_all_polylines(selections)
 
         curves = []
 
