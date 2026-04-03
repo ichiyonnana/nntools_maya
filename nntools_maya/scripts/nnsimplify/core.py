@@ -4,9 +4,6 @@
 import math
 
 import maya.cmds as cmds
-import pymel.core as pm
-# import pymel.core.datatypes as dt
-# import pymel.core.nodetypes as nt
 
 import nnutil.core as nu
 import nnutil.curve as nc
@@ -41,7 +38,7 @@ def simplify_edges(edges=None, span=4, keep_ratio=True, surface_constraint=False
     """
 
     if not edges:
-        edges = [x for x in pm.selected(flatten=True) if type(x) == pm.MeshEdge]
+        edges = cmds.filterExpand(cmds.ls(selection=True, flatten=True), sm=32) or []
 
     if not edges:
         return
@@ -55,21 +52,21 @@ def simplify_edges(edges=None, span=4, keep_ratio=True, surface_constraint=False
         if span_f == span_c:
             print("fast mode")
             curve1 = nc.make_curve_from_edges(target_edges, n=span_f)
-            vertices = nu.sort_vertices(nu.to_vtx(target_edges, pn=True))
+            vertices = nu.sort_vertices(nu.to_vtx(target_edges))
             nc.match_direction(curve1, vertices)
             nc.fit_vertices_to_curve(vertices, curve=curve1, keep_ratio=keep_ratio, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
-            pm.delete(curve1)
+            cmds.delete(curve1)
 
         else:
             alpha = math.fmod(span, 1.0)
             curve1 = nc.make_curve_from_edges(target_edges, n=span_f)
             curve2 = nc.make_curve_from_edges(target_edges, n=span_c)
-            vertices = nu.sort_vertices(nu.to_vtx(target_edges, pn=True))
+            vertices = nu.sort_vertices(nu.to_vtx(target_edges))
             nc.match_direction(curve1, vertices)
             nc.match_direction(curve2, vertices)
             nc.fit_vertices_to_curve_lerp(vertices, curve1=curve1, curve2=curve2, alpha=alpha, keep_ratio=keep_ratio, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
-            pm.delete(curve1)
-            pm.delete(curve2)
+            cmds.delete(curve1)
+            cmds.delete(curve2)
 
     print("finish")
 
@@ -86,7 +83,7 @@ def smooth_edges(edges=None, span=4, smooth=1, keep_ratio=True, surface_constrai
         preserve_uv: True で UV を保持して移動する
     """
     if not edges:
-        edges = [x for x in pm.selected(flatten=True) if type(x) == pm.MeshEdge]
+        edges = cmds.filterExpand(cmds.ls(selection=True, flatten=True), sm=32) or []
 
     if not edges:
         return
@@ -94,16 +91,14 @@ def smooth_edges(edges=None, span=4, smooth=1, keep_ratio=True, surface_constrai
     edges_list = nu.get_all_polylines(edges)
 
     for i, target_edges in enumerate(edges_list):
-        print("%s/%s" % (i, len(edges_list)))
+        print(f"{i}/{len(edges_list)}")
         curve = nc.make_curve_from_edges(target_edges, n=span)
-        cv_str = curve.name() + ".cv[*]"
-        pm.smoothCurve(cv_str, ch=1, rpo=1, s=smooth)
-        vertices = nu.sort_vertices(nu.to_vtx(target_edges, pn=True))
+        cmds.smoothCurve(f"{curve}.cv[*]", ch=1, rpo=1, s=smooth)
+        vertices = nu.sort_vertices(nu.to_vtx(target_edges))
         nc.match_direction(curve, vertices)
         nc.fit_vertices_to_curve(vertices, curve, keep_ratio=keep_ratio, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
-        pm.delete(curve)
+        cmds.delete(curve)
 
-    pm.select(edges, replace=True)
     print("finish")
 
 
@@ -118,7 +113,7 @@ def equalize_edges(edges=None, multiplier=1.0, surface_constraint=False, preserv
         preserve_uv: True で UV を保持して移動する
     """
     if not edges:
-        edges = [x for x in pm.selected(flatten=True) if type(x) == pm.MeshEdge]
+        edges = cmds.filterExpand(cmds.ls(selection=True, flatten=True), sm=32) or []
 
     if not edges:
         return
@@ -128,12 +123,12 @@ def equalize_edges(edges=None, multiplier=1.0, surface_constraint=False, preserv
     edges_list = nu.get_all_polylines(edges)
 
     for i, edges in enumerate(edges_list):
-        print("%s/%s" % (i, len(edges_list)))
+        print(f"{i}/{len(edges_list)}")
         curve = nc.make_curve_from_edges(edges, n=span)
-        vertices = nu.sort_vertices(nu.to_vtx(edges, pn=True))
+        vertices = nu.sort_vertices(nu.to_vtx(edges))
         nc.match_direction(curve, vertices)
         nc.fit_vertices_to_curve(vertices, curve, keep_ratio=False, multiplier=multiplier, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
-        pm.delete(curve)
+        cmds.delete(curve)
 
     print("finish")
 
@@ -145,14 +140,14 @@ class NN_ToolWindow(object):
         self.title = window_name
         self.size = (window_width, 80)
 
-        pm.selectPref(trackSelectionOrder=True)
+        cmds.selectPref(trackSelectionOrder=True)
 
         self.last_simplify_span = 4.0
         self.max_smooth = 100
 
     def create(self):
         if cmds.window(self.window, exists=True):
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
         # プリファレンスの有無による分岐
         if cmds.windowPref(self.window, exists=True):
@@ -221,28 +216,34 @@ class NN_ToolWindow(object):
     @nu.undo_chunk
     def onSimplify(self, *args):
         """ Simplify の実行 """
+        selection = cmds.ls(sl=True)
         span = ui.get_value(self.simplify_slider)
         surface_constraint = ui.get_value(self.cb_surface_constraint)
         preserve_uv = ui.get_value(self.cb_preserve_uv)
         simplify_edges(edges=None, span=span, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
         self.last_simplify_span = span
+        cmds.select(selection)
 
     @nu.undo_chunk
     def onSmooth(self, *args):
         """ Smooth の実行 """
+        selection = cmds.ls(sl=True)
         span = smooth_span
         smooth = ui.get_value(self.smooth_slider)
         surface_constraint = ui.get_value(self.cb_surface_constraint)
         preserve_uv = ui.get_value(self.cb_preserve_uv)
         smooth_edges(edges=None, span=span, smooth=smooth, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
+        cmds.select(selection)
 
     @nu.undo_chunk
     def onEqualize(self, *args):
         """ エッジ間隔の均一化 """
+        selection = cmds.ls(sl=True)
         multiplier = ui.get_value(self.equalize_slider)
         surface_constraint = ui.get_value(self.cb_surface_constraint)
         preserve_uv = ui.get_value(self.cb_preserve_uv)
         equalize_edges(multiplier=multiplier, surface_constraint=surface_constraint, preserve_uv=preserve_uv)
+        cmds.select(selection)
 
     @nu.undo_chunk
     def onEqualizeReverse(self, *args):
@@ -269,7 +270,7 @@ class NN_ToolWindow(object):
     def onUpdateSimplifySlider(self, *args):
         """ Simplify スライダーの変更 (ドラッグ中) """
         # Shift 押下時はきりの良い数値にする
-        mods = pm.getModifiers()
+        mods = cmds.getModifiers()
 
         if mods & 1:
             v = ui.get_value(self.simplify_slider)
@@ -284,7 +285,7 @@ class NN_ToolWindow(object):
     def onUpdateSmoothSlider(self, *args):
         """ Smooth スライダーの変更 (ドラッグ中) """
         # Shift 押下時はきりの良い数値にする
-        mods = pm.getModifiers()
+        mods = cmds.getModifiers()
 
         if mods & 1:
             v = ui.get_value(self.smooth_slider)
@@ -299,7 +300,7 @@ class NN_ToolWindow(object):
     def onUpdateEqualizeSlider(self, *args):
         """ Equalize スライダーの変更 (ドラッグ中) """
         # Shift 押下時はきりの良い数値にする
-        mods = pm.getModifiers()
+        mods = cmds.getModifiers()
 
         if mods & 1:
             v = ui.get_value(self.equalize_slider)

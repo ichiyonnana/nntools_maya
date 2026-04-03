@@ -1,6 +1,5 @@
 """複数ノードの同一アトリビュートを一括編集するダイアログ"""
 import maya.cmds as cmds
-import pymel.core as pm
 
 import nnutil.ui as ui
 
@@ -59,12 +58,12 @@ class InviewEditor(object):
 
         def on_min_change(value):
             """minの変更ハンドラ"""
-            pm.floatSlider(self.slider, edit=True, minValue=value)
+            cmds.floatSlider(self.slider, edit=True, minValue=value)
             InviewEditor.min_value = ui.get_value(self.min_field)
 
         def on_max_change(value):
             """maxの変更ハンドラ"""
-            pm.floatSlider(self.slider, edit=True, maxValue=value)
+            cmds.floatSlider(self.slider, edit=True, maxValue=value)
             InviewEditor.max_value = ui.get_value(self.max_field)
 
         def on_ok(*args):

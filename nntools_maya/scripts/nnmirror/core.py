@@ -5,9 +5,6 @@ import sys
 import traceback
 
 import maya.api.OpenMaya as om
-import pymel.core as pm
-import pymel.core.nodetypes as nt
-import pymel.core.datatypes as dt
 import maya.cmds as cmds
 import maya.mel as mel
 
@@ -34,14 +31,14 @@ def mirror_objects(objects=None, axis=0, direction=1, cut=False, center_toleranc
     else:
         merge_mode = 1
 
-    objects = pm.selected(flatten=True)
+    objects = cmds.ls(selection=True, flatten=True)
 
-    if isinstance(objects[0], (nt.Mesh, nt.Transform)):
+    if cmds.objectType(objects[0]) in ('transform', 'mesh'):
         # オブジェクトで反復
         for obj in objects:
-            if obj.getShape():
+            if cmds.listRelatives(obj, shapes=True):
                 # シンメトリ面から誤差範囲内にある頂点の座標を 0 にする
-                points = nu.get_points(obj.name(), space=om.MSpace.kObject)
+                points = nu.get_points(obj, space=om.MSpace.kObject)
 
                 for point in points:
                     if axis == 0 and abs(point.x) <= center_tolerance:
@@ -53,14 +50,14 @@ def mirror_objects(objects=None, axis=0, direction=1, cut=False, center_toleranc
                     if axis == 2 and abs(point.z) <= center_tolerance:
                         point.z = 0
 
-                nu.set_points(obj.name(), points=points, space=om.MSpace.kObject)
+                nu.set_points(obj, points=points, space=om.MSpace.kObject)
 
                 # ミラーの実行
-                pm.polyMirrorFace(obj, cutMesh=1, axis=axis, axisDirection=direction, mergeMode=merge_mode, mergeThresholdType=1, mergeThreshold=0.01, mirrorAxis=1, mirrorPosition=0, smoothingAngle=180, flipUVs=0, ch=1)
-                pm.bakePartialHistory(obj, ppt=True)
+                cmds.polyMirrorFace(obj, cutMesh=1, axis=axis, axisDirection=direction, mergeMode=merge_mode, mergeThresholdType=1, mergeThreshold=0.01, mirrorAxis=1, mirrorPosition=0, smoothingAngle=180, flipUVs=0, ch=1)
+                cmds.bakePartialHistory(obj, ppt=True)
     else:
         # コンポーネント
-        pm.polyMirrorFace(cutMesh=1, axis=axis, axisDirection=direction, mergeMode=merge_mode, mergeThresholdType=1, mergeThreshold=0.01, mirrorAxis=1, mirrorPosition=0, smoothingAngle=180, flipUVs=0, ch=1)
+        cmds.polyMirrorFace(cutMesh=1, axis=axis, axisDirection=direction, mergeMode=merge_mode, mergeThresholdType=1, mergeThreshold=0.01, mirrorAxis=1, mirrorPosition=0, smoothingAngle=180, flipUVs=0, ch=1)
 
 
 def export_weight(objects=None, specified_name=None):
@@ -71,11 +68,11 @@ def export_weight(objects=None, specified_name=None):
         specified_name (str, optional): ウェイトを書き出す際のファイル名。省略時はオブジェクト名。 Defaults to None.
     """
     # 選択復帰用
-    current_selections = pm.selected()
+    current_selections = cmds.ls(selection=True)
 
     # オブジェクト未指定時は選択オブジェクトを使用する
     if not objects:
-        objects = pm.selected(flatten=True)
+        objects = cmds.ls(selection=True, flatten=True)
 
         if not objects:
             raise(Exception("no targets"))
@@ -91,10 +88,11 @@ def export_weight(objects=None, specified_name=None):
 
     for obj in objects:
         # meshでなければskip
-        if not hasattr(pm.PyNode(obj), "getShape") and not isinstance(obj, nt.Mesh):
+        if cmds.objectType(obj) not in ('transform', 'mesh'):
             continue
 
-        skincluster = mel.eval('findRelatedSkinCluster ' + obj)
+        skincluster_list = cmds.listHistory(obj, type="skinCluster") or []
+        skincluster = skincluster_list[0] if skincluster_list else ""
 
         # skincluster 無ければskip
         if skincluster == "":
@@ -104,7 +102,7 @@ def export_weight(objects=None, specified_name=None):
         filename = ""
 
         if specified_name is None:
-            filename = nu.get_basename(obj.name())
+            filename = nu.get_basename(obj)
 
         else:
             filename = specified_name
@@ -123,7 +121,7 @@ def export_weight(objects=None, specified_name=None):
             pass
 
     # 選択復帰
-    pm.select(current_selections, replace=True)
+    cmds.select(current_selections, replace=True)
 
 
 # バインドメソッド
@@ -142,10 +140,10 @@ def import_weight(objects=None, method=BM_BILINEAR, specified_name=None, unbind=
         method (str, optional): バインドメソッド. Defaults to BM_BILINEAR.
         specified_name (str, optional): ウェイトを読み込む際のファイル名。省略時はオブジェクト名。temp_mode よりも優先される. Defaults to None.
     """
-    current_selections = pm.selected()
+    current_selections = cmds.ls(selection=True)
 
     if not objects:
-        objects = pm.selected(flatten=True)
+        objects = cmds.ls(selection=True, flatten=True)
 
         if not objects:
             raise(Exception("no targets"))
@@ -158,19 +156,13 @@ def import_weight(objects=None, method=BM_BILINEAR, specified_name=None, unbind=
 
     for obj in objects:
         # meshでなければskip
-        if not hasattr(pm.PyNode(obj), "getShape") and not isinstance(obj, nt.Mesh):
-            print("skip " + obj)
+        if cmds.objectType(obj) not in ('transform', 'mesh'):
+            print(f"skip {obj}")
             continue
 
-        # スキンクラスター取得
-        skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals())
-
         # インポートするファイル名の決定
-        filename = ""
-
         if specified_name is None:
-            filename = nu.get_basename(obj.name()) + ".xml"
-
+            filename = nu.get_basename(obj) + ".xml"
         else:
             if ".xml" in specified_name:
                 filename = specified_name
@@ -178,10 +170,9 @@ def import_weight(objects=None, method=BM_BILINEAR, specified_name=None, unbind=
                 filename = specified_name + ".xml"
 
         # ウェイトファイルがあるオブジェクトだけ処理
-        print(dir+filename)
+        print(dir + filename)
         if nu.exist_file(dir, filename):
             # ウェイトファイル直接開いてインフルエンスリスト取得
-            influence_list = []
             path = dir + filename
             with open(path) as f:
                 xml = f.read()
@@ -194,7 +185,7 @@ def import_weight(objects=None, method=BM_BILINEAR, specified_name=None, unbind=
             # インフルエンス名と一致するジョイントがシーン内に無ければ警告
             joints_not_exist = []
             for joint in influence_list:
-                if not mel.eval('objExists %(joint)s' % locals()):
+                if not cmds.objExists(joint):
                     joints_not_exist.append(joint)
 
             if len(joints_not_exist) != 0:
@@ -203,29 +194,30 @@ def import_weight(objects=None, method=BM_BILINEAR, specified_name=None, unbind=
 
             # バインド済なら一度アンバインドする
             if unbind:
-                skincluster = mel.eval("findRelatedSkinCluster %(obj)s" % locals())
+                skincluster_list = cmds.listHistory(obj, type="skinCluster") or []
+                skincluster = skincluster_list[0] if skincluster_list else ""
                 if skincluster != "":
-                    mel.eval('gotoBindPose')
-                    pm.skinCluster(obj, e=True, unbind=True)
+                    cmds.dagPose(bp=True, restore=True)
+                    cmds.skinCluster(obj, e=True, unbind=True)
 
                 # ウェイトファイルに保存されていたインフルエンスだけで改めてバインドする
                 try:
-                    pm.select(cl=True)
-                    pm.select(obj, add=True)
+                    cmds.select(cl=True)
+                    cmds.select(obj, add=True)
                     for joint in nu.list_diff(influence_list, joints_not_exist):
-                        pm.select(joint, add=True)
-                    skincluster = pm.skinCluster(tsb=True, mi=max_influence, obeyMaxInfluences=False)
+                        cmds.select(joint, add=True)
+                    skincluster = cmds.skinCluster(tsb=True, mi=max_influence, obeyMaxInfluences=False)
 
                 except:
-                    print("bind error: " + obj.name())
+                    print(f"bind error: {obj}")
 
             # インポート
-            cmd = 'deformerWeights -import -method "%(method)s" -deformer %(skincluster)s -path "%(dir)s" "%(filename)s"' % locals()
+            cmd = f'deformerWeights -import -method "{method}" -deformer {skincluster} -path "{dir}" "{filename}"'
             print(cmd)
             mel.eval(cmd)
-            mel.eval("skinCluster -e -forceNormalizeWeights %s" % skincluster)
+            cmds.skinCluster(skincluster, e=True, forceNormalizeWeights=True)
 
-    pm.select(current_selections, replace=True)
+    cmds.select(current_selections, replace=True)
 
 
 def combine_skined_mesh(objects=None):
@@ -237,7 +229,7 @@ def combine_skined_mesh(objects=None):
         objects (list[Mesh or Transform], optional): 結合対象のオブジェクト. Defaults to None.
     """
     if not objects:
-        objects = pm.selected(flatten=True)
+        objects = cmds.ls(selection=True, flatten=True)
 
         if not objects:
             raise(Exception())
@@ -248,25 +240,29 @@ def combine_skined_mesh(objects=None):
     all_meshes = []
 
     for obj in objects:
-        meshes = [x for x in pm.listRelatives(obj, allDescendents=True, noIntermediate=True) if isinstance(x, nt.Mesh)]
+        meshes = cmds.listRelatives(obj, allDescendents=True, noIntermediate=True, type='mesh') or []
         all_meshes.extend(meshes)
 
     skined_meshes = []
 
     for mesh in all_meshes:
-        if [x for x in mesh.connections() if isinstance(x, nt.SkinCluster)]:
+        if cmds.listConnections(mesh, type='skinCluster'):
             skined_meshes.append(mesh)
 
-    name = objects[-1].name()
-    parent = objects[-1].getParent()
+    name = objects[-1]
+    parent_list = cmds.listRelatives(objects[-1], parent=True)
+    parent = parent_list[0] if parent_list else None
 
     if not skined_meshes:
         # すべてが静的なメッシュなら polyUnite で結合する
-        object, node = pm.polyUnite(all_meshes, ch=1, mergeUVSets=1, objectPivot=True)
-        pm.parent(object, parent)
-        pm.bakePartialHistory(object, ppt=True)
-        nu.pynode(object).rename(name)
-    
+        object, node = cmds.polyUnite(all_meshes, ch=1, mergeUVSets=1, objectPivot=True)
+        if parent:
+            cmds.parent(object, parent)
+        else:
+            cmds.parent(object, world=True)
+        cmds.bakePartialHistory(object, ppt=True)
+        cmds.rename(object, name)
+
     else:
         # バインド済みメッシュが含まれる場合
         # 全てのメッシュのインフルエンスををまとめたリストを作成
@@ -274,63 +270,79 @@ def combine_skined_mesh(objects=None):
         for mesh in skined_meshes:
             influences = nnskin.get_influence_order(mesh) or []
             all_influences.extend(influences)
-            
+
         all_influences = list(set(all_influences))
 
         # 全てのメッシュのインフルエンス順序を統一する
         for mesh in all_meshes:
-            nnskin.set_influence_order(mesh.fullPath(), all_influences)
-        
+            nnskin.set_influence_order(cmds.ls(mesh, long=True)[0], all_influences)
+
         # polyUniteSkinned で結合する
-        object, node = pm.polyUniteSkinned(all_meshes, ch=1, mergeUVSets=1, objectPivot=True)
+        object, node = cmds.polyUniteSkinned(all_meshes, ch=1, mergeUVSets=1, objectPivot=True)
         nu.unlock_trs(object)
-        pm.parent(object, parent)
+        if parent:
+            cmds.parent(object, parent)
+        else:
+            cmds.parent(object, world=True)
         nu.lock_trs(object)
-        pm.bakePartialHistory(object, ppt=True)
-        nu.pynode(object).rename(name)
+        cmds.bakePartialHistory(object, ppt=True)
+        cmds.rename(object, name)
 
 
 def duplicate_object():
-    """"""
-    selection = pm.selected()
+    """選択オブジェクトを複製する。スキンバインド済みの場合はウェイトも複製する。
+
+    選択が Transform または Mesh でない場合は何もしない。
+    Transform の場合はその Shape (Mesh) を対象とする。
+    """
+    selection = cmds.ls(selection=True)
 
     if selection:
-        if type(selection[0]) != nt.Transform and type(selection[0]) != nt.Mesh:
+        if cmds.objectType(selection[0]) not in ('transform', 'mesh'):
             return
 
-        else:
-            for sel in selection:
-                if type(sel) == nt.Transform and hasattr(sel, "getShape") and sel.getShape() and type(sel.getShape()) == nt.Mesh:
-                    object = sel.getShape()
+        for sel in selection:
+            obj_type = cmds.objectType(sel)
 
-                elif type(sel) == nt.Mesh:
-                    object = sel
-
-                else:
+            if obj_type == 'transform':
+                shapes = cmds.listRelatives(sel, shapes=True, type='mesh') or []
+                if not shapes:
                     continue
+                object = shapes[0]
 
-                # オブジェクト複製
-                object2 = pm.duplicate(object)[0].getShape()
+            elif obj_type == 'mesh':
+                object = sel
 
-                # skined ならウェイト複製
-                if nu.is_skined(object):
-                    weight_name = "duplicated_obj_weight"
-                    export_weight([object], specified_name=weight_name)
-                    import_weight([object2], method=BM_INDEX, specified_name=weight_name)
+            else:
+                continue
+
+            # オブジェクト複製
+            dup_transform = cmds.duplicate(object)[0]
+            shapes2 = cmds.listRelatives(dup_transform, shapes=True) or []
+            object2 = shapes2[0] if shapes2 else dup_transform
+
+            # skined ならウェイト複製
+            if nu.is_skined(object):
+                weight_name = "duplicated_obj_weight"
+                export_weight([object], specified_name=weight_name)
+                import_weight([object2], method=BM_INDEX, specified_name=weight_name)
 
 
-def duplicate_mesh(extract=False):
+def duplicate_faces(extract=False):
     # 選択コンポーネント取得
-    selected_faces = pm.selected(flatten=True)
+    selection = cmds.ls(selection=True, flatten=True)
+    selected_faces = cmds.filterExpand(selection, selectionMask=34) or []
 
-    if not selected_faces or not type(selected_faces[0]) == pm.MeshFace:
+    if not selected_faces:
         return None
 
     # 選択コンポーネントからオブジェクト取得
-    object = pm.PyNode(pm.polyListComponentConversion(selected_faces[0])[0])
+    object = cmds.polyListComponentConversion(selected_faces[0])[0]
 
     # オブジェクト複製
-    object2 = pm.duplicate(object)[0].getShape()
+    dup_transform = cmds.duplicate(object)[0]
+    shapes2 = cmds.listRelatives(dup_transform, shapes=True) or []
+    object2 = shapes2[0] if shapes2 else dup_transform
 
     # skined ならウェイト複製
     if nu.is_skined(object):
@@ -339,21 +351,19 @@ def duplicate_mesh(extract=False):
         import_weight([object2], method=BM_INDEX, specified_name=weight_name)
 
     # 選択コンポーネント以外削除
-    face_indices = [x.index() for x in selected_faces]
-    delete_faces = []
+    face_indices = [nu.get_index(f) for f in selected_faces]
+    num_faces = cmds.polyEvaluate(object2, face=True)
+    delete_faces = [f"{object2}.f[{fi}]" for fi in range(num_faces) if fi not in face_indices]
 
-    for fi in range(object2.numFaces()):
-        if fi not in face_indices:
-            delete_faces.append(pm.MeshFace("{}.f[{}]".format(object2.name(), fi)))
-
-    pm.delete(delete_faces)
+    if delete_faces:
+        cmds.delete(delete_faces)
 
     # extract True なら元オブジェクトの選択コンポーネント削除
     if extract:
-        pm.delete(selected_faces)
+        cmds.delete(selected_faces)
 
-    pm.bakePartialHistory(object, ppt=True)
-    pm.bakePartialHistory(object2, ppt=True)
+    cmds.bakePartialHistory(object, ppt=True)
+    cmds.bakePartialHistory(object2, ppt=True)
 
 
 class NN_ToolWindow(object):
@@ -718,27 +728,27 @@ class NN_ToolWindow(object):
 
     def onMirrorWeightXPosi(self, *args):
         method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
-        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode YZ -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation {method};')
+        cmds.copySkinWeights(mirrorMode="YZ", mirrorInverse=True, surfaceAssociation="closestPoint", influenceAssociation=method)
 
     def onMirrorWeightXNega(self, *args):
         method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
-        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode YZ -surfaceAssociation closestPoint -influenceAssociation {method};')
+        cmds.copySkinWeights(mirrorMode="YZ", surfaceAssociation="closestPoint", influenceAssociation=method)
 
     def onMirrorWeightYPosi(self, *args):
         method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
-        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode XZ -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation {method};')
+        cmds.copySkinWeights(mirrorMode="XZ", mirrorInverse=True, surfaceAssociation="closestPoint", influenceAssociation=method)
 
     def onMirrorWeightYNega(self, *args):
         method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
-        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode XZ -surfaceAssociation closestPoint -influenceAssociation {method};')
+        cmds.copySkinWeights(mirrorMode="XZ", surfaceAssociation="closestPoint", influenceAssociation=method)
 
     def onMirrorWeightZPosi(self, *args):
         method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
-        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode XY -mirrorInverse -surfaceAssociation closestPoint -influenceAssociation {method};')
+        cmds.copySkinWeights(mirrorMode="XY", mirrorInverse=True, surfaceAssociation="closestPoint", influenceAssociation=method)
 
     def onMirrorWeightZNega(self, *args):
         method = "label" if ui.get_value(self.cb_label_mirror) else "closestJoint"
-        mel.eval(f'copySkinWeights -ss  -ds  -mirrorMode XY -surfaceAssociation closestPoint -influenceAssociation {method};')
+        cmds.copySkinWeights(mirrorMode="XY", surfaceAssociation="closestPoint", influenceAssociation=method)
 
     def onMirrorWeightOp(self, *args):
         mel.eval('MirrorSkinWeightsOptions')
@@ -762,20 +772,20 @@ class NN_ToolWindow(object):
         else:
             raise("unkown axis")
 
-        current_selections = pm.selected()
+        current_selections = cmds.ls(selection=True)
 
-        joints = pm.selected(type="joint")
+        joints = cmds.ls(selection=True, type="joint")
 
-        pm.select(clear=True)
-        root_joint = pm.joint(p=[0, 0, 0])
+        cmds.select(clear=True)
+        root_joint = cmds.joint(p=[0, 0, 0])
 
         for joint in joints:
-            pm.select(joint, replace=True)
+            cmds.select(joint, replace=True)
             prefix_from = ui.get_value(self.eb_prefix_from)
             prefix_to = ui.get_value(self.eb_prefix_to)
             mel.eval('mirrorJoint -%s -mirrorBehavior -searchReplace "%s" "%s";' % (mirror_dir, prefix_from, prefix_to))
 
-        pm.select(current_selections)
+        cmds.select(current_selections)
 
     def onMirrorJointXWorld(self, *args):
         self._mirrorJointWorld(axis="x")
@@ -796,26 +806,29 @@ class NN_ToolWindow(object):
         else:
             raise("unkown axis")
 
-        current_selections = pm.selected()
+        current_selections = cmds.ls(selection=True)
 
-        joints = pm.selected(type="joint")
+        joints = cmds.ls(selection=True, type="joint")
 
-        pm.select(clear=True)
-        root_joint = pm.joint(p=[0, 0, 0])
+        cmds.select(clear=True)
+        root_joint = cmds.joint(p=[0, 0, 0])
 
         for joint in joints:
-            current_parent = joint.getParent()
-            pm.parent(joint, root_joint)
+            current_parent = cmds.listRelatives(joint, parent=True)
+            cmds.parent(joint, root_joint)
             prefix_from = ui.get_value(self.eb_prefix_from)
             prefix_to = ui.get_value(self.eb_prefix_to)
-            pm.select(joint, replace=True)
+            cmds.select(joint, replace=True)
             opposite_joint = mel.eval('mirrorJoint -%s -mirrorBehavior -searchReplace "%s" "%s";' % (mirror_dir, prefix_from, prefix_to))[0]
             print(opposite_joint)
-            pm.parent(opposite_joint, None)
-            pm.parent(joint, current_parent)
+            cmds.parent(opposite_joint, world=True)
+            if current_parent:
+                cmds.parent(joint, current_parent[0])
+            else:
+                cmds.parent(joint, world=True)
 
-        pm.delete(root_joint)
-        pm.select(current_selections)
+        cmds.delete(root_joint)
+        cmds.select(current_selections)
 
     def onMirrorJointOp(self, *args):
         mel.eval('MirrorJointOptions')
@@ -1070,7 +1083,7 @@ class NN_ToolWindow(object):
         mel.eval('SmoothBindSkinOptions')
 
     def onBind(self, *args):
-        pm.skinCluster()
+        cmds.skinCluster()
 
     def onUnbind(self, *args):
         mel.eval('DetachSkin')
@@ -1079,43 +1092,43 @@ class NN_ToolWindow(object):
         mel.eval('DetachSkinOptions')
 
     def onUnlockTRS(self, *args):
-        for obj in pm.selected(flatten=True, type="transform"):
+        for obj in cmds.ls(selection=True, flatten=True, type="transform"):
             nu.unlock_trs(obj)
 
     def onLockTRS(self, *args):
-        for obj in pm.selected(flatten=True, type="transform"):
+        for obj in cmds.ls(selection=True, flatten=True, type="transform"):
             nu.lock_trs(obj)
 
     def onResetPose(self, *args):
-        # 選択ジョイントと存在するならその子ジョイントを対象にしてバインドポーズをリセット
-        selected_joints = (pm.ls(selection=True, type="joint") or [])
+        """バインドポーズに保存されたTRSのうち、現在選択中のジョイントとその子孫のみ現在の TRS でバインドポーズを上書きする"""
+        selected_joints = cmds.ls(selection=True, type="joint") or []
 
         if selected_joints:
-            child_joints = [(pm.listRelatives(x, children=True, type="joint") or [None])[0] for x in selected_joints]
+            child_joints = [(cmds.listRelatives(x, children=True, type="joint") or [None])[0] for x in selected_joints]
 
         selected_joints = list(filter(None, selected_joints))
         child_joints = list(filter(None, child_joints))
         target_joints = selected_joints + child_joints
 
-        pm.dagPose(target_joints, reset=True, n="bindPose1", bindPose=True)
+        cmds.dagPose(target_joints, reset=True, n="bindPose1", bindPose=True)
 
     def onMoveSkinedJointTool(self, *args):
         mel.eval("MoveSkinJointsTool")
         cmds.manipMoveContext("moveSkinJointsToolCtx", e=True, orientJointEnabled=True)
 
     def onDeletePose(self, *args):
-        poses = [x for x in pm.ls(type="dagPose") if "bindPose" in x.name()]
+        poses = [x for x in cmds.ls(type="dagPose") if "bindPose" in x]
 
         if len(poses) == 0:
             return
 
         elif len(poses) >= 2:
-            pm.delete(poses[1:-1])
+            cmds.delete(poses[1:-1])
 
         else:
             pass
 
-        poses[0].rename("bindPose1")
+        cmds.rename(poses[0], "bindPose1")
 
     def onCombine(self, *args):
         combine_skined_mesh()
@@ -1123,30 +1136,11 @@ class NN_ToolWindow(object):
     def onCombineOptions(self, *args):
         mel.eval("CombinePolygonsOptions")
 
-    def onCopyInfuenceList(self, *args):
-        pass
-
-    def onPasteInfluenceList(self, *args):
-        influence_list = []
-        for joint in influence_list:
-            try:
-                cmds.skinCluster(skincluster, e=True, dr=4, ai=joint)
-            except:
-                # TODO: 既にインフルエンスが存在した場合のエラー処理
-                pass
-        pass
-
     def onExportAnim(self, *args):
-        if 2019 <= int(pm.about(version=True)):
-            mel.eval('ExportAnim')
-        else:
-            mel.eval('ExportAnimOptions')
+        mel.eval('ExportAnim')
 
     def onImportAnim(self, *args):
-        if 2019 <= int(pm.about(version=True)):
-            mel.eval('ImportAnim')
-        else:
-            mel.eval('ImportAnimOptions')
+        mel.eval('ImportAnim')
 
     def onEditorSIWE(self, *args):
         import siweighteditor.siweighteditor
@@ -1178,34 +1172,45 @@ class NN_ToolWindow(object):
         mel.eval("SimplygonUI")
 
     def onExtract(self, *args):
-        duplicate_mesh(extract=True)
+        duplicate_faces(extract=True)
 
     def onDuplicate(self, *args):
         """"""
-        selection = pm.selected()
+        selection = cmds.ls(selection=True)
 
         if selection:
-            if type(selection[0]) == nt.Transform or type(selection[0]) == nt.Mesh:
+            if cmds.objectType(selection[0]) in ('transform', 'mesh'):
                 duplicate_object()
 
-            elif type(selection[0]) == pm.MeshFace:
-                duplicate_mesh()
+            elif cmds.filterExpand(selection[0], selectionMask=34):
+                duplicate_faces()
 
             else:
                 return
 
     def onGetPos(self, *args):
-        obj = pm.selected(flatten=True)[0]
+        """選択オブジェクトの頂点座標を self.getpos_points に保持する。
+
+        Shift 押下時はワールドスペース、そうでない場合はオブジェクトスペースで取得する。
+        self.getpos_points は MFnMesh.getPoints() の返り値 (MPointArray) をそのまま保持する。
+        """
+        obj = cmds.ls(selection=True, flatten=True)[0]
 
         if ui.is_shift():
-            self.getpos_points = nu.get_points(obj.name(), space=om.MSpace.kWorld)
+            self.getpos_points = nu.get_points(obj, space=om.MSpace.kWorld)
             nd.message("copy points (world space)")
 
         else:
-            self.getpos_points = nu.get_points(obj.name(), space=om.MSpace.kObject)
+            self.getpos_points = nu.get_points(obj, space=om.MSpace.kObject)
             nd.message("copy points (object space)")
 
     def onSetPos(self, *args):
+        """self.getpos_points の頂点座標を選択オブジェクトにペーストする。
+
+        Shift 押下時はワールドスペース、そうでない場合はオブジェクトスペースで設定する。
+        オブジェクト選択時は全頂点、頂点選択時は選択頂点のインデックスに対してのみ適用する。
+        self.getpos_points は MFnMesh.getPoints() の返り値 (MPointArray) を想定する。
+        """
         selections = cmds.ls(selection=True, flatten=True)
 
         # 選択がない場合は終了

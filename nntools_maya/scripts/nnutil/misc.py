@@ -3,26 +3,18 @@
 基本的には Maya のホットキーやシェルフから直接呼ぶもの
 戻り値のないもの
 """
-
-import itertools
 import re
 import datetime
 import glob
 import os
 
-from functools import reduce
-
 import maya.cmds as cmds
 import maya.mel as mel
 
-import pymel.core as pm
-import pymel.core.nodetypes as nt
-import pymel.core.datatypes as dt
 
 import maya.api.OpenMaya as om
 
 from . import core as nu
-from . import ui as ui
 
 
 def message(s):
@@ -138,22 +130,25 @@ def set_z_zero():
 
 def extract_transform():
     """ 選択オブジェクトの親に作成したトランスフォームノードに自身のトランスフォームを逃がして TRS を基準値にする """
-    selections = pm.ls(selection=True, type="transform")
+    selections = cmds.ls(selection=True, type="transform")
 
     for obj in selections:
-        parent = obj.getParent()
-        group = pm.group(empty=True)
+        parents = cmds.listRelatives(obj, parent=True)
+        group = cmds.group(empty=True)
 
-        if parent:
-            pm.parent(group, parent)
+        if parents:
+            cmds.parent(group, parents[0])
 
-        group.setTranslation(obj.getTranslation())
-        group.setRotation(obj.getRotation())
-        group.setScale(obj.getScale())
+        t = cmds.xform(obj, q=True, t=True, ws=True)
+        ro = cmds.xform(obj, q=True, ro=True, ws=True)
+        s = cmds.xform(obj, q=True, s=True, ws=True)
+        cmds.xform(group, t=t, ws=True)
+        cmds.xform(group, ro=ro, ws=True)
+        cmds.xform(group, s=s, ws=True)
 
-        pm.parent(obj, group)
+        cmds.parent(obj, group)
 
-    pm.inViewMessage(smg="extract transform", pos="topCenter", bkc="0x00000000", fade=True)
+    cmds.inViewMessage(smg="extract transform", pos="topCenter", bkc="0x00000000", fade=True)
 
 
 def create_set_with_name():
@@ -539,29 +534,23 @@ def get_digon_edge_pairs(obj):
     """
 
     # ボーダーエッジ取得
-    border_edges = []
-
-    all_faces = pm.polyListComponentConversion(obj.faces, ff=True, te=True, bo=True)
-    if all_faces:
-        border_edges = [pm.PyNode(x) for x in pm.filterExpand(all_faces, sm=32, ex=True)]
+    border_edges = nu.to_border_edges(f"{obj}.e[*]") or []
 
     # ボーダーエッジ同士で 2 頂点を共有するペアを探す
     digon_edge_pairs = []
 
     for edge in border_edges:
-        for connected_edge in [x for x in edge.connectedEdges() if x in border_edges]:
-            if len(nu.list_intersection(edge.connectedVertices(), connected_edge.connectedVertices())) == 2:
+        for connected_edge in [x for x in nu.get_connected_edges(edge) if x in border_edges]:
+            if len(nu.list_intersection(nu.to_vtx(edge), nu.to_vtx(connected_edge))) == 2:
                 if not (connected_edge, edge) in digon_edge_pairs:
                     digon_edge_pairs.append((edge, connected_edge))
-    
+
     return digon_edge_pairs
 
 
 def remove_digon_holes(obj):
-    """ obj に含まれるすべての二角形ホールを削除する 
-
+    """ obj に含まれるすべての二角形ホールを削除する
     """
-
     # 二角形ホールの取得
     digon_pairs = get_digon_edge_pairs(obj)
 
@@ -570,17 +559,17 @@ def remove_digon_holes(obj):
         all_edges = [edge for edges in digon_pairs for edge in edges]
 
         # 辺にそれぞれ頂点を追加する
-        pm.select(clear=True)
-        pm.polySubdivideEdge(all_edges)
-        edges = pm.ls(selection=True, flatten=True)
-        vertices = [x for e in edges for x in e.connectedVertices()]
-        target_vertices = [x for x in vertices if len(x.connectedEdges()) == 2]
+        cmds.select(clear=True)
+        cmds.polySubdivideEdge(all_edges)
+        edges = cmds.ls(selection=True, flatten=True)
+        vertices = nu.to_vtx(edges)
+        target_vertices = [x for x in vertices if len(nu.get_connected_edges(x)) == 2]
 
         # 追加した頂点をマージし､マージ後の頂点を削除する
-        pm.select(clear=True)
-        pm.polyMergeVertex(target_vertices)
-        merged_vertex = pm.ls(selection=True, flatten=True)
-        pm.delete(merged_vertex)
+        cmds.select(clear=True)
+        cmds.polyMergeVertex(target_vertices)
+        merged_vertex = cmds.ls(selection=True, flatten=True)
+        cmds.delete(merged_vertex)
 
     return len(digon_pairs)
 
@@ -592,17 +581,17 @@ def select_digon_holes(objects=None):
     """
 
     if not objects:
-        objects = pm.ls(selection=True)
+        objects = cmds.ls(selection=True)
 
     # 二角形ホールの選択
-    pm.select(clear=True)
+    cmds.select(clear=True)
 
     for obj in objects:
         digon_pairs = get_digon_edge_pairs(obj)
 
         if digon_pairs:
             all_edges = [edge for edges in digon_pairs for edge in edges]
-            pm.select(all_edges, add=True)
+            cmds.select(all_edges, add=True)
 
 
 def remove_digon_holes_from_objects(objects=None, display_message=True):
@@ -612,7 +601,7 @@ def remove_digon_holes_from_objects(objects=None, display_message=True):
     """
 
     if not objects:
-        objects = pm.ls(selection=True)
+        objects = cmds.ls(selection=True)
 
     count = 0
 
@@ -683,12 +672,12 @@ def merge_in_range(vertices, r, connected=True):
 
 def shorten_filepath():
     """ 選択したファイルノードのパスの sourceimages 前を削除する """
-    file_nodes = [x for x in pm.selected() if x.type() == "file"] 
+    file_nodes = [x for x in cmds.ls(sl=True) if cmds.objectType(x) == "file"]
 
     for file in file_nodes:
-        old = pm.getAttr(file + ".fileTextureName")
+        old = cmds.getAttr(file + ".fileTextureName")
         new = re.sub(r".*sourceimages", "sourceimages", old)
-        pm.setAttr(file + ".fileTextureName", new, type="string")
+        cmds.setAttr(file + ".fileTextureName", new, type="string")
 
 
 def replace_mesh_as_instance():
@@ -697,31 +686,31 @@ def replace_mesh_as_instance():
     複数のオブジェクトを選択して実行
     """
     # 選択オブジェクトの取得
-    selections = [x for x in pm.selected()]
+    selections = cmds.ls(sl=True)
 
     dst_objects = selections[0:-1]
     src_object = selections[-1]
 
     # 複製オブジェクト分だけインスタンスコピーを作成
-    copies = [pm.instance(src_object)[0] for x in range(len(dst_objects))]
+    copies = [cmds.instance(src_object)[0] for _ in range(len(dst_objects))]
 
     for i, dst in enumerate(dst_objects):
         # インスタンスコピーを同じ親の子にする
-        parent = dst.getParent()
+        parents = cmds.listRelatives(dst, parent=True)
 
-        if parent:
-            copies[i].setParent(parent)
+        if parents:
+            cmds.parent(copies[i], parents[0])
         else:
-            copies[i].setParent(top=True)
-        
+            cmds.parent(copies[i], world=True)
+
         # トランスフォームを一致させる
-        matrix = dst.getMatrix(objectSpace=True)
-        copies[i].setMatrix(matrix, objectSpace=True)
+        matrix = cmds.xform(dst, q=True, m=True, os=True)
+        cmds.xform(copies[i], m=matrix, os=True)
 
         # リネームして元のオブジェクトを削除する
-        name = dst.name()
-        pm.delete(dst)
-        copies[i].rename(name)
+        name = dst
+        cmds.delete(dst)
+        cmds.rename(copies[i], name)
 
 
 def replace_mesh_as_connection():
@@ -729,7 +718,7 @@ def replace_mesh_as_connection():
 
     複数のオブジェクトを選択して実行
     """
-    selections = [x for x in pm.selected()]
+    selections = cmds.ls(selection=True)
 
     dst_objects = selections[0:-1]
     src_object = selections[-1]
@@ -737,17 +726,23 @@ def replace_mesh_as_connection():
     print(dst_objects)
     print(src_object)
 
+    src_shape = cmds.listRelatives(src_object, shapes=True, type="mesh")[0]
+
     for dst in dst_objects:
-        if dst not in src_object.outMesh.connections(dst.inMesh):
-            src_object.outMesh.connect(dst.inMesh)
+        dst_shape = cmds.listRelatives(dst, shapes=True, type="mesh")[0]
+        existing = cmds.listConnections(f"{src_shape}.outMesh", destination=True) or []
+        if f"{dst_shape}.inMesh" not in [f"{x}.inMesh" for x in existing]:
+            cmds.connectAttr(f"{src_shape}.outMesh", f"{dst_shape}.inMesh", force=True)
 
 
 def get_isolated_uv_face():
-    isolate_objectset = pm.ls("textureEditorIsolateSelectSet")
+    isolate_objectset = cmds.ls("textureEditorIsolateSelectSet")
 
     if isolate_objectset:
-        return isolate_objectset[0].members()
+
+        return cmds.sets(isolate_objectset[0], q=True) or []
     else:
+
         return None
 
 
@@ -757,11 +752,11 @@ def change_uveditor_image(n):
     iso_faces = get_isolated_uv_face()
 
     if iso_faces:
-        pm.select(iso_faces)
+        cmds.select(iso_faces)
         mel.eval("ToggleUVIsolateViewSelected;")
 
-    mel.eval("textureWindowSelectTexture %s %s;" % (n, uveditor_panel_name))
-    mel.eval("uvTbUpdateTextureItems %s;" & uveditor_panel_name)
+    mel.eval(f"textureWindowSelectTexture {n} {uveditor_panel_name};")
+    mel.eval(f"uvTbUpdateTextureItems {uveditor_panel_name};")
 
     if iso_faces:
         mel.eval("ToggleUVIsolateViewSelected;")
@@ -812,63 +807,69 @@ def isolate_with_imageplanes():
 
 
 def set_radius_auto(joints=[]):
+    """ジョイントの表示サイズ (radius) を子ジョイントとのワールド距離から自動設定する。
+
+    子ジョイントがある場合は親子間の距離 × radius_ratio を radius とする。
+    子ジョイントがない末端ジョイントの場合は親ジョイントの radius をそのまま使用する。
+    joints 未指定時は選択中のジョイントを対象とする。
+
+    Args:
+        joints (list[str]): 対象のジョイント。省略時は選択ジョイントを使用する。
+    """
     radius_ratio = 0.2
     min_radius = 0.001
 
     if not joints:
-        joints = pm.selected(flatten=True, type="joint")
-    
+        joints = cmds.ls(selection=True, flatten=True, type="joint")
+
         if not joints:
             raise(Exception)
 
     for j in joints:
-        children = j.getChildren()
+        children = cmds.listRelatives(j, children=True, type="joint") or []
 
         if children:
-            t1 = dt.Point(pm.xform(j, q=True, t=True, ws=True))
-            t2 = dt.Point(pm.xform(children[0], q=True, t=True, ws=True))
-            radius = (t2 - t1).length() * radius_ratio
-            j.setRadius(max(radius, min_radius))
+            t1 = cmds.xform(j, q=True, t=True, ws=True)
+            t2 = cmds.xform(children[0], q=True, t=True, ws=True)
+            dist = (om.MPoint(*t1) - om.MPoint(*t2)).length()
+            radius = dist * radius_ratio
+            cmds.setAttr(f"{j}.radius", max(radius, min_radius))
 
         else:
-            parent = j.getParent()
-            if parent and isinstance(parent, nt.Joint):
-                j.setRadius(parent.getRadius())
+            parent_list = cmds.listRelatives(j, parent=True, type="joint") or []
+            if parent_list:
+                parent_radius = cmds.getAttr(f"{parent_list[0]}.radius")
+                cmds.setAttr(f"{j}.radius", parent_radius)
 
-            
+
 def set_radius_constant(joints=[], radius=0.001):
     if not joints:
-        joints = pm.selected(flatten=True, type="joint")
-    
+        joints = cmds.ls(selection=True, flatten=True, type="joint")
+
         if not joints:
             raise(Exception)
 
     for j in joints:
-        j.setRadius(radius)
+        cmds.setAttr(f"{j}.radius", radius)
 
 
 def divide_without_history(delete_history=True):
-    selection = pm.selected(flatten=True)
+    selection = cmds.ls(selection=True, flatten=True)
 
     if selection:
-        if type(selection[0]) == nt.Mesh:
-            pm.polySubdivideFacet()
-        if type(selection[0]) == nt.Transform and hasattr(selection[0], "getShape") and selection[0].getShape():
-            pm.polySubdivideFacet()
-        elif type(selection[0]) == pm.MeshFace:
-            pm.polySubdivideFacet()
-        elif type(selection[0]) == pm.MeshEdge:
-            pm.polySubdivideEdge()
-        else:
-            pass
+        obj_type = cmds.objectType(selection[0])
+
+        if obj_type == "mesh":
+            cmds.polySubdivideFacet()
+        elif obj_type == "transform" and cmds.listRelatives(selection[0], shapes=True, type="mesh"):
+            cmds.polySubdivideFacet()
+        elif cmds.filterExpand(selection[0], selectionMask=34):
+            cmds.polySubdivideFacet()
+        elif cmds.filterExpand(selection[0], selectionMask=32):
+            cmds.polySubdivideEdge()
 
         if delete_history:
-            pm.bakePartialHistory(ppt=True)
-
-
-def soft_connect(edge_flow=0):
-    pm.polyConnectComponents(insertWithEdgeFlow=edge_flow, adjustEdgeFlow=1)
-    # TODO: ハードエッジ除去処理
+            cmds.bakePartialHistory(ppt=True)
 
 
 def reload_all_texture():
@@ -883,8 +884,9 @@ def rename_incremental_saves():
     連番を取り除き [YYYYmmdd_HHMM_SS]<scene_name>.ma という形式にする
     対象は今開いているシーンのインクリメンタルセーブのみ
     """
-    scene_name = re.sub(r"^.+[/\\]", "", pm.system.sceneName())
-    project_dir = re.sub(r"scenes.+$", "", pm.system.sceneName())
+    scene_path = cmds.file(q=True, sn=True)
+    scene_name = re.sub(r"^.+[/\\]", "", scene_path)
+    project_dir = re.sub(r"scenes.+$", "", scene_path)
     incremental_save_dir = project_dir + "scenes/incrementalSave/"
     target_dir = incremental_save_dir + scene_name + "/"
 
@@ -901,44 +903,6 @@ def rename_incremental_saves():
         if not os.path.isfile(target_dir + new_name):
             os.rename(filename, target_dir + new_name)
             print("rename {}".format(new_name))
-
-
-def replace_file_node():
-    """選択中のファイルノードを既存の別のファイルノードに差し替える
-    """
-    selection = pm.selected()
-    all_materials = pm.ls(materials=True)
-
-    if selection and type(selection[0]) == nt.File:
-        # 差し替え元となる選択されているファイルノードを取得
-        current_file = selection[0]
-        all_files = pm.ls(type="file")
-        all_files.remove(current_file.name())
-
-        # 差し替え先となる任意のファイルノードをユーザーに選択させる
-        i = ui.ListDialog.create(items=all_files)
-
-        if i is not None:
-            replace_file = all_files[i]
-
-        else:
-            return
-
-        # 差し替え元ファイルが接続されている他ノードの入力プラグ
-        dst_plugs = pm.listConnections(current_file, destination=True, source=False, plugs=True)
-
-        for dst_plug in dst_plugs:
-            if dst_plug.node() in all_materials:
-                # 差し替え元ファイルの全ての出力プラグを差し替える
-                current_src_plugs = pm.listConnections(dst_plugs, destination=False, source=True, plugs=True)
-
-                for current_src_plug in current_src_plugs:
-                    # 差し替え先ファイルの出力プラグ決定
-                    new_src_plug = pm.Attribute(replace_file.name() + "." + current_src_plug.attrName())
-
-                    # プラグの再接続
-                    dst_plug.disconnect()
-                    new_src_plug.connect(dst_plug)
 
 
 def align_horizontally(each_polyline=True, axis="y"):
@@ -963,15 +927,18 @@ def align_horizontally(each_polyline=True, axis="y"):
         else:
             raise("axis must be set to x, y, or z")
 
-        vts = pm.filterExpand(pm.polyListComponentConversion(targets, tv=True), sm=31)
-        p = sum([pm.PyNode(x).getPosition(space="world") for x in vts]) / len(vts)
+        vts = cmds.filterExpand(cmds.polyListComponentConversion(targets, tv=True), sm=31)
+        positions = [om.MVector(*cmds.xform(v, q=True, t=True, ws=True)) for v in vts]
+        p = sum(positions, om.MVector()) / len(positions)
+
+        pivot = (p.x, p.y, p.z)
 
         for i in range(10):
-            pm.scale(targets, scale_vector, r=True, xc="edge", p=p)
+            cmds.scale(*scale_vector, targets, r=True, xc="edge", p=pivot)
 
-        pm.scale(targets, scale_vector, r=True, p=p)
+        cmds.scale(*scale_vector, targets, r=True, p=pivot)
 
-    selection = pm.selected(flatten=True)
+    selection = cmds.ls(selection=True, flatten=True)
 
     if selection:
         if each_polyline:
@@ -987,15 +954,15 @@ def align_horizontally(each_polyline=True, axis="y"):
 
 
 def rename_dialog():
-    selections = pm.selected()
+    selections = cmds.ls(selection=True)
 
     if selections:
-        current_name = re.sub(r"^.*\|", "", selections[0].name())
+        current_name = re.sub(r"^.*\|", "", selections[0])
 
-        ret = pm.promptDialog(
+        ret = cmds.promptDialog(
             title="Rename Object",
             message="Enter Name:",
-            tx=current_name,
+            text=current_name,
             button=["OK", "Cancel"],
             defaultButton="OK",
             cancelButton="Cancel",
@@ -1003,10 +970,7 @@ def rename_dialog():
             )
 
         if ret == "OK":
-            new_name = pm.promptDialog(q=True, text=True)
+            new_name = cmds.promptDialog(q=True, text=True)
 
             for obj in selections:
-                if hasattr(obj, "fullPathName"):
-                    pm.rename(obj.fullPathName(), new_name)
-                else:
-                    pm.rename(obj.name(), new_name)
+                cmds.rename(obj, new_name)

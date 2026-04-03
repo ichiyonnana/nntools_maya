@@ -6,7 +6,6 @@
 import datetime
 import math
 import re
-import copy
 import os
 import sys
 import hashlib
@@ -15,10 +14,6 @@ import itertools as it
 import functools
 
 import maya.cmds as cmds
-import maya.mel as mel
-import pymel.core as pm
-import pymel.core.nodetypes as nt
-import pymel.core.datatypes as dt
 
 import maya.api.OpenMaya as om
 
@@ -54,13 +49,13 @@ def get_selection(**kwargs):
     return cmds.ls(selection=True, flatten=True, **kwargs)
 
 
-def selected(**kwargs):
-    """ [pm] flatten を有効にした pm.selected()
+def selected():
+    """ [cmds] 現在の選択をフラット展開して返す
 
     Returns:
-        [type]: [description]
+        list[str]: 選択中のコンポーネント/ノード文字列のリスト
     """
-    return pm.selected(flatten=True, **kwargs)
+    return cmds.ls(sl=True, flatten=True) or []
 
 
 def undo_chunk(function):
@@ -111,22 +106,6 @@ def no_warning(function):
         return ret
 
     return wrapper
-
-
-def idstr(pynode):
-    """ [pm] PyNode を cmds 用の文字列に変換する """
-    if type(pynode) == list:
-        return [idstr(x) for x in pynode]
-    else:
-        return str(pynode)
-
-
-def pynode(object_name):
-    """ [pm/cmds] cmds 用の文字列 を PyNode に変換する """
-    if type(object_name) == list:
-        return [pynode(x) for x in object_name]
-    else:
-        return pm.PyNode(object_name)
 
 
 def list_add(l1, l2):
@@ -514,25 +493,29 @@ def get_uv_coord(uv):
 
 
 def get_connected_vertices(comp):
-    """ [pm/cmds] pymel の getConnectedVertices の代替関数
-
-    pymel の getConnectedVertices より若干早い
+    """ [cmds] 指定頂点に隣接する頂点リストを返す
 
     Args:
-        comp ([type]): [description]
+        comp (str): 頂点コンポーネント文字列
 
     Returns:
-        [type]: [description]
+        list[str]:
     """
-    if type(comp) in [type(""), type(u"")]:
-        # comp 自体を取り除く (obj, objShape 対策でインデックスのみ比較)
-        return [x for x in to_vtx(to_edge(comp)) if re.search(r"(\[\d+\])", comp).groups()[0] not in x]
+    # comp 自体を取り除く (obj, objShape 対策でインデックスのみ比較)
+    return [x for x in to_vtx(to_edge(comp)) if re.search(r"(\[\d+\])", comp).groups()[0] not in x]
 
-    elif type(comp) in [pm.MeshEdge, pm.MeshVertex]:
-        return pynode(get_connected_vertices(idstr(comp)))
 
-    else:
-        raise
+def get_connected_edges(comp):
+    """ [cmds] 指定コンポーネントに接続するエッジリストを返す
+
+    Args:
+        comp (str): コンポーネント文字列 (頂点・エッジ・フェース等)
+
+    Returns:
+        list[str]:
+    """
+    # comp 自体を取り除く (obj, objShape 対策でインデックスのみ比較)
+    return [x for x in to_edge(to_vtx(comp)) if re.search(r"(\[\d+\])", comp).groups()[0] not in x]
 
 
 def get_end_vtx_e(edges):
@@ -674,12 +657,12 @@ def vtxListPath(vts, n=None):
 
 
 def length_each_vertices(vertices, space="world"):
-    """ [pm] 頂点間の距離をリストで返す
+    """ [cmds] 頂点間の距離をリストで返す
 
     戻り値リストの n 番目は vertices[n] と vertices[n+1] の距離
 
     Args:
-        vertices (list[MeshVertex]):
+        vertices (list[str]):
         space (str):
 
     Returns:
@@ -689,20 +672,20 @@ def length_each_vertices(vertices, space="world"):
     length_list = []
 
     for i in range(len(vertices)-1):
-        pnt1 = vertices[i].getPosition(space=space)
-        pnt2 = vertices[i+1].getPosition(space=space)
+        pnt1 = om.MVector(*cmds.xform(vertices[i], q=True, t=True, ws=(space == "world")))
+        pnt2 = om.MVector(*cmds.xform(vertices[i+1], q=True, t=True, ws=(space == "world")))
         length_list.append((pnt1 - pnt2).length())
 
     return length_list
 
 
 def vertices_path_length(vertices, n=None, space="world"):
-    """ [pm] vertices で渡された頂点の i 番目までの距離を返す｡ n を省略した場合は道のり全長を返す
+    """ [cmds] vertices で渡された頂点の i 番目までの距離を返す｡ n を省略した場合は道のり全長を返す
 
     すべての頂点間の距離を調べるときは length_each_vertices() 推奨｡ピンポイント 1 点とかならこっちでも｡
 
     Args:
-        vertices (list[MeshVertex]):
+        vertices (list[str]):
         space (str):
 
     Returns:
@@ -715,8 +698,8 @@ def vertices_path_length(vertices, n=None, space="world"):
     path = 0.0
 
     for i in range(n):
-        pnt1 = vertices[i].getPosition(space=space)
-        pnt2 = vertices[i+1].getPosition(space=space)
+        pnt1 = om.MVector(*cmds.xform(vertices[i], q=True, t=True, ws=(space == "world")))
+        pnt2 = om.MVector(*cmds.xform(vertices[i+1], q=True, t=True, ws=(space == "world")))
         path += (pnt1 - pnt2).length()
 
     return path
@@ -733,220 +716,152 @@ def is_string(v):
     return isinstance(v, (str, type(u"")))
 
 
-def get_object(component, pn=False, transform=False):
-    """ [pm/cmds] component の所属するオブジェクトを取得する
+def get_object(component, transform=False):
+    """ [cmds] component の所属するオブジェクトを取得する
 
     Args:
-        component (Mesh, MeshVertex, MeshEdge, MeshFace, MeshVertexFace or str): 所属オブジェクトを取得するコンポーネント
-        pn (bool): 現在は使用されていません
+        component (str): 所属オブジェクトを取得するコンポーネント
         transform (bool): True の場合 Mesh の親の Transform を返し、False の場合Mesh オブジェクトを返す
 
     Returns:
-        str or PyNode: component の所属オブジェクト。component の型により str か PyNode を返す
+        str: component の所属オブジェクト
     """
     if not component:
         return component
 
-    pn = not is_string(component)
+    shape = cmds.polyListComponentConversion(component)[0]
 
-    if pn:
-        if isinstance(component, nt.Transform):
-            if transform:
-                return component
-            else:
-                return component.getShape()
-
-        elif isinstance(component, nt.Mesh):
-            if transform:
-                return component.getParent()
-            else:
-                return component
-        elif isinstance(component, (pm.MeshVertex, pm.MeshEdge, pm.MeshFace, pm.MeshVertexFace)):
-            if transform:
-                return component.node().getParent()
-            else:
-                return component.node()
-        else:
-            raise(Exception("%s is not supported" % str(type(component))))
-
+    if transform:
+        return cmds.listRelatives(shape, parent=True)[0]
     else:
-        return cmds.polyListComponentConversion(component)[0]
+        return shape
 
 
-def to_vtx(components, pn=False):
-    """ [pm/cmds]
+def to_vtx(components):
+    """ [cmds] 任意のコンポーネントを頂点に変換して返す
 
     Args:
-        components ([type]): [description]
-        pn (bool, optional): [description]. Defaults to False.
+        components (list[str]): 変換元コンポーネント (頂点・エッジ・フェース等を混在可)
 
     Returns:
-        list[str or PyNode]:
+        list[str]: 重複なし頂点コンポーネント文字列のリスト
     """
     if not components:
         return components
 
-    if isinstance(components, list):
-        pn = not is_string(components[0])
-    else:
-        pn = not is_string(components)
-
-    if pn:
-        return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, tv=True), sm=31)))
-    else:
-        return uniq(cmds.filterExpand(cmds.polyListComponentConversion(components, tv=True), sm=31))
+    # 複数種類のコンポーネントが混ざっていた場合は変換後のコンポーネントが重複する可能性があるため uniq で重複を排除
+    return uniq(cmds.filterExpand(cmds.polyListComponentConversion(components, tv=True), sm=31))
 
 
-def to_edge(components, pn=False):
-    """ [pm/cmds]
+def to_edge(components):
+    """ [cmds] 任意のコンポーネントをエッジに変換して返す
 
     Args:
-        components ([type]): [description]
-        pn (bool, optional): [description]. Defaults to False.
+        components (list[str]): 変換元コンポーネント (頂点・エッジ・フェース等を混在可)
 
     Returns:
-        list[str or PyNode]:
+        list[str]: 重複なしエッジコンポーネント文字列のリスト
     """
     if not components:
         return components
 
-    if isinstance(components, list):
-        pn = not is_string(components[0])
-    else:
-        pn = not is_string(components)
-
-    if pn:
-        return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, te=True), sm=32)))
-    else:
-        return uniq(cmds.filterExpand(cmds.polyListComponentConversion(components, te=True), sm=32))
+    # 複数種類のコンポーネントが混ざっていた場合は変換後のコンポーネントが重複する可能性があるため uniq で重複を排除
+    return uniq(cmds.filterExpand(cmds.polyListComponentConversion(components, te=True), sm=32))
 
 
-def to_face(components, pn=False):
-    """ [pm/cmds]
+def to_face(components):
+    """ [cmds] 任意のコンポーネントをフェースに変換して返す
 
     Args:
-        components ([type]): [description]
-        pn (bool, optional): [description]. Defaults to False.
+        components (list[str]): 変換元コンポーネント (頂点・エッジ・フェース等を混在可)
 
     Returns:
-        list[str or PyNode]:
+        list[str]: 重複なしフェースコンポーネント文字列のリスト
     """
     if not components:
         return components
 
-    if isinstance(components, list):
-        pn = not is_string(components[0])
-    else:
-        pn = not is_string(components)
-
-    if pn:
-        return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, tf=True), sm=34)))
-    else:
-        return uniq(cmds.filterExpand(cmds.polyListComponentConversion(components, tf=True), sm=34))
+    # 複数種類のコンポーネントが混ざっていた場合は変換後のコンポーネントが重複する可能性があるため uniq で重複を排除
+    return uniq(cmds.filterExpand(cmds.polyListComponentConversion(components, tf=True), sm=34))
 
 
-def to_uv(components, pn=False):
-    """ [pm/cmds]
+def to_uv(components):
+    """ [cmds] 任意のコンポーネントを UV に変換して返す
 
     Args:
-        components ([type]): [description]
-        pn (bool, optional): [description]. Defaults to False.
+        components (list[str]): 変換元コンポーネント (頂点・エッジ・フェース等を混在可)
 
     Returns:
-        list[str or PyNode]:
+        list[str]: 重複なし UV コンポーネント文字列のリスト
     """
     if not components:
         return components
 
-    if isinstance(components, list):
-        pn = not is_string(components[0])
-    else:
-        pn = not is_string(components)
-
-    if pn:
-        return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, tuv=True), sm=35)))
-    else:
-        return uniq(cmds.filterExpand(cmds.polyListComponentConversion(components, tuv=True), sm=35))
+    # 複数種類のコンポーネントが混ざっていた場合は変換後のコンポーネントが重複する可能性があるため uniq で重複を排除
+    return uniq(cmds.filterExpand(cmds.polyListComponentConversion(components, tuv=True), sm=35))
 
 
-def to_vtxface(components, pn=False):
-    """ [pm/cmds]
+def to_vtxface(components):
+    """ [cmds] 任意のコンポーネントを頂点フェースに変換して返す
 
     Args:
-        components ([type]): [description]
-        pn (bool, optional): [description]. Defaults to False.
+        components (list[str]): 変換元コンポーネント (頂点・エッジ・フェース等を混在可)
 
     Returns:
-        list[str or PyNode]:
+        list[str]: 重複なし頂点フェースコンポーネント文字列のリスト
     """
     if not components:
         return components
 
-    if isinstance(components, list):
-        pn = not is_string(components[0])
-    else:
-        pn = not is_string(components)
-
-    if pn:
-        return uniq(pynode(pm.filterExpand(pm.polyListComponentConversion(components, tvf=True), sm=70)))
-    else:
-        return uniq(cmds.filterExpand(cmds.polyListComponentConversion(components, tvf=True), sm=70))
+    # 複数種類のコンポーネントが混ざっていた場合は変換後のコンポーネントが重複する可能性があるため uniq で重複を排除
+    return uniq(cmds.filterExpand(cmds.polyListComponentConversion(components, tvf=True), sm=70))
 
 
 def to_border_vertices(components):
-    """ [pm]
+    """ [cmds] 任意のコンポーネントをボーダー頂点に変換して返す
+
+    Args:
+        components (list[str]): 変換元コンポーネント
+
+    Returns:
+        list[str]: 重複なしボーダー頂点コンポーネント文字列のリスト
     """
     if not components:
         return components
 
-    if isinstance(components, list):
-        pn = not is_string(components[0])
-    else:
-        pn = not is_string(components)
+    border = cmds.filterExpand(cmds.polyListComponentConversion(components, tv=True, border=True), sm=31)
 
-    border = pm.filterExpand(pm.polyListComponentConversion(components, tv=True, border=True), sm=31)
-
-    if border:
-        if pn:
-            return uniq(pynode(border))
-        else:
-            return uniq(border)
-    else:
-        return []
+    return uniq(border) if border else []
 
 
 def to_border_edges(components):
-    """ [pm]
+    """ [cmds] 任意のコンポーネントをボーダーエッジに変換して返す
+
+    Args:
+        components (list[str]): 変換元コンポーネント
+
+    Returns:
+        list[str]: 重複なしボーダーエッジコンポーネント文字列のリスト
     """
     if not components:
         return components
 
-    if isinstance(components, list):
-        pn = not is_string(components[0])
-    else:
-        pn = not is_string(components)
+    border = cmds.filterExpand(cmds.polyListComponentConversion(components, te=True, border=True), sm=32)
 
-    border = pm.filterExpand(pm.polyListComponentConversion(components, te=True, border=True), sm=32)
-
-    if border:
-        if pn:
-            return uniq(pynode(border))
-        else:
-            return uniq(border)
-    else:
-        return []
+    return uniq(border) if border else []
 
 
 def to_border_vtxfaces(components):
-    """ [pm]
+    """ [cmds] 任意のコンポーネントをボーダー頂点フェースに変換して返す
+
+    Args:
+        components (list[str]): 変換元コンポーネント
+
+    Returns:
+        list[str]: 重複なしボーダー頂点フェースコンポーネント文字列のリスト
     """
     if not components:
         return components
-
-    if isinstance(components, list):
-        pn = not is_string(components[0])
-    else:
-        pn = not is_string(components)
 
     faces = to_face(components)
     inner_vf = to_vtxface(faces)
@@ -955,73 +870,57 @@ def to_border_vtxfaces(components):
 
     border = list_intersection(double_sided_border_vf, inner_vf)
 
-    if border:
-        if pn:
-            return uniq(pynode(border))
-        else:
-            return uniq(border)
-    else:
-        return []
+    return uniq(border) if border else []
 
 
 def is_hardedge(edge):
     """ 引数のエッジがハードエッジなら True を返す
 
     Args:
-        edge ([MeshEdge]): [description]
+        edge (str): エッジコンポーネント文字列
 
     Returns:
         bool: edge がハードエッジなら True
     """
-    return "Hard" in pm.polyInfo(edge, edgeToVertex=True)[0]
+    edge_index = get_index(edge)
+    shape = cmds.ls(edge, objectsOnly=True)[0]
+    sel = om.MSelectionList()
+    sel.add(shape)
+    fn_mesh = om.MFnMesh(sel.getDagPath(0))
+
+    return not fn_mesh.isEdgeSmooth(edge_index)
 
 
 def get_all_hardedges(obj):
-    """オブジェクトのすべてのハードエッジを取得し cmds 形式の文字列のリストとして返す。
-
-    引数は PyNode で戻り値は cmds 文字列なので注意。
+    """オブジェクトのすべてのハードエッジを返す
 
     Args:
-        obj (Transform or Mesh): ハードエッジを取得するオブジェクトかメッシュ
+        obj (str): ハードエッジを取得するオブジェクトかメッシュ
 
     Returns:
-        list[MeshEdge]: [description]
+        list[str]: ハードエッジコンポーネント文字列のリスト
     """
-    current_selection = cmds.ls(selection=True)
+    sel = om.MSelectionList()
+    sel.add(obj)
+    fn_mesh = om.MFnMesh(sel.getDagPath(0))
 
-    harden = []
-    pm.select(obj.edges)
-    pm.polySelectConstraint(mode=3, type=0x8000, smoothness=1)
-    harden = cmds.ls(selection=True, flatten=True)
-    pm.polySelectConstraint(mode=3, type=0x8000, smoothness=0)
-
-    cmds.select(current_selection, replace=True)
-
-    return harden
+    return [f"{obj}.e[{i}]" for i in range(fn_mesh.numEdges) if not fn_mesh.isEdgeSmooth(i)]
 
 
 def get_all_softedges(obj):
-    """オブジェクトのすべてのソフトエッジを取得し cmds 形式の文字列のリストとして返す。
-
-    引数は PyNode で戻り値は cmds 文字列なので注意。
+    """オブジェクトのすべてのソフトエッジを返す
 
     Args:
-        obj (Transform or Mesh): ハードエッジを取得するオブジェクトかメッシュ
+        obj (str): ソフトエッジを取得するオブジェクトかメッシュ
 
     Returns:
-        list[MeshEdge]: [description]
+        list[str]: ソフトエッジコンポーネント文字列のリスト
     """
-    current_selection = cmds.ls(selection=True)
+    sel = om.MSelectionList()
+    sel.add(obj)
+    fn_mesh = om.MFnMesh(sel.getDagPath(0))
 
-    harden = []
-    pm.select(obj.edges)
-    pm.polySelectConstraint(mode=3, type=0x8000, smoothness=2)
-    harden = cmds.ls(selection=True, flatten=True)
-    pm.polySelectConstraint(mode=3, type=0x8000, smoothness=0)
-
-    cmds.select(current_selection, replace=True)
-
-    return harden
+    return [f"{obj}.e[{i}]" for i in range(fn_mesh.numEdges) if fn_mesh.isEdgeSmooth(i)]
 
 
 def is_connected_vtxfaces(vf1, vf2):
@@ -1211,9 +1110,6 @@ def get_poly_line(edges, intersections=[]):
         list[str]:
 
     """
-    if isinstance(edges[0], pm.MeshEdge):
-        return _get_poly_line_pm(edges, intersections=intersections)
-
     first_edge = edges[0]
     rest_edges = edges[1:]
     processed_edges = [first_edge]
@@ -1262,93 +1158,12 @@ def get_all_polylines(edges):
         list[list[str]]:
 
     """
-    if isinstance(edges[0], pm.MeshEdge):
-        return _get_all_polylines_pm(edges)
-
     polylines = []
     rest_edges = edges
     intersections = [v for v in to_vtx(edges) if len(set(to_edge(v)) & set(edges)) > 2]
 
     while len(rest_edges) > 0:
         polyline = get_poly_line(rest_edges, intersections)
-        polylines.append(polyline)
-        rest_edges = list_diff(rest_edges, polyline)
-
-    return polylines
-
-
-def _get_poly_line_pm(edges, intersections=[]):
-    """ [pm] edges を連続するエッジのまとまりとしてエッジリストを一つ返す
-
-    get_poly_line() から呼ばれる Pymel 版の実装｡基本的には直接呼ばず get_poly_line() を使う｡
-    intersections を指定することで実際には連続しているエッジ同士を分離する事が可能
-
-    Args:
-        edges (list[MeshEdge]):
-        intersections (list[MeshVertex]): 複数のエッジの交点と見なす頂点
-
-    Returns:
-        list[MeshEdge]:
-    """
-    first_edge = edges[0]
-    rest_edges = edges[1:]  # 未処理エッジ
-    processed_edges = [first_edge]  # 処理済みエッジ
-    processed_vts = []  # 処理済み頂点
-    polyline = [first_edge]  # 返値
-    vtx_queue = list_diff(get_connected_vertices(first_edge), intersections)
-
-    while len(vtx_queue) > 0:
-        for vtx in vtx_queue:
-            # 処理済み頂点にvtx 追加
-            processed_vts.append(vtx)
-            vtx_queue = list_diff(vtx_queue, processed_vts)
-
-            # 隣接する未処理エッジの取得
-            adjacent_edges = list_intersection(list(vtx.connectedEdges()), rest_edges)
-
-            if len(adjacent_edges) > 0:
-                # 隣接エッジがあれば連続エッジに追加
-                polyline.extend(adjacent_edges)
-
-                # 処理済みエッジに追加
-                processed_edges.extend(adjacent_edges)
-                rest_edges = list_diff(rest_edges, adjacent_edges)
-
-                # 隣接エッジの構成頂点のうち未処理のものをキューに追加する
-                vtx_queue.extend(list_diff(list_diff(to_vtx(adjacent_edges, pn=True), processed_vts), intersections))
-            else:
-                # 隣接エッジなし
-                pass
-
-    return polyline
-
-
-def _get_all_polylines_pm(edges):
-    """ [pm] edges で指定したエッジ列を連続するエッジ列の集まりに分割してリストを返す
-
-    get_all_polylines() から呼ばれる Pymel 版の実装｡基本的には直接呼ばず get_all_polylines() を使う｡
-
-    Args:
-        edges (list[MeshEdge]):
-
-    Returns:
-        list[list[MeshEdge]]:
-
-    """
-    polylines = []
-    rest_edges = edges
-
-    # エッジ同士の交点
-    intersections = []
-
-    # 全ての構成頂点のうち､その頂点の接続エッジが edges に 2 本以上含まれていればその頂点は交点
-    for v in to_vtx(edges, pn=True):
-        connected_edges = to_edge(v, pn=True)
-        if len(list_intersection(connected_edges, edges)) > 2:
-            intersections.append(v)
-
-    while len(rest_edges) > 0:
-        polyline = _get_poly_line_pm(edges=rest_edges, intersections=intersections)
         polylines.append(polyline)
         rest_edges = list_diff(rest_edges, polyline)
 
@@ -1471,19 +1286,19 @@ def sort_edges(edges):
 
 
 def sort_vertices(vertices):
-    """ [pm] 頂点をトポロジーの連続性でソートする
+    """ [cmds] 頂点をトポロジーの連続性でソートする
 
     やや重いのでソート済エッジがすでの存在するならば sorted_edges_to_vertices() 使う
 
     Args:
-        vertices (list[MeshVertex): 未ソート頂点リスト
+        vertices (list[str]): 未ソート頂点リスト
 
     Returns:
-        list[MeshVertex]: ソート済頂点リスト
+        list[str]: ソート済頂点リスト
     """
     def part_vertex_list(vertices, first_vertex):
         """ 部分エッジ集合と開始頂点から再帰的に頂点列を求める """
-        neighbors = list(first_vertex.connectedVertices())
+        neighbors = get_connected_vertices(first_vertex)
         next_vertices = list_intersection(neighbors, vertices)
 
         if len(next_vertices) == 1:
@@ -1543,16 +1358,18 @@ def sorted_vertices_to_edges(vertices):
     return sorted_edges
 
 
-def coords_to_vector(coords):
-    """ [pm] フラットなリストとして保存されている複数法線を 3 つずつ区切って Pymel の Vector に変換する
+def normal_coords_to_mvectors (coords):
+    """ [om] フラットな座標列を 3 つずつ区切って MVector に変換する
+
+    主に cmds.polyNormalPerVertex(q=True, xyz=True) の戻り値を MVector リストに変換するための関数。
 
     Args:
-        coords ([type]): [description]
+        coords (list[float]): x, y, z をフラットに並べた座標リスト (要素数は 3 の倍数)
 
     Returns:
-        [type]: [description]
+        list[om.MVector]:
     """
-    vectors = [dt.Vector(coords[i], coords[i+1], coords[i+2]) for i in range(0, len(coords), 3)]
+    vectors = [om.MVector(coords[i], coords[i+1], coords[i+2]) for i in range(0, len(coords), 3)]
 
     return vectors
 
@@ -1561,105 +1378,93 @@ def apply_tweak(target, delete_history=True):
     """ Tweakノードと pnts アトリビュートをコンポーネント座標に適用する
 
     Args:
-        target (Mesh or Transform): 適用対象の Mesh 自身か Mesh を子に持つ Transform
+        target (str): 適用対象の mesh 自身か mesh を子に持つ transform
         delete_history (bool): True の場合処理の最後にノンデフォーマーヒストリーを削除する. default to True
 
     Returns:
         bool: 成功した場合は True, 失敗した場合は False
     """
-    current_selection = pm.selected()
+    current_selection = cmds.ls(sl=True)
 
-    if isinstance(target, nt.Transform):
+    obj_type = cmds.objectType(target)
+
+    if obj_type == "transform":
         obj = target
-        shape = target.getShape()
+        shapes = cmds.listRelatives(target, shapes=True, type="mesh") or []
+        if not shapes:
+            return False
+        shape = shapes[0]
 
-    elif isinstance(target, nt.Mesh):
-        obj = target.getParent()
+    elif obj_type == "mesh":
+        obj = cmds.listRelatives(target, parent=True)[0]
         shape = target
 
     else:
         return False
 
     # Tweak ノードの適用
-    tweak_nodes = [x for x in shape.connections() if isinstance(x, nt.Tweak)]
+    tweak_nodes = [x for x in (cmds.listConnections(shape) or []) if cmds.objectType(x) == "tweak"]
 
     if tweak_nodes:
         tweak_node = tweak_nodes[0]
-        current_points = get_points(shape.name())
-        pm.delete(tweak_node)
-        set_points(shape.name(), current_points)
+        current_points = get_points(shape)
+        cmds.delete(tweak_node)
+        set_points(shape, current_points)
 
     # pnts の適用
-    pm.polyMergeVertex(obj.verts[0])
+    cmds.polyMergeVertex(f"{obj}.vtx[0]")
 
     if delete_history:
-        pm.bakePartialHistory(obj, ppt=True)
+        cmds.bakePartialHistory(obj, ppt=True)
 
-    pm.select(current_selection)
-
-
-def get_position(comp, space):
-    """ コンポーネントから座標を取得する
-
-    Args:
-        comp ([type]): [description]
-        space ([type]): [description]
-
-    Returns:
-        [type]: [description]
-    """
-    # TODO: ひととおり型毎の分岐書く
-    if isinstance(comp, pm.MeshVertex):
-        return comp.getPosition(space=space)
-    else:
-        return to_vtx(comp)[0].getPosition(space=space)
+    cmds.select(current_selection)
 
 
 def get_center_point(targets):
-    """ 指定したコンポーネントのローカル空間でのバウンディングボックスの中心を取得する
+    """ [cmds] 指定したコンポーネントのオブジェクト空間でのバウンディングボックスの中心を取得する
 
-    API 等で取得できるバウンディングボックスは親の座標系でのバウンディングボックス。これは子のシェープの座標系でのバウンディングボックス。
+    cmds.xform で取得できるバウンディングボックスは親の座標系。この関数は子のシェープの座標系 (オブジェクト空間) でのバウンディングボックス中心を返す。
 
     Args:
-        targets ([type]): [description]
+        targets (list[str]): 対象コンポーネント
 
     Returns:
-        [type]: [description]
+        om.MVector: バウンディングボックス中心座標
     """
-
     if not targets:
         raise(Exception())
 
-    points = [x.getPosition(space="object") for x in to_vtx(targets)]
+    vertices = to_vtx(targets)
+    coords = [cmds.xform(v, q=True, t=True, os=True) for v in vertices]
 
-    min_x = points[0].x
-    min_y = points[0].y
-    min_z = points[0].z
-    max_x = points[0].x
-    max_y = points[0].y
-    max_z = points[0].z
+    min_x = coords[0][0]
+    min_y = coords[0][1]
+    min_z = coords[0][2]
+    max_x = coords[0][0]
+    max_y = coords[0][1]
+    max_z = coords[0][2]
 
-    for p in points:
+    for x, y, z in coords:
 
-        if p.x < min_x:
-            min_x = p.x
+        if x < min_x:
+            min_x = x
 
-        if p.x > max_x:
-            max_x = p.x
+        if x > max_x:
+            max_x = x
 
-        if p.y < min_y:
-            min_y = p.y
+        if y < min_y:
+            min_y = y
 
-        if p.y > max_y:
-            max_y = p.y
+        if y > max_y:
+            max_y = y
 
-        if p.z < min_z:
-            min_z = p.z
+        if z < min_z:
+            min_z = z
 
-        if p.z > max_z:
-            max_z = p.z
+        if z > max_z:
+            max_z = z
 
-    return dt.Point((max_x+min_x)/2, (max_y+min_y)/2, (max_z+min_z)/2)
+    return om.MVector((max_x+min_x)/2, (max_y+min_y)/2, (max_z+min_z)/2)
 
 
 def get_normals(shape):
@@ -1968,62 +1773,40 @@ def is_skined(shape):
     """指定したシェイプがバインド済みならTrueを返す
 
     Args:
-        shape (Mesh): バインド済みか調べるメッシュ
+        shape (str): バインド済みか調べるメッシュ
 
     Returns:
         bool: バインド済みならTrue, 未バインドならFalse を返す
     """
-    skined = False
-
-    if any([isinstance(x, nt.SkinCluster) for x in shape.inputs()]):
-        skined = True
-    else:
-        object_sets = [x for x in shape.inputs() if isinstance(x, nt.ObjectSet)]
-        for object_set in object_sets:
-            if any([isinstance(x, nt.SkinCluster) for x in object_set.inputs()]):
-                skined = True
-
-    return skined
+    return bool(cmds.listHistory(shape, type="skinCluster"))
 
 
 def get_orig_shape(skined_mesh):
     """指定したシェイプの Orig シェイプを取得する
 
     Args:
-        shape (Mesh): Origメッシュを取得するバインド済みメッシュ
+        skined_mesh (str): Origメッシュを取得するバインド済みメッシュ
 
     Returns:
-        Mesh: Origメッシュ
+        str: Origメッシュ名。見つからない場合は None
     """
-    obj = skined_mesh.getParent()
-    intermediate_shapes = [x for x in pm.listRelatives(obj, shapes=True, noIntermediate=False) if x.intermediateObject.get()]
+    obj = cmds.listRelatives(skined_mesh, parent=True)[0]
+    all_shapes = cmds.listRelatives(obj, shapes=True, noIntermediate=False) or []
+    intermediate_shapes = [x for x in all_shapes if cmds.getAttr(f"{x}.intermediateObject")]
 
     for shape in intermediate_shapes:
-        connections = shape.connections()
-        non_info_nodes = [c for c in connections if not isinstance(c, nt.NodeGraphEditorInfo)]
+        connections = cmds.listConnections(shape) or []
+        non_info_nodes = [c for c in connections if cmds.objectType(c) != "nodeGraphEditorInfo"]
 
-        if len(non_info_nodes) != 0 and shape.intermediateObject.get():
+        if non_info_nodes:
+
             return shape
 
     if intermediate_shapes:
+
         return intermediate_shapes[0]
 
-    else:
-        return None
-
-
-def delete_invalid_orig_shape(obj):
-    """指定したトランスフォームノード以下にある不要な Orig シェイプを削除する
-
-    Args:
-        obj (Transform): バインドされたシェイプを持つトランスフォームノード
-    """
-    for shape in pm.listRelatives(obj, s=True):
-        connections = shape.connections()
-        non_info_nodes = [c for c in connections if not isinstance(c, nt.NodeGraphEditorInfo)]
-
-        if len(non_info_nodes) == 0:
-            pm.delete(shape)
+    return None
 
 
 def f_next(face_itr):
@@ -2045,16 +1828,16 @@ def f_next(face_itr):
 
 
 def is_same_topology(shape1, shape2):
-    """[pm] 二つのシェープのトポロジーが一致しているか調べる｡
+    """[cmds] 二つのシェープのトポロジーが一致しているか調べる｡
 
     Args:
-        shape1 (Mesh): 比較するメッシュ1
-        shape2 (Mesh): 比較するメッシュ2
+        shape1 (str): 比較するメッシュ1
+        shape2 (str): 比較するメッシュ2
 
     Returns:
         bool: ふたつのシェープのトポロジーが一致していれば True を返す
     """
-    return pm.polyCompare(shape1, shape2, faceDesc=True) == 0
+    return cmds.polyCompare(shape1, shape2, faceDesc=True) == 0
 
 
 def is_format_option_supported():
@@ -2071,39 +1854,23 @@ def is_format_option_supported():
 
 
 def lock_trs(obj):
-    """[pm/cmds]指定したオブジェクトのトランスフォームをロックする
+    """指定したオブジェクトのトランスフォームをロックする
 
     Args:
-        obj (Transform or str): トランスフォームをロックするトランスフォームノード
+        obj (str): トランスフォームをロックするトランスフォームノード
     """
-    obj = pynode(obj)
-    obj.translateX.lock()
-    obj.translateY.lock()
-    obj.translateZ.lock()
-    obj.rotateX.lock()
-    obj.rotateY.lock()
-    obj.rotateZ.lock()
-    obj.scaleX.lock()
-    obj.scaleY.lock()
-    obj.scaleZ.lock()
+    for attr in ("tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz"):
+        cmds.setAttr(f"{obj}.{attr}", lock=True)
 
 
 def unlock_trs(obj):
-    """[pm/cmds]指定したオブジェクトのトランスフォームをアンロックする
+    """指定したオブジェクトのトランスフォームをアンロックする
 
     Args:
-        obj (Transform or str): トランスフォームをアンロックするトランスフォームノード
+        obj (str): トランスフォームをアンロックするトランスフォームノード
     """
-    obj = pynode(obj)
-    obj.translateX.unlock()
-    obj.translateY.unlock()
-    obj.translateZ.unlock()
-    obj.rotateX.unlock()
-    obj.rotateY.unlock()
-    obj.rotateZ.unlock()
-    obj.scaleX.unlock()
-    obj.scaleY.unlock()
-    obj.scaleZ.unlock()
+    for attr in ("tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz"):
+        cmds.setAttr(f"{obj}.{attr}", lock=False)
 
 
 def exist_file(dir, filename):
@@ -2147,6 +1914,17 @@ def get_parent(object, fullPath=False, path=True):
     parent = (cmds.listRelatives(object, parent=True, fullPath=fullPath, path=path) or [None])[0]
 
     return parent
+
+
+def get_index(comp):
+    """コンポーネント文字列からインデックスを取得する
+
+    Args:
+        comp (str): コンポーネントを表す文字列
+    """
+    index = int(comp.split("[")[1].rstrip("]"))
+
+    return index
 
 
 def get_indices(comp):

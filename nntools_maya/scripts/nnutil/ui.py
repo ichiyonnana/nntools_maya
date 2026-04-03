@@ -5,11 +5,11 @@ http://www.not-enough.org/abe/manual/maya/pymel-quick.html
 """
 import re
 import ctypes
+import functools
 
 from . import windows_vk as vk
 
-import pymel.core as pm
-import pymel.core.nodetypes as nt
+import maya.cmds as cmds
 
 
 window_width = 300
@@ -76,40 +76,38 @@ def any_handler(*args):
 
 
 def get_component_type(component):
-    """ [pm] コンポーネントの種類を取得する
-
-    現状は type() を返すだけ｡
+    """ コンポーネントの種類を取得する
 
     Args:
-        component (PyNode): 種類を調べる UI コンポーネントオブジェクト
+        component (str): 種類を調べる UI コンポーネント名
 
     Returns:
-        type: component の型
+        str: objectTypeUI が返す型名
     """
-    return type(component)
+    return cmds.objectTypeUI(component)
 
 
 def ui_func(component):
-    """ [pm] UIコンポーネントの種類から操作用コマンドを取得する
+    """ UIコンポーネントの種類から操作用コマンドを取得する
 
     Args:
-        component ([type]): [description]
+        component (str): UI コンポーネント名
 
     Returns:
         [type]: [description]
     """
     # TODO: クラスにする
     handle_method = {
-        pm.uitypes.FloatField: [pm.floatField, "v"],
-        pm.uitypes.IntField: [pm.intField, "v"],
-        pm.uitypes.CheckBox: [pm.checkBox, "v"],
-        pm.uitypes.Button: [pm.button, "v"],
-        pm.uitypes.IntSlider: [pm.intSlider, "v"],
-        pm.uitypes.FloatSlider: [pm.floatSlider, "v"],
-        pm.uitypes.Text: [pm.text, "l"],
-        pm.uitypes.RadioButton: [pm.radioButton, "sl"],
-        pm.uitypes.TextField: [pm.textField, "text"],
-        pm.uitypes.OptionMenu: [pm.optionMenu, "v"],
+        "floatField":  [cmds.floatField, "v"],
+        "intField":    [cmds.intField, "v"],
+        "checkBox":    [cmds.checkBox, "v"],
+        "button":      [cmds.button, "v"],
+        "intSlider":   [cmds.intSlider, "v"],
+        "floatSlider": [cmds.floatSlider, "v"],
+        "staticText":  [cmds.text, "l"],
+        "radioButton": [cmds.radioButton, "sl"],
+        "field":       [cmds.textField, "text"],
+        "popupMenu":   [cmds.optionMenu, "v"],
     }
 
     return handle_method[get_component_type(component)]
@@ -144,19 +142,19 @@ def decide_width(word, with_icon=False):
 
 
 def column_layout(*args, **kwargs):
-    return pm.columnLayout(*args, **kwargs)
+    return cmds.columnLayout(*args, **kwargs)
 
 
 def row_layout(numberOfColumns=16, *args, **kwargs):
-    return pm.rowLayout(numberOfColumns=numberOfColumns, *args, **kwargs)
+    return cmds.rowLayout(numberOfColumns=numberOfColumns, *args, **kwargs)
 
 
 def end_layout():
-    pm.setParent("..")
+    cmds.setParent("..")
 
 
 def header(label="", *args, **kwargs):
-    return pm.text(label=label, width=header_width, *args, **kwargs)
+    return cmds.text(label=label, width=header_width, *args, **kwargs)
 
 
 def text(label="", width=button_width_auto, *args, **kwargs):
@@ -165,7 +163,7 @@ def text(label="", width=button_width_auto, *args, **kwargs):
     if width == button_width_auto:
         actual_width = decide_width(label)
 
-    return pm.text(label=label, width=actual_width, *args, **kwargs)
+    return cmds.text(label=label, width=actual_width, *args, **kwargs)
 
 
 def button(label, icon=None, width=button_width_auto, height=height1, bgc=color_default, c=any_handler, dgc=any_handler, *args, **kwargs):
@@ -175,9 +173,9 @@ def button(label, icon=None, width=button_width_auto, height=height1, bgc=color_
         actual_width = decide_width(label, with_icon=bool(icon))
 
     if icon:
-        component = pm.iconTextButton(l=label, image1=icon, style="iconAndTextHorizontal", bgc=bgc, c=c, dgc=dgc, width=actual_width, height=height, *args, **kwargs)
+        component = cmds.iconTextButton(l=label, image1=icon, style="iconAndTextHorizontal", bgc=bgc, c=c, dgc=dgc, width=actual_width, height=height, *args, **kwargs)
     else:
-        component = pm.button(l=label, c=c, dgc=dgc, width=actual_width, height=height, bgc=bgc, *args, **kwargs)
+        component = cmds.button(l=label, c=c, dgc=dgc, width=actual_width, height=height, bgc=bgc, *args, **kwargs)
 
     return component
 
@@ -197,7 +195,7 @@ def float_slider(min=0, max=1, value=0, step=0.1, width=button_width2, dc=any_ha
     Returns:
         [type]: [description]
     """
-    component = pm.floatSlider(min=min, max=max, value=value, step=step, width=width, dc=dc, cc=cc, *args, **kwargs)
+    component = cmds.floatSlider(min=min, max=max, value=value, step=step, width=width, dc=dc, cc=cc, *args, **kwargs)
 
     return component
 
@@ -217,7 +215,7 @@ def int_slider(min=0, max=1, value=0, step=1, width=button_width2, dc=any_handle
     Returns:
         [type]: [description]
     """
-    component = pm.intSlider(min=min, max=max, value=value, step=step, width=width, dc=dc, cc=cc, *args, **kwargs)
+    component = cmds.intSlider(min=min, max=max, value=value, step=step, width=width, dc=dc, cc=cc, *args, **kwargs)
 
     return component
 
@@ -235,7 +233,7 @@ def eb_float(v=0, en=True, cc=any_handler, dc=any_handler, width=button_width2, 
     Returns:
         [type]: [description]
     """
-    return pm.floatField(v=v, en=en, cc=cc, dc=dc, width=width, *args, **kwargs)
+    return cmds.floatField(v=v, en=en, cc=cc, dc=dc, width=width, *args, **kwargs)
 
 
 def eb_int(v=0, en=True, cc=any_handler, dc=any_handler, width=button_width2, *args, **kwargs):
@@ -251,7 +249,7 @@ def eb_int(v=0, en=True, cc=any_handler, dc=any_handler, width=button_width2, *a
     Returns:
         [type]: [description]
     """
-    return pm.intField(v=v, en=en, cc=cc, dc=dc, width=width, *args, **kwargs)
+    return cmds.intField(v=v, en=en, cc=cc, dc=dc, width=width, *args, **kwargs)
 
 
 def eb_text(text="", en=True, cc=any_handler, width=width2, *args, **kwargs):
@@ -263,68 +261,68 @@ def eb_text(text="", en=True, cc=any_handler, width=width2, *args, **kwargs):
         cc ([type], optional): [description]. Defaults to any_handler.
         width ([type], optional): [description]. Defaults to width2.
     """
-    return pm.textField(text=text, en=en, cc=cc, width=width, *args, **kwargs)
+    return cmds.textField(text=text, en=en, cc=cc, width=width, *args, **kwargs)
 
 
 def separator(width=window_width, *args, **kwargs):
-    return pm.separator(width=width, *args, **kwargs)
+    return cmds.separator(width=width, *args, **kwargs)
 
 
 def spacer(width=width1, *args, **kwargs):
-    return pm.text(label="", width=width, *args, **kwargs)
+    return cmds.text(label="", width=width, *args, **kwargs)
 
 
 def spacer_v(height=3, *args, **kwargs):
     row_layout()
-    comp = pm.text(label="", height=height, *args, **kwargs)
+    comp = cmds.text(label="", height=height, *args, **kwargs)
     end_layout()
 
     return comp
 
 
 def check_box(label="", v=False, cc=any_handler, *args, **kwargs):
-    return pm.checkBox(label=label, v=v, cc=cc, *args, **kwargs)
+    return cmds.checkBox(label=label, v=v, cc=cc, *args, **kwargs)
 
 
 def radio_collection(*args, **kwargs):
-    return pm.radioCollection(*args, **kwargs)
+    return cmds.radioCollection(*args, **kwargs)
 
 
 def radio_button(label, width=button_width2, *args, **kwargs):
-    return pm.radioButton(label=label, width=width, *args, **kwargs)
+    return cmds.radioButton(label=label, width=width, *args, **kwargs)
 
 
 def option_menu(label, items, bsp=any_handler, cc=any_handler, width=button_width2, *args, **kwargs):
-    component = pm.optionMenu(label=label, bsp=bsp, cc=cc)
-    
+    component = cmds.optionMenu(label=label, bsp=bsp, cc=cc)
+
     for item in items:
-        pm.menuItem(label=item)
+        cmds.menuItem(label=item)
 
     return component
 
 
 def delete_all_items(ui_object):
     """optionMenu のアイテムを全て削除する."""
-    pm.optionMenu(ui_object, e=True, deleteAllItems=True)
+    cmds.optionMenu(ui_object, e=True, deleteAllItems=True)
 
 
 def add_items(ui_object, items):
     """指定の optionMenu にアイテムを追加する."""
     for item in items:
-        pm.menuItem(label=item, parent=ui_object)
+        cmds.menuItem(label=item, parent=ui_object)
 
 def replace_items(ui_object, items, keep_selection=True):
     """指定の optionMenu のアイテムを全て置き換える.
-    
+
     置き換え後のアイテムに置き換え前に選択されていたアイテムと同一の物があれば選択を維持する｡
     """
-    selected_value = pm.optionMenu(ui_object, q=True, value=True)
+    selected_value = cmds.optionMenu(ui_object, q=True, value=True)
 
     delete_all_items(ui_object=ui_object)
     add_items(ui_object=ui_object, items=items)
 
     if keep_selection and selected_value in items:
-        pm.optionMenu(option_menu, e=True, value=selected_value)
+        cmds.optionMenu(option_menu, e=True, value=selected_value)
 
 
 def get_value(component):
@@ -337,7 +335,7 @@ def set_value(component, value):
     return func(component, e=True, **{argname: value})
 
 
-def set_availability(component, stat):    
+def set_availability(component, stat):
     func, argname = ui_func(component)
 
     return func(component, e=True, en=stat)
@@ -351,42 +349,42 @@ def disable_ui(component):
     set_availability(component, False)
 
 
-def hud_slider():        
+def hud_slider():
     def myHudSlider(state, hud):
-        val = pm.hudSlider(hud, q=True, value=True)
+        val = cmds.hudSlider(hud, q=True, value=True)
         print(state, val)
-        
-    id = pm.hudSlider('myHudSlider', 
-                      section=1, 
-                      block=2, 
-                      visible=True, 
-                      label='myHudButton', 
-                      type='int', 
-                      value=0, 
-                      minValue=-10, maxValue=10, 
-                      labelWidth=80, valueWidth=50, 
-                      sliderLength=100, 
-                      sliderIncrement=1, 
-                      pressCommand=pm.Callback(myHudSlider, 'press', 'myHudSlider'), 
-                      dragCommand=pm.Callback(myHudSlider, 'drag', 'myHudSlider'), 
-                      releaseCommand=pm.Callback(myHudSlider, 'release', 'myHudSlider')
+
+    id = cmds.hudSlider('myHudSlider',
+                      section=1,
+                      block=2,
+                      visible=True,
+                      label='myHudButton',
+                      type='int',
+                      value=0,
+                      minValue=-10, maxValue=10,
+                      labelWidth=80, valueWidth=50,
+                      sliderLength=100,
+                      sliderIncrement=1,
+                      pressCommand=functools.partial(myHudSlider, 'press', 'myHudSlider'),
+                      dragCommand=functools.partial(myHudSlider, 'drag', 'myHudSlider'),
+                      releaseCommand=functools.partial(myHudSlider, 'release', 'myHudSlider')
                       )
     return id
 
 
 def is_shift():
     """ Shift キーが押されているときに True """
-    return bool(pm.getModifiers() & 1)
+    return bool(cmds.getModifiers() & 1)
 
 
 def is_ctrl():
     """ Ctrl キーが押されているときに True """
-    return bool(pm.getModifiers() & 4)
+    return bool(cmds.getModifiers() & 4)
 
 
 def is_alt():
     """ Alt キーが押されているときに True """
-    return bool(pm.getModifiers() & 8)
+    return bool(cmds.getModifiers() & 8)
 
 
 def is_key_pressed(keycode):
@@ -414,7 +412,7 @@ def input_dialog(title="title", message=""):
     BTL_OK = "OK"
     BTL_CANCEL = "Cancel"
 
-    result = pm.promptDialog(
+    result = cmds.promptDialog(
             title=title,
             message=message,
             button=[BTL_OK, BTL_CANCEL],
@@ -423,7 +421,7 @@ def input_dialog(title="title", message=""):
             dismissString=BTL_CANCEL)
 
     if result == BTL_OK:
-        text = pm.promptDialog(query=True, text=True)
+        text = cmds.promptDialog(query=True, text=True)
 
         if text == "":
             return None
@@ -447,7 +445,7 @@ def yes_no_dialog(title="title", message=""):
     BTL_NO = "No"
     BTL_CANCEL = "Cancel"
 
-    result = pm.confirmDialog(title=title, message=message, button=[BTL_YES, BTL_NO, BTL_CANCEL])
+    result = cmds.confirmDialog(title=title, message=message, button=[BTL_YES, BTL_NO, BTL_CANCEL])
 
     if result == BTL_YES:
         return True
@@ -464,7 +462,7 @@ def ok_dialog(title="title", message=""):
         title (str, optional): タイトルの文字列. Defaults to "".
         message (str, optional): ダイアログのメッセージ. Defaults to "".
     """
-    pm.confirmDialog(title=title, message=message, button="OK")
+    cmds.confirmDialog(title=title, message=message, button="OK")
 
 
 class ListDialog:
@@ -482,26 +480,26 @@ class ListDialog:
     def return_index(cls, *args):
         """"""
 
-        indices = pm.textScrollList(ListDialog.list_ui, q=True, selectIndexedItem=True)
+        indices = cmds.textScrollList(ListDialog.list_ui, q=True, selectIndexedItem=True)
 
         if indices:
-            pm.layoutDialog(dismiss=str(indices[0]-1))
+            cmds.layoutDialog(dismiss=str(indices[0]-1))
         else:
-            pm.layoutDialog(dismiss="Cancel")
+            cmds.layoutDialog(dismiss="Cancel")
 
     @classmethod
     def create(cls, title="", message="", items=None):
         """引数で指定したリストの要素を textScrollList として表示し"""
 
         def checkboxPrompt(title=title, message=message, items=items):
-            form = pm.setParent(q=True)
-            pm.formLayout(form, e=True, width=300)
+            form = cmds.setParent(q=True)
+            cmds.formLayout(form, e=True, width=300)
 
             # UIコントロール作成
-            label_message_text = pm.text(l=message)
-            list_ui = pm.textScrollList(append=items, height=200)
-            button_ok = pm.button(l='OK', c=ListDialog.return_index)
-            button_cancel = pm.button(l='Cancel', c='pm.layoutDialog(dismiss="Cancel")')
+            label_message_text = cmds.text(l=message)
+            list_ui = cmds.textScrollList(append=items, height=200)
+            button_ok = cmds.button(l='OK', c=ListDialog.return_index)
+            button_cancel = cmds.button(l='Cancel', c=lambda *_: cmds.layoutDialog(dismiss="Cancel"))
 
             ListDialog.list_ui = list_ui
 
@@ -542,7 +540,7 @@ class ListDialog:
                 (button_cancel, 'left', spacer, 33),
                 ]
 
-            pm.formLayout(
+            cmds.formLayout(
                 form,
                 edit=True,
                 attachForm=attachForm,
@@ -550,7 +548,7 @@ class ListDialog:
                 attachControl=attachControl,
                 attachPosition=attachPosition)
 
-        ret = pm.layoutDialog(ui=checkboxPrompt)
+        ret = cmds.layoutDialog(ui=checkboxPrompt)
 
         if ret != "Cancel":
             return int(ret)

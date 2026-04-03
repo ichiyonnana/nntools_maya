@@ -554,7 +554,7 @@ def toggle_envelope(lattices=None):
 
         if selected_lattice_point:
             # ラティスポイントが選択されていた場合
-            lattices = [nu.pynode(cmds.polyListComponentConversion(selected_lattice_point[0])[0])]
+            lattices = [cmds.polyListComponentConversion(selected_lattice_point[0])[0]]
 
         else:
             lattices = []
@@ -909,10 +909,9 @@ class NN_ToolWindow(object):
             ffd, s, t, u = re.search(r"(.+)\.pt\[(\d+)\]\[(\d+)\]\[(\d+)\]", p).groups()
             s = int(s)
             s_div = cmds.getAttr(f"{ffd}.sDivisions")
-            
+
             x, y, z = cmds.xform(f"{ffd}.pt[{s_div-s-1}][{t}][{u}]", query=True, translation=True, objectSpace=True)
             cmds.xform(f"{ffd}.pt[{s}][{t}][{u}]", translation=(-x, y, z), objectSpace=True)
-
 
     def onSelectInner(self, *args):
         select_inner()

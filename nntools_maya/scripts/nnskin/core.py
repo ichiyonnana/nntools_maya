@@ -402,7 +402,7 @@ def set_influence_order(obj, influence_order):
 
         # バインドポーズに戻す
         bindpose = cmds.listConnections(current_skincluster, source=True, type="dagPose")
-        cmds.dagPose(bindpose, restore=True )
+        cmds.dagPose(bindpose, restore=True)
         cmds.skinCluster(obj, e=True, unbind=True)
 
     # 指定の順序でバインド
@@ -506,10 +506,11 @@ def copy_weights_from_nearest_unselected_vertex(max_distance=1.0):
 
     if failed_vtx:
         cmds.select(failed_vtx, replace=True)
-        
+
 ###################################################################################################
 ###################################################################################################
 # UI部
+
 
 class NN_ToolWindow(object):
 
@@ -660,7 +661,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header()
-        cmds.button(l='Delete Dup Orig', c=self.on_delete_non_connected_orig_mesh)
+        cmds.button(l='Delete Dup Orig', c=self.on_delete_unconnected_orig_mesh)
         cmds.button(l='Check Fractions', c=self.on_check_fractions)
         ui.end_layout()
 
@@ -753,8 +754,6 @@ class NN_ToolWindow(object):
             else:
                 print(f"一致: {obj}")
 
-
-
     @deco.undo_chunk
     def on_copy(self, *args):
         copy_weight()
@@ -813,12 +812,15 @@ class NN_ToolWindow(object):
                     print(f"move: {before_name} -> {after_name}")
                     cmds.skinPercent(skincluster, vtx, transformMoveWeights=[before_name, after_name])
 
-    def on_delete_non_connected_orig_mesh(self, *args):
+    def on_delete_unconnected_orig_mesh(self, *args):
         error_objects = []
 
         for mesh in cmds.ls(type="mesh"):
-            if cmds.getAttr(mesh + ".intermediateObject") and not cmds.listConnections(mesh, destination=True):
-                error_objects.append(mesh)
+            if cmds.getAttr(mesh + ".intermediateObject"):
+                connections = cmds.listConnections(mesh, destination=True) or []
+                non_info_nodes = [c for c in connections if cmds.objectType(c) != "nodeGraphEditorInfo"]
+                if not non_info_nodes:
+                    error_objects.append(mesh)
 
         if error_objects:
             print(error_objects)
