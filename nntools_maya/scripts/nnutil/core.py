@@ -514,25 +514,16 @@ def get_uv_coord(uv):
 
 
 def get_connected_vertices(comp):
-    """ [pm/cmds] pymel の getConnectedVertices の代替関数
-
-    pymel の getConnectedVertices より若干早い
+    """ [cmds] 指定頂点に隣接する頂点リストを返す
 
     Args:
-        comp ([type]): [description]
+        comp (str): 頂点コンポーネント文字列
 
     Returns:
-        [type]: [description]
+        list[str]:
     """
-    if type(comp) in [type(""), type(u"")]:
-        # comp 自体を取り除く (obj, objShape 対策でインデックスのみ比較)
-        return [x for x in to_vtx(to_edge(comp)) if re.search(r"(\[\d+\])", comp).groups()[0] not in x]
-
-    elif type(comp) in [pm.MeshEdge, pm.MeshVertex]:
-        return pynode(get_connected_vertices(idstr(comp)))
-
-    else:
-        raise
+    # comp 自体を取り除く (obj, objShape 対策でインデックスのみ比較)
+    return [x for x in to_vtx(to_edge(comp)) if re.search(r"(\[\d+\])", comp).groups()[0] not in x]
 
 
 def get_end_vtx_e(edges):
@@ -674,12 +665,12 @@ def vtxListPath(vts, n=None):
 
 
 def length_each_vertices(vertices, space="world"):
-    """ [pm] 頂点間の距離をリストで返す
+    """ [cmds] 頂点間の距離をリストで返す
 
     戻り値リストの n 番目は vertices[n] と vertices[n+1] の距離
 
     Args:
-        vertices (list[MeshVertex]):
+        vertices (list[str]):
         space (str):
 
     Returns:
@@ -689,20 +680,20 @@ def length_each_vertices(vertices, space="world"):
     length_list = []
 
     for i in range(len(vertices)-1):
-        pnt1 = vertices[i].getPosition(space=space)
-        pnt2 = vertices[i+1].getPosition(space=space)
+        pnt1 = om.MVector(*cmds.xform(vertices[i], q=True, t=True, ws=(space == "world")))
+        pnt2 = om.MVector(*cmds.xform(vertices[i+1], q=True, t=True, ws=(space == "world")))
         length_list.append((pnt1 - pnt2).length())
 
     return length_list
 
 
 def vertices_path_length(vertices, n=None, space="world"):
-    """ [pm] vertices で渡された頂点の i 番目までの距離を返す｡ n を省略した場合は道のり全長を返す
+    """ [cmds] vertices で渡された頂点の i 番目までの距離を返す｡ n を省略した場合は道のり全長を返す
 
     すべての頂点間の距離を調べるときは length_each_vertices() 推奨｡ピンポイント 1 点とかならこっちでも｡
 
     Args:
-        vertices (list[MeshVertex]):
+        vertices (list[str]):
         space (str):
 
     Returns:
@@ -715,8 +706,8 @@ def vertices_path_length(vertices, n=None, space="world"):
     path = 0.0
 
     for i in range(n):
-        pnt1 = vertices[i].getPosition(space=space)
-        pnt2 = vertices[i+1].getPosition(space=space)
+        pnt1 = om.MVector(*cmds.xform(vertices[i], q=True, t=True, ws=(space == "world")))
+        pnt2 = om.MVector(*cmds.xform(vertices[i+1], q=True, t=True, ws=(space == "world")))
         path += (pnt1 - pnt2).length()
 
     return path
@@ -1368,19 +1359,19 @@ def sort_edges(edges):
 
 
 def sort_vertices(vertices):
-    """ [pm] 頂点をトポロジーの連続性でソートする
+    """ [cmds] 頂点をトポロジーの連続性でソートする
 
     やや重いのでソート済エッジがすでの存在するならば sorted_edges_to_vertices() 使う
 
     Args:
-        vertices (list[MeshVertex): 未ソート頂点リスト
+        vertices (list[str]): 未ソート頂点リスト
 
     Returns:
-        list[MeshVertex]: ソート済頂点リスト
+        list[str]: ソート済頂点リスト
     """
     def part_vertex_list(vertices, first_vertex):
         """ 部分エッジ集合と開始頂点から再帰的に頂点列を求める """
-        neighbors = list(first_vertex.connectedVertices())
+        neighbors = get_connected_vertices(first_vertex)
         next_vertices = list_intersection(neighbors, vertices)
 
         if len(next_vertices) == 1:
