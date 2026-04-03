@@ -91,7 +91,7 @@ def export_weight(objects=None, specified_name=None):
         if cmds.objectType(obj) not in ('transform', 'mesh'):
             continue
 
-        skincluster_list = cmds.listHistory(obj, type="skinCluster") or []
+        skincluster_list = cmds.ls(cmds.listHistory(obj), type="skinCluster") or []
         skincluster = skincluster_list[0] if skincluster_list else ""
 
         # skincluster 無ければskip
@@ -194,7 +194,7 @@ def import_weight(objects=None, method=BM_BILINEAR, specified_name=None, unbind=
 
             # バインド済なら一度アンバインドする
             if unbind:
-                skincluster_list = cmds.listHistory(obj, type="skinCluster") or []
+                skincluster_list = cmds.ls(cmds.listHistory(obj), type="skinCluster") or []
                 skincluster = skincluster_list[0] if skincluster_list else ""
                 if skincluster != "":
                     cmds.dagPose(bp=True, restore=True)

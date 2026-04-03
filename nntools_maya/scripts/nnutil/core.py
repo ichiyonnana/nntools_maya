@@ -1778,7 +1778,7 @@ def is_skined(shape):
     Returns:
         bool: バインド済みならTrue, 未バインドならFalse を返す
     """
-    return bool(cmds.listHistory(shape, type="skinCluster"))
+    return bool(cmds.ls(cmds.listHistory(shape), type="skinCluster"))
 
 
 def get_orig_shape(skined_mesh):
