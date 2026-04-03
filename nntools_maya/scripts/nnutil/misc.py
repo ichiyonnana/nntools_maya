@@ -17,7 +17,6 @@ import maya.mel as mel
 
 import pymel.core as pm
 import pymel.core.nodetypes as nt
-import pymel.core.datatypes as dt
 
 import maya.api.OpenMaya as om
 
@@ -812,30 +811,41 @@ def isolate_with_imageplanes():
 
 
 def set_radius_auto(joints=[]):
+    """ジョイントの表示サイズ (radius) を子ジョイントとのワールド距離から自動設定する。
+
+    子ジョイントがある場合は親子間の距離 × radius_ratio を radius とする。
+    子ジョイントがない末端ジョイントの場合は親ジョイントの radius をそのまま使用する。
+    joints 未指定時は選択中のジョイントを対象とする。
+
+    Args:
+        joints (list[str]): 対象のジョイント。省略時は選択ジョイントを使用する。
+    """
     radius_ratio = 0.2
     min_radius = 0.001
 
     if not joints:
-        joints = pm.selected(flatten=True, type="joint")
-    
+        joints = cmds.ls(selection=True, flatten=True, type="joint")
+
         if not joints:
             raise(Exception)
 
     for j in joints:
-        children = j.getChildren()
+        children = cmds.listRelatives(j, children=True, type="joint") or []
 
         if children:
-            t1 = dt.Point(pm.xform(j, q=True, t=True, ws=True))
-            t2 = dt.Point(pm.xform(children[0], q=True, t=True, ws=True))
-            radius = (t2 - t1).length() * radius_ratio
-            j.setRadius(max(radius, min_radius))
+            t1 = cmds.xform(j, q=True, t=True, ws=True)
+            t2 = cmds.xform(children[0], q=True, t=True, ws=True)
+            dist = (om.MPoint(*t1) - om.MPoint(*t2)).length()
+            radius = dist * radius_ratio
+            cmds.setAttr(f"{j}.radius", max(radius, min_radius))
 
         else:
-            parent = j.getParent()
-            if parent and isinstance(parent, nt.Joint):
-                j.setRadius(parent.getRadius())
+            parent_list = cmds.listRelatives(j, parent=True, type="joint") or []
+            if parent_list:
+                parent_radius = cmds.getAttr(f"{parent_list[0]}.radius")
+                cmds.setAttr(f"{j}.radius", parent_radius)
 
-            
+
 def set_radius_constant(joints=[], radius=0.001):
     if not joints:
         joints = pm.selected(flatten=True, type="joint")
@@ -963,15 +973,18 @@ def align_horizontally(each_polyline=True, axis="y"):
         else:
             raise("axis must be set to x, y, or z")
 
-        vts = pm.filterExpand(pm.polyListComponentConversion(targets, tv=True), sm=31)
-        p = sum([pm.PyNode(x).getPosition(space="world") for x in vts]) / len(vts)
+        vts = cmds.filterExpand(cmds.polyListComponentConversion(targets, tv=True), sm=31)
+        positions = [om.MVector(*cmds.xform(v, q=True, t=True, ws=True)) for v in vts]
+        p = sum(positions, om.MVector()) / len(positions)
+
+        pivot = (p.x, p.y, p.z)
 
         for i in range(10):
-            pm.scale(targets, scale_vector, r=True, xc="edge", p=p)
+            cmds.scale(*scale_vector, targets, r=True, xc="edge", p=pivot)
 
-        pm.scale(targets, scale_vector, r=True, p=p)
+        cmds.scale(*scale_vector, targets, r=True, p=pivot)
 
-    selection = pm.selected(flatten=True)
+    selection = cmds.ls(selection=True, flatten=True)
 
     if selection:
         if each_polyline:

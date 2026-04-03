@@ -733,44 +733,25 @@ def is_string(v):
     return isinstance(v, (str, type(u"")))
 
 
-def get_object(component, pn=False, transform=False):
-    """ [pm/cmds] component の所属するオブジェクトを取得する
+def get_object(component, transform=False):
+    """ [cmds] component の所属するオブジェクトを取得する
 
     Args:
-        component (Mesh, MeshVertex, MeshEdge, MeshFace, MeshVertexFace or str): 所属オブジェクトを取得するコンポーネント
-        pn (bool): 現在は使用されていません
+        component (str): 所属オブジェクトを取得するコンポーネント
         transform (bool): True の場合 Mesh の親の Transform を返し、False の場合Mesh オブジェクトを返す
 
     Returns:
-        str or PyNode: component の所属オブジェクト。component の型により str か PyNode を返す
+        str: component の所属オブジェクト
     """
     if not component:
         return component
 
-    pn = not is_string(component)
+    shape = cmds.polyListComponentConversion(component)[0]
 
-    if pn:
-        if isinstance(component, nt.Transform):
-            if transform:
-                return component
-            else:
-                return component.getShape()
-
-        elif isinstance(component, nt.Mesh):
-            if transform:
-                return component.getParent()
-            else:
-                return component
-        elif isinstance(component, (pm.MeshVertex, pm.MeshEdge, pm.MeshFace, pm.MeshVertexFace)):
-            if transform:
-                return component.node().getParent()
-            else:
-                return component.node()
-        else:
-            raise(Exception("%s is not supported" % str(type(component))))
-
+    if transform:
+        return cmds.listRelatives(shape, parent=True)[0]
     else:
-        return cmds.polyListComponentConversion(component)[0]
+        return shape
 
 
 def to_vtx(components, pn=False):
@@ -1211,9 +1192,6 @@ def get_poly_line(edges, intersections=[]):
         list[str]:
 
     """
-    if isinstance(edges[0], pm.MeshEdge):
-        return _get_poly_line_pm(edges, intersections=intersections)
-
     first_edge = edges[0]
     rest_edges = edges[1:]
     processed_edges = [first_edge]
@@ -1262,93 +1240,12 @@ def get_all_polylines(edges):
         list[list[str]]:
 
     """
-    if isinstance(edges[0], pm.MeshEdge):
-        return _get_all_polylines_pm(edges)
-
     polylines = []
     rest_edges = edges
     intersections = [v for v in to_vtx(edges) if len(set(to_edge(v)) & set(edges)) > 2]
 
     while len(rest_edges) > 0:
         polyline = get_poly_line(rest_edges, intersections)
-        polylines.append(polyline)
-        rest_edges = list_diff(rest_edges, polyline)
-
-    return polylines
-
-
-def _get_poly_line_pm(edges, intersections=[]):
-    """ [pm] edges を連続するエッジのまとまりとしてエッジリストを一つ返す
-
-    get_poly_line() から呼ばれる Pymel 版の実装｡基本的には直接呼ばず get_poly_line() を使う｡
-    intersections を指定することで実際には連続しているエッジ同士を分離する事が可能
-
-    Args:
-        edges (list[MeshEdge]):
-        intersections (list[MeshVertex]): 複数のエッジの交点と見なす頂点
-
-    Returns:
-        list[MeshEdge]:
-    """
-    first_edge = edges[0]
-    rest_edges = edges[1:]  # 未処理エッジ
-    processed_edges = [first_edge]  # 処理済みエッジ
-    processed_vts = []  # 処理済み頂点
-    polyline = [first_edge]  # 返値
-    vtx_queue = list_diff(get_connected_vertices(first_edge), intersections)
-
-    while len(vtx_queue) > 0:
-        for vtx in vtx_queue:
-            # 処理済み頂点にvtx 追加
-            processed_vts.append(vtx)
-            vtx_queue = list_diff(vtx_queue, processed_vts)
-
-            # 隣接する未処理エッジの取得
-            adjacent_edges = list_intersection(list(vtx.connectedEdges()), rest_edges)
-
-            if len(adjacent_edges) > 0:
-                # 隣接エッジがあれば連続エッジに追加
-                polyline.extend(adjacent_edges)
-
-                # 処理済みエッジに追加
-                processed_edges.extend(adjacent_edges)
-                rest_edges = list_diff(rest_edges, adjacent_edges)
-
-                # 隣接エッジの構成頂点のうち未処理のものをキューに追加する
-                vtx_queue.extend(list_diff(list_diff(to_vtx(adjacent_edges, pn=True), processed_vts), intersections))
-            else:
-                # 隣接エッジなし
-                pass
-
-    return polyline
-
-
-def _get_all_polylines_pm(edges):
-    """ [pm] edges で指定したエッジ列を連続するエッジ列の集まりに分割してリストを返す
-
-    get_all_polylines() から呼ばれる Pymel 版の実装｡基本的には直接呼ばず get_all_polylines() を使う｡
-
-    Args:
-        edges (list[MeshEdge]):
-
-    Returns:
-        list[list[MeshEdge]]:
-
-    """
-    polylines = []
-    rest_edges = edges
-
-    # エッジ同士の交点
-    intersections = []
-
-    # 全ての構成頂点のうち､その頂点の接続エッジが edges に 2 本以上含まれていればその頂点は交点
-    for v in to_vtx(edges, pn=True):
-        connected_edges = to_edge(v, pn=True)
-        if len(list_intersection(connected_edges, edges)) > 2:
-            intersections.append(v)
-
-    while len(rest_edges) > 0:
-        polyline = _get_poly_line_pm(edges=rest_edges, intersections=intersections)
         polylines.append(polyline)
         rest_edges = list_diff(rest_edges, polyline)
 
@@ -1968,22 +1865,12 @@ def is_skined(shape):
     """指定したシェイプがバインド済みならTrueを返す
 
     Args:
-        shape (Mesh): バインド済みか調べるメッシュ
+        shape (str): バインド済みか調べるメッシュ
 
     Returns:
         bool: バインド済みならTrue, 未バインドならFalse を返す
     """
-    skined = False
-
-    if any([isinstance(x, nt.SkinCluster) for x in shape.inputs()]):
-        skined = True
-    else:
-        object_sets = [x for x in shape.inputs() if isinstance(x, nt.ObjectSet)]
-        for object_set in object_sets:
-            if any([isinstance(x, nt.SkinCluster) for x in object_set.inputs()]):
-                skined = True
-
-    return skined
+    return bool(cmds.listHistory(shape, type="skinCluster"))
 
 
 def get_orig_shape(skined_mesh):
@@ -2071,39 +1958,23 @@ def is_format_option_supported():
 
 
 def lock_trs(obj):
-    """[pm/cmds]指定したオブジェクトのトランスフォームをロックする
+    """指定したオブジェクトのトランスフォームをロックする
 
     Args:
-        obj (Transform or str): トランスフォームをロックするトランスフォームノード
+        obj (str): トランスフォームをロックするトランスフォームノード
     """
-    obj = pynode(obj)
-    obj.translateX.lock()
-    obj.translateY.lock()
-    obj.translateZ.lock()
-    obj.rotateX.lock()
-    obj.rotateY.lock()
-    obj.rotateZ.lock()
-    obj.scaleX.lock()
-    obj.scaleY.lock()
-    obj.scaleZ.lock()
+    for attr in ("tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz"):
+        cmds.setAttr(f"{obj}.{attr}", lock=True)
 
 
 def unlock_trs(obj):
-    """[pm/cmds]指定したオブジェクトのトランスフォームをアンロックする
+    """指定したオブジェクトのトランスフォームをアンロックする
 
     Args:
-        obj (Transform or str): トランスフォームをアンロックするトランスフォームノード
+        obj (str): トランスフォームをアンロックするトランスフォームノード
     """
-    obj = pynode(obj)
-    obj.translateX.unlock()
-    obj.translateY.unlock()
-    obj.translateZ.unlock()
-    obj.rotateX.unlock()
-    obj.rotateY.unlock()
-    obj.rotateZ.unlock()
-    obj.scaleX.unlock()
-    obj.scaleY.unlock()
-    obj.scaleZ.unlock()
+    for attr in ("tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz"):
+        cmds.setAttr(f"{obj}.{attr}", lock=False)
 
 
 def exist_file(dir, filename):
@@ -2147,6 +2018,17 @@ def get_parent(object, fullPath=False, path=True):
     parent = (cmds.listRelatives(object, parent=True, fullPath=fullPath, path=path) or [None])[0]
 
     return parent
+
+
+def get_index(comp):
+    """コンポーネント文字列からインデックスを取得する
+
+    Args:
+        comp (str): コンポーネントを表す文字列
+    """
+    index = int(comp.split("[")[1].rstrip("]"))
+
+    return index
 
 
 def get_indices(comp):

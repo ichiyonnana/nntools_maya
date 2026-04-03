@@ -104,10 +104,10 @@ def ui_func(component):
         "button":      [cmds.button, "v"],
         "intSlider":   [cmds.intSlider, "v"],
         "floatSlider": [cmds.floatSlider, "v"],
-        "text":        [cmds.text, "l"],
+        "staticText":  [cmds.text, "l"],
         "radioButton": [cmds.radioButton, "sl"],
-        "textField":   [cmds.textField, "text"],
-        "optionMenu":  [cmds.optionMenu, "v"],
+        "field":       [cmds.textField, "text"],
+        "popupMenu":   [cmds.optionMenu, "v"],
     }
 
     return handle_method[get_component_type(component)]
