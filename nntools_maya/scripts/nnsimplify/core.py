@@ -4,7 +4,6 @@
 import math
 
 import maya.cmds as cmds
-import pymel.core as pm
 
 import nnutil.core as nu
 import nnutil.curve as nc
@@ -141,14 +140,14 @@ class NN_ToolWindow(object):
         self.title = window_name
         self.size = (window_width, 80)
 
-        pm.selectPref(trackSelectionOrder=True)
+        cmds.selectPref(trackSelectionOrder=True)
 
         self.last_simplify_span = 4.0
         self.max_smooth = 100
 
     def create(self):
         if cmds.window(self.window, exists=True):
-            pm.deleteUI(self.window, window=True)
+            cmds.deleteUI(self.window, window=True)
 
         # プリファレンスの有無による分岐
         if cmds.windowPref(self.window, exists=True):
