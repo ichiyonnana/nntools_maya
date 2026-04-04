@@ -840,6 +840,9 @@ class NN_ToolWindow(object):
         if re.search(prefix_from, basename):
             return re.sub(prefix_from, prefix_to, basename)
         
+        if re.search(prefix_to, basename):
+            return re.sub(prefix_to, prefix_from, basename)
+        
         return None
 
     def _mirror_joint(self, joint, pos=True, ori=True):
@@ -987,7 +990,7 @@ class NN_ToolWindow(object):
     def onJointEqualize(self, *args):
         """ジョイントの長さを均等にする"""
         for selected_joint in cmds.ls(selection=True, type="joint"):
-            joints = cmds.listRelatives(ad=True)
+            joints = cmds.listRelatives(selected_joint, ad=True, fullPath=True)
             total_len = sum([cmds.getAttr(x + ".tx") for x in joints])
             each_len = total_len / len(joints)
 
