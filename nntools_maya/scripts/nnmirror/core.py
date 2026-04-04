@@ -197,7 +197,7 @@ def import_weight(objects=None, method=BM_BILINEAR, specified_name=None, unbind=
                 skincluster_list = cmds.ls(cmds.listHistory(obj), type="skinCluster") or []
                 skincluster = skincluster_list[0] if skincluster_list else ""
                 if skincluster != "":
-                    cmds.dagPose(bp=True, restore=True)
+                    cmds.dagPose(cmds.skinCluster(skincluster, q=True, influence=True), bp=True, restore=True)
                     cmds.skinCluster(obj, e=True, unbind=True)
 
                 # ウェイトファイルに保存されていたインフルエンスだけで改めてバインドする
@@ -212,9 +212,7 @@ def import_weight(objects=None, method=BM_BILINEAR, specified_name=None, unbind=
                     print(f"bind error: {obj}")
 
             # インポート
-            cmd = f'deformerWeights -import -method "{method}" -deformer {skincluster} -path "{dir}" "{filename}"'
-            print(cmd)
-            mel.eval(cmd)
+            cmds.deformerWeights(filename, im=True, method=method, deformer=skincluster, path=dir)
             cmds.skinCluster(skincluster, e=True, forceNormalizeWeights=True)
 
     cmds.select(current_selections, replace=True)
@@ -819,7 +817,7 @@ class NN_ToolWindow(object):
             prefix_from = ui.get_value(self.eb_prefix_from)
             prefix_to = ui.get_value(self.eb_prefix_to)
             cmds.select(joint, replace=True)
-            opposite_joint = mel.eval('mirrorJoint -%s -mirrorBehavior -searchReplace "%s" "%s";' % (mirror_dir, prefix_from, prefix_to))[0]
+            opposite_joint = cmds.mirrorJoint(joint, mirrorBehavior=True, searchReplace=(prefix_from, prefix_to), **{mirror_dir: True})[0]
             print(opposite_joint)
             cmds.parent(opposite_joint, world=True)
             if current_parent:
