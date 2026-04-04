@@ -99,7 +99,7 @@ class NN_ToolWindow(object):
         ui.end_layout()
 
     def _get_set_name(self):
-        return self.eb_set_name.getText()
+        return ui.get_value(self.eb_set_name)
 
     def _ensure_set(self, set_name):
         """セットが存在しなければ空セットを作成する"""
@@ -118,14 +118,14 @@ class NN_ToolWindow(object):
         existing = cmds.ls(type="previewObjectSet")
         if existing:
             set_name = cmds.getAttr(existing[0] + ".setName")
-            self.eb_set_name.setText(set_name)
+            ui.set_value(self.eb_set_name, set_name)
             return
 
         node = cmds.createNode("previewObjectSet")
         cmds.setAttr(node + ".overrideEnabled", 1)
         cmds.setAttr(node + ".overrideDisplayType", 2)  # 2 = Reference
         set_name = cmds.getAttr(node + ".setName")
-        self.eb_set_name.setText(set_name)
+        ui.set_value(self.eb_set_name, set_name)
 
     def on_select_node(self, *_):
         """すべての previewObjectSet ノードを選択する。"""

@@ -438,12 +438,12 @@ class NN_ToolWindow(object):
     def onToggleDisplay(self, *args):
         """シーン内のすべてのイメージプレーンの Display モード (lokking through camera / in all views) をトグルする"""
         ips = cmds.ls(type="imagePlane")
-        current = ips[0].displayOnlyIfCurrent.get()
+        current = cmds.getAttr(f"{ips[0]}.displayOnlyIfCurrent")
 
         for ip in ips:
-            print(ip.name())
-            ip.displayOnlyIfCurrent.set(not current)
-            print(ip.displayOnlyIfCurrent.get())
+            print(ip)
+            cmds.setAttr(f"{ip}.displayOnlyIfCurrent", not current)
+            print(cmds.getAttr(f"{ip}.displayOnlyIfCurrent"))
 
         cmds.select(ips)
 
