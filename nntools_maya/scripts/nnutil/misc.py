@@ -974,3 +974,21 @@ def rename_dialog():
 
             for obj in selections:
                 cmds.rename(obj, new_name)
+
+
+def toggle_3dpaint_draw_erase():
+    current_ctx = cmds.currentCtx()
+
+    ctx = "art3dPaintContext"
+
+    if current_ctx == ctx:
+        current_mode = cmds.art3dPaintCtx(current_ctx, q=True, alphablendmode=True)
+        draw = "Lighten"
+        erase = "Darken"
+
+        if current_mode == draw:
+            cmds.art3dPaintCtx(current_ctx, e=True, alphablendmode=erase)
+            cmds.inViewMessage(amg='mode: <hl>erase</hl>', pos='midCenter', fade=True, fit=50, fot=10, fadeStayTime=500)
+        else:
+            cmds.art3dPaintCtx(current_ctx, e=True, alphablendmode=draw)
+            cmds.inViewMessage(amg='mode: <hl>draw</hl>', pos='midCenter', fade=True, fit=50, fot=10, fadeStayTime=500)
