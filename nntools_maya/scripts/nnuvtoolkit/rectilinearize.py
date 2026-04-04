@@ -107,7 +107,7 @@ def sort_uvs_by_connectivity(uvs, first_uv, allowed_edges):
 
 
 def length_each_vertices(vtx_comps):
-    """ [pm] 頂点間の距離をリストで返す
+    """ 頂点間の距離をリストで返す
 
     戻り値リストの n 番目は vertices[n] と vertices[n+1] の距離
 
