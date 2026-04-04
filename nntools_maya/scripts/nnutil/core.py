@@ -1097,7 +1097,7 @@ def round_vector(v, fraction):
 
 
 def get_poly_line(edges, intersections=[]):
-    """ [pm/cmds] edges を連続するエッジのまとまりとしてエッジリストを一つ返す
+    """ [cmds] edges を連続するエッジのまとまりとしてエッジリストを一つ返す
 
     intersections を指定することで実際には連続しているエッジ同士を分離する事が可能
     edges の型で pm/cmds を判断する｡
@@ -1223,26 +1223,25 @@ def is_supported_weight_format_option():
 
 
 def get_end_vertices_e(edges):
-    """ [pm] 連続するエッジの端の頂点をすべて返す
+    """ [cmds] 連続するエッジの端の頂点をすべて返す
 
     Args:
-        edges(list[MeshEdge]): エッジリスト (順不同)
+        edges (list[str]): エッジリスト (順不同)
 
     Returns:
-        list[MeshVertex]:
+        list[str]:
     """
-
-    return get_end_vertices_v(to_vtx(edges, pn=True))
+    return get_end_vertices_v(to_vtx(edges))
 
 
 def get_end_vertices_v(vertices):
-    """ [pm] 連続したエッジで接続される頂点の端の頂点を返す
+    """ [cmds] 連続したエッジで接続される頂点の端の頂点を返す
 
     Args:
-        vertices (list[MeshVertx]): 頂点リスト (順不同)
+        vertices (list[str]): 頂点リスト (順不同)
 
     Returns:
-        list[MeshVertx]
+        list[str]:
     """
     end_vertices = []
 
@@ -1255,13 +1254,13 @@ def get_end_vertices_v(vertices):
 
 
 def sort_edges(edges):
-    """ [pm] エッジをトポロジーの連続性でソートする
+    """ [cmds] エッジをトポロジーの連続性でソートする
 
     Args:
-        edges (list[MeshEdge]): 未ソートエッジリスト
+        edges (list[str]): 未ソートエッジリスト
 
     Returns:
-        list[MeshEdge]: ソート済エッジリスト
+        list[str]: ソート済エッジリスト
     """
     def part_vertex_list(edges, first_vertex):
         """ 部分エッジ集合と開始頂点から再帰的に頂点列を求める """
@@ -1317,42 +1316,42 @@ def sort_vertices(vertices):
 
 
 def sorted_edges_to_vertices(edges):
-    """ [pm] ソートされたエッジを同じ順序でソートされた頂点に変換する
+    """ [cmds] ソートされたエッジを同じ順序でソートされた頂点に変換する
 
     Args:
-        edges (list[MeshEdge]): ソート済エッジリスト
+        edges (list[str]): ソート済エッジリスト
 
     Returns:
-        list[MeshVertex]: ソート済頂点リスト
+        list[str]: ソート済頂点リスト
     """
     sorted_vertices = []
-    first_vertices = list_diff(edges[0].vertices(), edges[1].vertices())[0]
+    first_vertices = list_diff(to_vtx(edges[0]), to_vtx(edges[1]))[0]
     sorted_vertices.append(first_vertices)
 
     for i in range(len(edges)-1):
         edge = edges[i]
         next_edge = edges[i+1]
-        shared_vertex = list_intersection(edge.vertices(), next_edge.vertices())[0]
+        shared_vertex = list_intersection(to_vtx(edge), to_vtx(next_edge))[0]
         sorted_vertices.append(shared_vertex)
 
     return sorted_vertices
 
 
 def sorted_vertices_to_edges(vertices):
-    """ [pm] ソートされた頂点を同じ順序でソートされたエッジに変換する
+    """ [cmds] ソートされた頂点を同じ順序でソートされたエッジに変換する
 
     Args:
-        list[MeshVertex]: ソート済頂点リスト
+        vertices (list[str]): ソート済頂点リスト
 
     Returns:
-        edges (list[MeshEdge]): ソート済エッジリスト
+        list[str]: ソート済エッジリスト
     """
     sorted_edges = []
 
     for i in range(len(vertices)-1):
         vertex = vertices[i]
         next_vertex = vertices[i+1]
-        shared_edge = list_intersection(list(vertex.connectedEdges()), list(next_vertex.connectedEdges()))[0]
+        shared_edge = list_intersection(to_edge(vertex), to_edge(next_vertex))[0]
         sorted_edges.append(shared_edge)
 
     return sorted_edges
@@ -1468,9 +1467,16 @@ def get_center_point(targets):
 
 
 def get_normals(shape):
-    """[pm] APIを使用した法線取得｡引数は PyNode"""
+    """[om] APIを使用した法線取得
+
+    Args:
+        shape (str): メッシュシェイプ名
+
+    Returns:
+        om.MVectorArray:
+    """
     sel = om.MSelectionList()
-    sel.add(shape.name())
+    sel.add(shape)
     dag = sel.getDagPath(0)
     fn_mesh = om.MFnMesh(dag)
 
@@ -1478,9 +1484,14 @@ def get_normals(shape):
 
 
 def set_normals(shape, normals):
-    """[pm] APIを使用した法線設定｡引数は PyNode"""
+    """[om] APIを使用した法線設定
+
+    Args:
+        shape (str): メッシュシェイプ名
+        normals (om.MVectorArray):
+    """
     sel = om.MSelectionList()
-    sel.add(shape.name())
+    sel.add(shape)
     dag = sel.getDagPath(0)
     fn_mesh = om.MFnMesh(dag)
 
@@ -1510,9 +1521,16 @@ def set_points(shape, points, space=om.MSpace.kObject):
 
 
 def get_smooths(shape):
-    """[pm] APIを使用したハードエッジ情報取得。引数はPyNode"""
+    """[om] APIを使用したハードエッジ情報取得
+
+    Args:
+        shape (str): メッシュシェイプ名
+
+    Returns:
+        list[bool]: エッジごとのスムース状態
+    """
     sel = om.MSelectionList()
-    sel.add(shape.name())
+    sel.add(shape)
     dag = sel.getDagPath(0)
     fn_mesh = om.MFnMesh(dag)
     all_edge_ids = range(fn_mesh.numEdges)
@@ -1522,9 +1540,14 @@ def get_smooths(shape):
 
 
 def set_smooths(shape, edge_smooths):
-    """[pm] APIを使用したハードエッジ情報設定。引数はPyNode"""
+    """[om] APIを使用したハードエッジ情報設定
+
+    Args:
+        shape (str): メッシュシェイプ名
+        edge_smooths (list[bool]): エッジごとのスムース状態
+    """
     sel = om.MSelectionList()
-    sel.add(shape.name())
+    sel.add(shape)
     dag = sel.getDagPath(0)
     fn_mesh = om.MFnMesh(dag)
     all_edge_ids = range(fn_mesh.numEdges)
@@ -1532,8 +1555,15 @@ def set_smooths(shape, edge_smooths):
 
 
 def get_normal_locks(shape):
-    """[pm] APIを使用した法線ロック情報取得。引数はPyNode"""
-    obj = om.MGlobal.getSelectionListByName(shape.name()).getDagPath(0)
+    """[om] APIを使用した法線ロック情報取得
+
+    Args:
+        shape (str): メッシュシェイプ名
+
+    Returns:
+        list[bool]: 法線ごとのロック状態
+    """
+    obj = om.MGlobal.getSelectionListByName(shape).getDagPath(0)
     fn_mesh = om.MFnMesh(obj)
 
     # ロック状態の取得
@@ -1554,8 +1584,13 @@ def get_normal_locks(shape):
 
 
 def set_normal_locks(shape, locks):
-    """[pm] APIを使用した法線ロック情報設定。引数はPyNode"""
-    obj = om.MGlobal.getSelectionListByName(shape.name()).getDagPath(0)
+    """[om] APIを使用した法線ロック情報設定
+
+    Args:
+        shape (str): メッシュシェイプ名
+        locks (list[bool]): 法線ごとのロック状態
+    """
+    obj = om.MGlobal.getSelectionListByName(shape).getDagPath(0)
     fn_mesh = om.MFnMesh(obj)
 
     smooths = get_smooths(shape)
@@ -1593,8 +1628,15 @@ def set_normal_locks(shape, locks):
 
 
 def get_normal_locks_index_pair(shape):
-    """[pm] APIを使用した法線ロック情報取得。引数はPyNode"""
-    obj = om.MGlobal.getSelectionListByName(shape.name()).getDagPath(0)
+    """[om] APIを使用した法線ロック情報取得。キーは (faceId, vertexId) のタプル
+
+    Args:
+        shape (str): メッシュシェイプ名
+
+    Returns:
+        dict[tuple[int, int], bool]: (faceId, vertexId) → ロック状態
+    """
+    obj = om.MGlobal.getSelectionListByName(shape).getDagPath(0)
     fn_mesh = om.MFnMesh(obj)
 
     # ロック状態の取得
@@ -1615,11 +1657,16 @@ def get_normal_locks_index_pair(shape):
 
 
 def set_normal_locks_index_pair(shape, locks):
-    """[pm] APIを使用した法線ロック情報設定。引数はPyNode"""
+    """[om] APIを使用した法線ロック情報設定。キーは (faceId, vertexId) のタプル
+
+    Args:
+        shape (str): メッシュシェイプ名
+        locks (dict[tuple[int, int], bool]): (faceId, vertexId) → ロック状態
+    """
     if not isinstance(locks, dict):
         raise
 
-    obj = om.MGlobal.getSelectionListByName(shape.name()).getDagPath(0)
+    obj = om.MGlobal.getSelectionListByName(shape).getDagPath(0)
     fn_mesh = om.MFnMesh(obj)
 
     smooths = get_smooths(shape)
