@@ -856,20 +856,25 @@ def set_radius_constant(joints=[], radius=0.001):
 def divide_without_history(delete_history=True):
     selection = cmds.ls(selection=True, flatten=True)
 
-    if selection:
+    if not selection:
+        return
+        
+    if cmds.selectMode(q=True, component=True):
+        if cmds.filterExpand(selection[0], selectionMask=34):
+            cmds.polySubdivideFacet()
+        elif cmds.filterExpand(selection[0], selectionMask=32):
+            cmds.polySubdivideEdge()
+
+    else:
         obj_type = cmds.objectType(selection[0])
 
         if obj_type == "mesh":
             cmds.polySubdivideFacet()
         elif obj_type == "transform" and cmds.listRelatives(selection[0], shapes=True, type="mesh"):
             cmds.polySubdivideFacet()
-        elif cmds.filterExpand(selection[0], selectionMask=34):
-            cmds.polySubdivideFacet()
-        elif cmds.filterExpand(selection[0], selectionMask=32):
-            cmds.polySubdivideEdge()
 
-        if delete_history:
-            cmds.bakePartialHistory(ppt=True)
+    if delete_history:
+        cmds.bakePartialHistory(ppt=True)
 
 
 def reload_all_texture():
