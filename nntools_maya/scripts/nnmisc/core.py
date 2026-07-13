@@ -13,11 +13,11 @@ import nnutil.decorator as nd
 import nnutil.inview_editor as nie
 
 if int(cmds.about(version=True)) >= 2025:
-    from PySide6 import QtWidgets
+    from PySide6 import QtWidgets, QtGui
     import shiboken6 as shiboken
 
 else:
-    from PySide2 import QtWidgets
+    from PySide2 import QtWidgets, QtGui
     import shiboken2 as shiboken
 
 
@@ -770,7 +770,27 @@ def init_env():
 
     mel.eval("ToggleShelf;")
     mel.eval(f'jumpToNamedShelf("{default_shelf_name}");')
-    nm.resize_editor("Shelf", x=3441, y=0, width=396, height=1517)
+
+    # シェルフの位置とサイズを Maya メインウィンドウが存在するモニタのサイズから計算
+    maya_window = get_maya_window()
+    screen = QtGui.QGuiApplication.screenAt(maya_window.frameGeometry().center())
+    if screen is None:
+        screen = QtGui.QGuiApplication.primaryScreen()
+    screen_geo = screen.geometry()
+    
+    shelf_width = 396
+    shelf_height = int(screen_geo.height() * 0.7)
+    pos_x = screen_geo.x() + screen_geo.width() - shelf_width
+    pos_y = 0
+
+    # シェルフの位置とサイズを設定
+    nm.resize_editor(
+        "Shelf",
+        x=pos_x,
+        y=pos_y,
+        width=shelf_width,
+        height=shelf_height,
+    )
 
     # incremental save
     cmds.optionVar(intValue=("isIncrementalSaveEnabled", 1))
