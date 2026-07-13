@@ -168,11 +168,11 @@ def create_shape_with_photoshop(shapes):
     """
     # 実行中の Photoshop のパスを取得
     encoding = "sjis"
-    cmd = """wmic process where "name = 'Photoshop.exe'" get commandline"""
+    cmd = 'powershell -NoProfile -Command "(Get-Process Photoshop | Select-Object -First 1).Path"'
     result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE)
 
     if result:
-        ps_path = result.stdout.decode(encoding).split("\r\r\n")[1].replace('"', '')
+        ps_path = result.stdout.decode(encoding).strip()
 
     else:
         raise
