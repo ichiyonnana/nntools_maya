@@ -805,3 +805,22 @@ def init_env():
     cmds.autoSave(en=True)
     cmds.autoSave(limitBackups=False)
     cmds.autoSave(interval=60*4)
+
+
+@nd.undo_chunk
+def unparent_one_level(objects=None):
+    """選択オブジェクトを1階層だけ上へ付け替える(grandparentが無ければワールドへ)."""
+    if not objects:
+        objects = cmds.ls(selection=True, long=True)
+
+    for obj in objects:
+        parent = cmds.listRelatives(obj, parent=True, fullPath=True)
+        if not parent:
+            # 既にワールド直下
+            continue
+
+        grandparent = cmds.listRelatives(parent[0], parent=True, fullPath=True)
+        if grandparent:
+            cmds.parent(obj, grandparent[0])
+        else:
+            cmds.parent(obj, world=True)
