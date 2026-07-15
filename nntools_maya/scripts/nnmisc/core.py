@@ -771,16 +771,20 @@ def init_env():
     mel.eval("ToggleShelf;")
     mel.eval(f'jumpToNamedShelf("{default_shelf_name}");')
 
-    # シェルフの位置とサイズを Maya メインウィンドウが存在するモニタのサイズから計算
+    # シェルフの位置とサイズを Maya メインウィンドウが存在するモニタのサイズと Maya の UI スケールから計算
     maya_window = get_maya_window()
     screen = QtGui.QGuiApplication.screenAt(maya_window.frameGeometry().center())
     if screen is None:
         screen = QtGui.QGuiApplication.primaryScreen()
     screen_geo = screen.geometry()
     
-    shelf_width = 396
-    shelf_height = int(screen_geo.height() * 0.7)
-    pos_x = screen_geo.x() + screen_geo.width() - shelf_width
+    base_width = 268
+    base_height = 1008
+    maya_real_scale_value = cmds.mayaDpiSetting(query=True, realScaleValue=True)
+
+    shelf_width = base_width * maya_real_scale_value
+    shelf_height = base_height * maya_real_scale_value
+    pos_x = screen_geo.width() - shelf_width
     pos_y = 0
 
     # シェルフの位置とサイズを設定
