@@ -778,7 +778,7 @@ def init_env():
         screen = QtGui.QGuiApplication.primaryScreen()
     screen_geo = screen.geometry()
     
-    base_width = 268
+    base_width = 274
     base_height = 1008
     maya_real_scale_value = cmds.mayaDpiSetting(query=True, realScaleValue=True)
 
