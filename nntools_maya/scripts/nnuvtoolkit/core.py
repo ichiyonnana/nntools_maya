@@ -1051,6 +1051,7 @@ class NN_ToolWindow(object):
 
         ui.row_layout()
         ui.header(label="")
+        ui.button(label="Grid Layout", c=self.onGridLayout)
         ui.button(label="Parent to UVEditor", c=self.onParentToUVEditor)
         ui.end_layout()
 
@@ -1465,6 +1466,11 @@ class NN_ToolWindow(object):
     def onDrawEdge(self, *args):
         mapsize = ui.get_value(self.mapSize)
         draw_edge(mapsize=mapsize)
+
+    def onGridLayout(self, *args):
+        """グリッドレイアウトツールを起動する"""
+        import nnuvtoolkit.grid_layout as gl
+        gl.main()
 
     def onParentToUVEditor(self, *args):
         """UVエディターを親にしてウィンドウを再作成する"""
