@@ -347,6 +347,13 @@ def freeze_instance():
             # 非インスタンスコピーの警告を無視する
             pass
 
+def smooth_preview_to_mesh():
+    """ 選択オブジェクトのスムースメッシュプレビューをメッシュに変換する """
+    selections = cmds.ls(selection=True)
+
+    for obj in selections:
+        cmds.select(obj)
+        mel.eval("CreatePolyFromPreview")
 
 def get_adjacent_edgeloop(edges, incomplete=True):
     """ 指定したエッジの進行方向のエッジを返す

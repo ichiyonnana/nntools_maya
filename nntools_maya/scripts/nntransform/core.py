@@ -135,6 +135,11 @@ class NN_ToolWindow(object):
         ui.button(label='Instance to Mesh', c=self.onInstanceToMesh, width=ui.width(6))
         ui.end_layout()
 
+        ui.row_layout()
+        ui.header(label='')
+        ui.button(label='Smooth Preview to Mesh', c=self.onSmoothPreviewToMesh, width=ui.width(6))
+        ui.end_layout()
+
         ui.separator(width=separator_width)
 
     def onFreezeTransformAll(self, *args):
