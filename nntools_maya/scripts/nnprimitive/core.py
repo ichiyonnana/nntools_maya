@@ -1,4 +1,7 @@
 import maya.cmds as cmds
+import maya.mel as mel
+
+from . import curve_to_primitive as ctp
 
 
 def place_primitive_in_front_of_camera(primitive_type='sphere'):
@@ -93,6 +96,22 @@ def rotate90(axis):
             cmds.setAttr(f"{obj}.rotateZ", cmds.getAttr(f"{obj}.rotateZ") % 360)
 
 
+def round_trs(value):
+    # 選択中のオブジェクトを取得
+    selected_objects = cmds.ls(selection=True)
+
+    if not selected_objects:
+        cmds.error("No objects selected.")
+        return
+
+    # 選択したオブジェクトの rotate を丸める
+    for obj in selected_objects:
+        for axis in ['X', 'Y', 'Z']:
+            current_rotation = cmds.getAttr(f"{obj}.rotate{axis}")
+            rounded_rotation = round(current_rotation / value) * value
+            cmds.setAttr(f"{obj}.rotate{axis}", rounded_rotation)
+
+
 def create_ui():
     window_name = "nnPrimitiveWindow"
     if cmds.window(window_name, exists=True):
@@ -110,23 +129,38 @@ def create_ui():
 
     cmds.columnLayout(adjustableColumn=True)
 
-    cmds.button(label="Cube", command=lambda _: place_primitive_in_front_of_camera('cube'))
-    cmds.button(label="Cylinder", command=lambda _: place_primitive_in_front_of_camera('cylinder'))
-    cmds.button(label="Sphere", command=lambda _: place_primitive_in_front_of_camera('sphere'))
-    cmds.button(label="Plane", command=lambda _: place_primitive_in_front_of_camera('plane'))
-    cmds.button(label="Torus", command=lambda _: place_primitive_in_front_of_camera('torus'))
+    cmds.text(label="Draw & Convert", align="center")
+    cmds.button(label="Pencil Tool", command=lambda _: mel.eval("PencilCurveTool"))
+    cmds.button(label="Convert into Primitive", command=lambda _: ctp.main())
+
+    cmds.separator(height=5)
+
+    cmds.text(label="Round Rot", align="center")
+    cmds.button(label="90", command=lambda _: round_trs(90))
+    cmds.button(label="15", command=lambda _: round_trs(15))
 
     cmds.separator(height=10)
 
+    cmds.text(label="Rotate 90", align="center")
+    cmds.button(label="Rot X", command=lambda _: rotate90('X'))
+    cmds.button(label="Rot Y", command=lambda _: rotate90('Y'))
+    cmds.button(label="Rot Z", command=lambda _: rotate90('Z'))
+
+    cmds.separator(height=5)
+
+    cmds.text(label="Align Center", align="center")
     cmds.button(label="X=0", command=lambda _: set_translation_to_zero('X'))
     cmds.button(label="Y=0", command=lambda _: set_translation_to_zero('Y'))
     cmds.button(label="Z=0", command=lambda _: set_translation_to_zero('Z'))
 
     cmds.separator(height=10)
 
-    cmds.button(label="Rot X", command=lambda _: rotate90('X'))
-    cmds.button(label="Rot Y", command=lambda _: rotate90('Y'))
-    cmds.button(label="Rot Z", command=lambda _: rotate90('Z'))
+    cmds.text(label="Place Screen Center", align="center")
+    cmds.button(label="Cube", command=lambda _: place_primitive_in_front_of_camera('cube'))
+    cmds.button(label="Cylinder", command=lambda _: place_primitive_in_front_of_camera('cylinder'))
+    cmds.button(label="Sphere", command=lambda _: place_primitive_in_front_of_camera('sphere'))
+    cmds.button(label="Plane", command=lambda _: place_primitive_in_front_of_camera('plane'))
+    cmds.button(label="Torus", command=lambda _: place_primitive_in_front_of_camera('torus'))
 
     cmds.separator(height=5)
 
