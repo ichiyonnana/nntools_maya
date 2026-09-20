@@ -49,35 +49,15 @@ class NN_ToolWindow(object):
         if cmds.window(self.window, exists=True):
             cmds.deleteUI(self.window, window=True)
 
-        # プリファレンスの有無による分岐
-        if cmds.windowPref(self.window, exists=True):
-            # ウィンドウのプリファレンスがあれば位置だけ保存して削除
-            position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
-            cmds.windowPref(self.window, remove=True)
-
-            # 前回位置に指定したサイズで表示
-            self.window = cmds.window(
-                self.window,
-                t=self.title,
-                widthHeight=self.size,
-                sizeable=False,
-                maximizeButton=False,
-                minimizeButton=False,
-                resizeToFitChildren=True,
-                topLeftCorner=position
-            )
-
-        else:
-            # プリファレンスがなければデフォルト位置に指定サイズで表示
-            self.window = cmds.window(
-                self.window,
-                t=self.title,
-                widthHeight=self.size,
-                sizeable=False,
-                maximizeButton=False,
-                minimizeButton=False,
-                resizeToFitChildren=True
-            )
+        self.window = cmds.window(
+            self.window,
+            t=self.title,
+            widthHeight=self.size,
+            sizeable=False,
+            maximizeButton=False,
+            minimizeButton=False,
+            resizeToFitChildren=True
+        )
 
         self.layout()
         cmds.showWindow(self.window)

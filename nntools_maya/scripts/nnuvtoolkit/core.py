@@ -816,54 +816,25 @@ class NN_ToolWindow(object):
             parent_window = uv_window.split("|")[0] if uv_window else None
             print("1")
 
-        # プリファレンスの有無による分岐
-        if cmds.windowPref(self.window, exists=True):
-            # ウィンドウのプリファレンスがあれば位置だけ保存して削除
-            position = cmds.windowPref(self.window, q=True, topLeftCorner=True)
-            cmds.windowPref(self.window, remove=True)
-
-            if parent_to_uveditor and parent_window:
-                cmds.window(
-                    self.window,
-                    t=self.title,
-                    maximizeButton=False,
-                    minimizeButton=False,
-                    topLeftCorner=position,
-                    widthHeight=self.size,
-                    sizeable=False,
-                    resizeToFitChildren=True,
-                    parent=parent_window)
-            else:
-                cmds.window(
-                    self.window,
-                    t=self.title,
-                    maximizeButton=False,
-                    minimizeButton=False,
-                    topLeftCorner=position,
-                    widthHeight=self.size,
-                    resizeToFitChildren=True,
-                    sizeable=False)
-
+        if parent_to_uveditor and parent_window:
+            cmds.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                widthHeight=self.size,
+                sizeable=False,
+                resizeToFitChildren=True,
+                parent=parent_window)
         else:
-            if parent_to_uveditor and parent_window:
-                cmds.window(
-                    self.window,
-                    t=self.title,
-                    maximizeButton=False,
-                    minimizeButton=False,
-                    widthHeight=self.size,
-                    sizeable=False,
-                    resizeToFitChildren=True,
-                    parent=parent_window)
-            else:
-                cmds.window(
-                    self.window,
-                    t=self.title,
-                    maximizeButton=False,
-                    minimizeButton=False,
-                    widthHeight=self.size,
-                    resizeToFitChildren=True,
-                    sizeable=False)
+            cmds.window(
+                self.window,
+                t=self.title,
+                maximizeButton=False,
+                minimizeButton=False,
+                widthHeight=self.size,
+                resizeToFitChildren=True,
+                sizeable=False)
 
         self.layout()
         cmds.showWindow(self.window)
