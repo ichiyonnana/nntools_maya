@@ -67,6 +67,10 @@ class NN_ToolWindow(object):
         cursor_pos = QtGui.QCursor().pos()
         position = (cursor_pos.y(), cursor_pos.x())
 
+        # 保存済みの位置が topLeftCorner より優先されるのでプリファレンスを削除する
+        if cmds.windowPref(self.window, exists=True):
+            cmds.windowPref(self.window, remove=True)
+
         # カーソル位置に指定したサイズで表示
         cmds.window(
             self.window,
