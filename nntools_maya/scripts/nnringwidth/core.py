@@ -22,6 +22,11 @@ def distance(p1, p2):
     return math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2 + (p2[2]-p1[2])**2)
 
 
+def path_length(points):
+    """隣り合う点同士の距離の合計"""
+    return sum(distance(p1, p2) for p1, p2 in zip(points[:-1], points[1:]))
+
+
 def vector(p1, p2):
     return (p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2])
 
@@ -35,11 +40,26 @@ def normalize(v):
         return (0, 0, 0)
 
 
+def set_highlight_appearance(curve):
+    """強調表示用カーブの見た目を設定する (赤・太線)"""
+    color = [1.0, 0.0, 0.0]
+
+    curve_shape = cmds.listRelatives(curve, shapes=True, fullPath=True)[0]
+    cmds.setAttr(curve + ".overrideEnabled", True)
+    cmds.setAttr(curve + ".overrideRGBColors", True)
+    cmds.setAttr(curve + ".overrideColorR", color[0])
+    cmds.setAttr(curve + ".overrideColorG", color[1])
+    cmds.setAttr(curve + ".overrideColorB", color[2])
+    cmds.setAttr(curve_shape + ".lineWidth", 6)
+
+
 class NN_AlignedgeRingWindow(object):
     MSG_NOT_SELECTED = "エッジが選択されていません"
     MSG_UNK_ALIGNMODE = "未知の整列モードです"
     MSG_UNK_RELMODE = "未知の相対モードです"
     MSG_NOT_IMPLEMENTED = "未実装"
+
+    HIGHLIGHT_PREFIX = "NN_RingWidth_HighlightInner_"  # 強調表示用に生成したノード名のプリフィクス
 
     AM_IN = 1           # 内側基準
     AM_OUT = 2          # 外側基準
@@ -69,6 +89,10 @@ class NN_AlignedgeRingWindow(object):
 
         self.absolute_mode_components = []
         self.relative_mode_components = []
+
+        self.highlight_job = None  # 強調表示を選択に追従させる scriptJob の番号
+        self.highlight_selections = None  # 強調表示を最後に作ったときの選択
+        self.highlight_updating = False  # 強調表示の作り直し中なら True
 
     def create(self):
         if cmds.window(self.window, exists=True):
@@ -181,7 +205,7 @@ class NN_AlignedgeRingWindow(object):
 
                 with ui.row_layout():
                     ui.header(label='')
-                    ui.check_box(label="Highlight Inner", v=False, cc=self.onHighlightInner)
+                    self.cb_highlight_inner = ui.check_box(label="Highlight Inner", v=False, cc=self.onHighlightInner)
 
                 ui.separator(width=window_width)
 
@@ -539,7 +563,95 @@ class NN_AlignedgeRingWindow(object):
         self.last_relative_mode = True
 
     def onHighlightInner(self, *args):
-        pass
+        """内側エッジ列の強調表示を切り替える。有効な間は選択変更のたびに表示を作り直す"""
+        if cmds.checkBox(self.cb_highlight_inner, q=True, v=True):
+            if not self.highlight_job or not cmds.scriptJob(exists=self.highlight_job):
+                self.highlight_job = cmds.scriptJob(event=["SelectionChanged", self._update_highlight], parent=self.window)
+
+            self.highlight_selections = None
+            self._update_highlight()
+
+        else:
+            if self.highlight_job and cmds.scriptJob(exists=self.highlight_job):
+                cmds.scriptJob(kill=self.highlight_job, force=True)
+
+            self.highlight_job = None
+            self._delete_highlight()
+
+    def _update_highlight(self):
+        """現在の選択エッジから内側エッジ列を求めて強調表示用カーブを作り直す"""
+        # カーブ作成時の一時的な選択と選択の復元でも SelectionChanged が発生するため、同じ選択に対しては作り直さない
+        current_selections = cmds.ls(orderedSelection=True, flatten=True)
+        if self.highlight_updating or current_selections == self.highlight_selections:
+            return
+
+        self.highlight_updating = True
+        self.highlight_selections = current_selections
+
+        # 強調表示の生成と削除はアンドゥの対象にしない
+        undo_state = cmds.undoInfo(q=True, stateWithoutFlush=True)
+        cmds.undoInfo(stateWithoutFlush=False)
+
+        try:
+            self._delete_highlight()
+
+            selEdges = cmds.filterExpand(current_selections, selectionMask=32) or []
+            if not selEdges:
+                return
+
+            # 選択がキャッシュと同じなら Align と同じ判定結果を使う
+            if set(selEdges) == set(self.selEdges):
+                vtxListA, vtxListB, pntListA, pntListB = self.vtxListA, self.vtxListB, self.pntListA, self.pntListB
+            else:
+                _, vtxListA, vtxListB, pntListA, pntListB = self._evaluate_ring(selEdges)
+
+            if path_length(pntListA) <= path_length(pntListB):
+                innerVtx = vtxListA
+            else:
+                innerVtx = vtxListB
+
+            # 隣り合う内側頂点を結ぶエッジ (ループしている場合は末尾と先頭も繋がる)
+            innerEdges = []
+            for v0, v1 in zip(innerVtx, innerVtx[1:] + innerVtx[:1]):
+                innerEdges += cmds.polyListComponentConversion([v0, v1], fromVertex=True, toEdge=True, internal=True)
+
+            if not innerEdges:
+                return
+
+            # polyToCurve の引数仕様が不明なため引数でのコンポーネント指定をせず選択経由で実行する
+            # polyToCurve が変更した選択モードと選択オブジェクトをもとに戻す
+            is_component_mode = cmds.selectMode(q=True, component=True)
+            hilited_objects = cmds.ls(hilite=True)
+            select_types = {x: cmds.selectType(q=True, **{x: True}) for x in ["polymeshVertex", "polymeshEdge", "polymeshFace", "polymeshUV", "polymeshVtxFace"]}
+
+            cmds.select(innerEdges, replace=True)
+            created_nodes = cmds.polyToCurve(form=2, degree=1, conformToSmoothMeshPreview=False)
+
+            if is_component_mode:
+                cmds.selectMode(component=True)
+            else:
+                cmds.selectMode(object=True)
+
+            cmds.selectType(**select_types)
+
+            if hilited_objects:
+                cmds.hilite(hilited_objects, replace=True)
+
+            cmds.select(current_selections, replace=True)
+
+            curve = cmds.rename(created_nodes[0], self.HIGHLIGHT_PREFIX + "curve#")
+            cmds.rename(created_nodes[1], self.HIGHLIGHT_PREFIX + "polyEdgeToCurve#")
+            set_highlight_appearance(curve)
+
+        finally:
+            cmds.undoInfo(stateWithoutFlush=undo_state)
+            self.highlight_updating = False
+
+    def _delete_highlight(self):
+        """強調表示用のプリフィクスを持つノードをすべて削除する"""
+        existing_nodes = cmds.ls(self.HIGHLIGHT_PREFIX + "*")
+        if existing_nodes:
+            cmds.delete(existing_nodes)
 
     # エッジの角度を前後を参照して平均化する
     def onSmoothAngle(self, *args):
@@ -567,6 +679,154 @@ class NN_AlignedgeRingWindow(object):
         self.last_executed_func = None
         self.last_relative_mode = None
 
+    def _build_cache(self, selEdges):
+        """選択エッジをソートして両側の頂点列に振り分け、キャッシュを更新する"""
+        sortedSelEdges, vtxListA, vtxListB, pntListA, pntListB = self._evaluate_ring(selEdges)
+
+        # キャッシュの更新
+        self.selEdges = selEdges
+        self.sortedSelEdges = sortedSelEdges
+        self.vtxListA = vtxListA
+        self.vtxListB = vtxListB
+        self.pntListA = pntListA
+        self.pntListB = pntListB
+
+    def _evaluate_ring(self, selEdges):
+        """選択エッジをソートして両側の頂点列に振り分ける
+
+        Returns:
+            tuple: (ソート済みエッジ, A 側頂点列, B 側頂点列, A 側座標列, B 側座標列)
+        """
+        sortedSelEdges = []
+        vtxListA = []
+        vtxListB = []
+        pntListA = []
+        pntListB = []
+
+        # 開始エッジの決定
+        # 開始エッジがフェースの端なら自身を持つフェース==1 のエッジを開始エッジにする
+        # そういうエッジがない場合 (選択エッジが完全に島中の場合)は選択エッジに囲まれるすべての面のうち
+        # 選択エッジを 1 つしか持たないフェースを検出してその 1 つのエッジを開始エッジにする
+        # すべて 2 つ以上持っていたらループしているのでどれから始めてもいいので SelEdge[0] を開始エッジにする
+        allSelfaces = cmds.filterExpand(
+            cmds.polyListComponentConversion(selEdges, fe=True, tf=True), sm=34)
+        startEdge = selEdges[0]  # 端のエッジ
+        startFace = None  # 端のフェース
+        preprocessedFace = None  # 選択エッジの外側のフェース
+
+        # フェースを一つしか持たないエッジは開始エッジ
+        for edge in selEdges:
+            faces = cmds.filterExpand(
+                cmds.polyListComponentConversion(edge, fe=True, tf=True), sm=34)
+            if len(faces) == 1:
+                startEdge = edge
+                startFace = faces[0]
+                break
+
+        # すべての選択フェイスのうち選択エッジを一つしか持たないフェースは端のフェイス
+        if startFace is None:
+            for selFace in allSelfaces:
+                edges = cmds.filterExpand(cmds.polyListComponentConversion(
+                    selFace, ff=True, te=True), sm=32)
+                if len(set(edges) & set(selEdges)) == 1:
+                    startEdge = list(set(edges) & set(selEdges))[0]
+                    startFace = selFace
+                    preprocessedFace = startFace
+
+        # すべての選択フェイスが選択エッジをふたつ以上持っていればループ
+        if startFace is None:
+            startEdge = selEdges[0]
+            faces = cmds.filterExpand(cmds.polyListComponentConversion(
+                startEdge, fe=True, tf=True), sm=34)
+            startFace = faces[0]
+            preprocessedFace = startFace
+
+        # エッジのソート
+        # 最後に追加されたソート済みエッジを含むフェースから次のエッジを探す
+        # SelEdge-sortedSelEdges が空集合 or elEdge-sortedSelEdgesを構成要素として持つフェースが検出できなかったら終了
+        processedFaces = []  # 処理済みフェース
+        sortedSelEdges.append(startEdge)
+        if preprocessedFace is not None:
+            processedFaces.append(preprocessedFace)
+        untreatedEdges = list(set(selEdges) - set(sortedSelEdges))
+        existNextEdge = True  # 次のエッジがあれば True
+        while len(untreatedEdges) > 0 and existNextEdge:
+            # 最後の処理済みエッジに隣接するフェース
+            faces = cmds.filterExpand(cmds.polyListComponentConversion(
+                sortedSelEdges[-1], fe=True, tf=True), sm=34)
+            faces = list(set(faces)-set(processedFaces))
+
+            # そのフェース集合のうち未処理エッジを構成要素として持つものを次のフェースとする
+            # その構成要素のエッジを sortedSelEdges に追加
+            existNextEdge = False
+            for face in faces:
+                edges = cmds.filterExpand(
+                    cmds.polyListComponentConversion(face, ff=True, te=True), sm=32)
+                shareEdges = list(set(edges) & set(untreatedEdges))
+                if len(shareEdges) != 0:
+                    sortedSelEdges.append(shareEdges[0])
+                    untreatedEdges.remove(shareEdges[0])
+                    processedFaces.append(face)
+                    existNextEdge = True
+
+        edgeCount = len(sortedSelEdges)
+
+        # E.first の v0,v1 取得して A,B に追加
+        v0, v1 = cmds.filterExpand(cmds.polyListComponentConversion(
+            sortedSelEdges[0], fe=True, tv=True), sm=31)
+        vtxListA.append(v0)
+        vtxListB.append(v1)
+
+        # すべてのエッジを巡回して頂点を A,B に振り分ける
+        for edge in sortedSelEdges[1:edgeCount]:
+            # 各エッジの片方の頂点と隣接する頂点の取得
+            v0, v1 = cmds.filterExpand(
+                cmds.polyListComponentConversion(edge, fe=True, tv=True), sm=31)
+
+            neighborEdges0 = cmds.filterExpand(
+                cmds.polyListComponentConversion(v0, fv=1, te=1), sm=32)
+
+            # 各隣接エッジに関して構成頂点2点を取得する
+            neighborVtx = []
+            for x in neighborEdges0:
+                nEv0, nEv1 = cmds.filterExpand(
+                    cmds.polyListComponentConversion(x, fe=True, tv=True), sm=31)
+                neighborVtx.append(nEv0)
+                neighborVtx.append(nEv1)
+
+            neighborVtx = list(set(neighborVtx))  # uniq
+
+            # v0,v1 どちらかが一致している場合は優先して処理
+            if v0 == vtxListA[-1]:
+                vtxListA.append(v0)
+                vtxListB.append(v1)
+            elif v0 == vtxListB[-1]:
+                vtxListB.append(v0)
+                vtxListA.append(v1)
+            elif v1 == vtxListA[-1]:
+                vtxListB.append(v0)
+                vtxListA.append(v1)
+            elif v1 == vtxListB[-1]:
+                vtxListA.append(v0)
+                vtxListB.append(v1)
+            else:
+                # edge.v0 が A.last と隣接していれば v0 は同じく A　グループ
+                if vtxListA[-1] in neighborVtx:
+                    vtxListA.append(v0)
+                    vtxListB.append(v1)
+                else:
+                    vtxListB.append(v0)
+                    vtxListA.append(v1)
+
+        # 頂点を座標値にパース
+        for i in range(0, edgeCount):
+            pntListA.append(cmds.xform(
+                vtxListA[i], q=True, ws=True, t=True))
+            pntListB.append(cmds.xform(
+                vtxListB[i], q=True, ws=True, t=True))
+
+        return sortedSelEdges, vtxListA, vtxListB, pntListA, pntListB
+
     # 選択エッジの幅を揃える機能本体
     def _align_edge_ring(self, length1, length2, alignMode, relativeMode=None):
         constMode = cmds.checkBox(self.constMode, q=True, v=True)
@@ -577,11 +837,6 @@ class NN_AlignedgeRingWindow(object):
         selEdges = cmds.ls(os=True, fl=True)
         edgeCount = len(selEdges)
 
-        vtxListA = []
-        vtxListB = []
-        pntListA = []
-        pntListB = []
-
         if edgeCount == 0:
             print(self.MSG_NOT_SELECTED)
             return
@@ -589,150 +844,19 @@ class NN_AlignedgeRingWindow(object):
         # 選択コンポーネントを持つオブジェクトの取得
         selObj = selEdges[0].split(".", 1)[0]
 
-        sortedSelEdges = []  # ソート済み選択エッジ
         u = []  # 開始頂点を0.0 最終頂点を1.0 とする頂点の位置
         length = []  # u値等や Tri 等で変化した最終的な辺の長さ
 
         # 選択エッジがキャッシュと同じならエッジの順序と頂点座標は現在のコンポーネントの値ではなくキャッシュの値を使う
-        if set(selEdges) == set(self.selEdges):
-            selEdges = self.selEdges
-            sortedSelEdges = self.sortedSelEdges
-            vtxListA = self.vtxListA
-            vtxListB = self.vtxListB
-            pntListA = self.pntListA
-            pntListB = self.pntListB
-            edgeCount = len(sortedSelEdges)
+        if set(selEdges) != set(self.selEdges):
+            self._build_cache(selEdges)
 
-        else:
-            # 開始エッジの決定
-            # 開始エッジがフェースの端なら自身を持つフェース==1 のエッジを開始エッジにする
-            # そういうエッジがない場合 (選択エッジが完全に島中の場合)は選択エッジに囲まれるすべての面のうち
-            # 選択エッジを 1 つしか持たないフェースを検出してその 1 つのエッジを開始エッジにする
-            # すべて 2 つ以上持っていたらループしているのでどれから始めてもいいので SelEdge[0] を開始エッジにする
-            allSelfaces = cmds.filterExpand(
-                cmds.polyListComponentConversion(selEdges, fe=True, tf=True), sm=34)
-            startEdge = selEdges[0]  # 端のエッジ
-            startFace = None  # 端のフェース
-            preprocessedFace = None  # 選択エッジの外側のフェース
-
-            # フェースを一つしか持たないエッジは開始エッジ
-            for edge in selEdges:
-                faces = cmds.filterExpand(
-                    cmds.polyListComponentConversion(edge, fe=True, tf=True), sm=34)
-                if len(faces) == 1:
-                    startEdge = edge
-                    startFace = faces[0]
-                    break
-
-            # すべての選択フェイスのうち選択エッジを一つしか持たないフェースは端のフェイス
-            if startFace is None:
-                for selFace in allSelfaces:
-                    edges = cmds.filterExpand(cmds.polyListComponentConversion(
-                        selFace, ff=True, te=True), sm=32)
-                    if len(set(edges) & set(selEdges)) == 1:
-                        startEdge = list(set(edges) & set(selEdges))[0]
-                        startFace = selFace
-                        preprocessedFace = startFace
-
-            # すべての選択フェイスが選択エッジをふたつ以上持っていればループ
-            if startFace is None:
-                startEdge = selEdges[0]
-                faces = cmds.filterExpand(cmds.polyListComponentConversion(
-                    startEdge, fe=True, tf=True), sm=34)
-                startFace = faces[0]
-                preprocessedFace = startFace
-
-            # エッジのソート
-            # 最後に追加されたソート済みエッジを含むフェースから次のエッジを探す
-            # SelEdge-sortedSelEdges が空集合 or elEdge-sortedSelEdgesを構成要素として持つフェースが検出できなかったら終了
-            processedFaces = []  # 処理済みフェース
-            sortedSelEdges.append(startEdge)
-            if preprocessedFace is not None:
-                processedFaces.append(preprocessedFace)
-            untreatedEdges = list(set(selEdges) - set(sortedSelEdges))
-            existNextEdge = True  # 次のエッジがあれば True
-            while len(untreatedEdges) > 0 and existNextEdge:
-                # 最後の処理済みエッジに隣接するフェース
-                faces = cmds.filterExpand(cmds.polyListComponentConversion(
-                    sortedSelEdges[-1], fe=True, tf=True), sm=34)
-                faces = list(set(faces)-set(processedFaces))
-
-                # そのフェース集合のうち未処理エッジを構成要素として持つものを次のフェースとする
-                # その構成要素のエッジを sortedSelEdges に追加
-                existNextEdge = False
-                for face in faces:
-                    edges = cmds.filterExpand(
-                        cmds.polyListComponentConversion(face, ff=True, te=True), sm=32)
-                    shareEdges = list(set(edges) & set(untreatedEdges))
-                    if len(shareEdges) != 0:
-                        sortedSelEdges.append(shareEdges[0])
-                        untreatedEdges.remove(shareEdges[0])
-                        processedFaces.append(face)
-                        existNextEdge = True
-
-            edgeCount = len(sortedSelEdges)
-
-            # E.first の v0,v1 取得して A,B に追加
-            v0, v1 = cmds.filterExpand(cmds.polyListComponentConversion(
-                sortedSelEdges[0], fe=True, tv=True), sm=31)
-            vtxListA.append(v0)
-            vtxListB.append(v1)
-
-            # すべてのエッジを巡回して頂点を A,B に振り分ける
-            for edge in sortedSelEdges[1:edgeCount]:
-                # 各エッジの片方の頂点と隣接する頂点の取得
-                v0, v1 = cmds.filterExpand(
-                    cmds.polyListComponentConversion(edge, fe=True, tv=True), sm=31)
-
-                neighborEdges0 = cmds.filterExpand(
-                    cmds.polyListComponentConversion(v0, fv=1, te=1), sm=32)
-
-                # 各隣接エッジに関して構成頂点2点を取得する
-                neighborVtx = []
-                for x in neighborEdges0:
-                    nEv0, nEv1 = cmds.filterExpand(
-                        cmds.polyListComponentConversion(x, fe=True, tv=True), sm=31)
-                    neighborVtx.append(nEv0)
-                    neighborVtx.append(nEv1)
-
-                neighborVtx = list(set(neighborVtx))  # uniq
-
-                # v0,v1 どちらかが一致している場合は優先して処理
-                if v0 == vtxListA[-1]:
-                    vtxListA.append(v0)
-                    vtxListB.append(v1)
-                elif v0 == vtxListB[-1]:
-                    vtxListB.append(v0)
-                    vtxListA.append(v1)
-                elif v1 == vtxListA[-1]:
-                    vtxListB.append(v0)
-                    vtxListA.append(v1)
-                elif v1 == vtxListB[-1]:
-                    vtxListA.append(v0)
-                    vtxListB.append(v1)
-                else:
-                    # edge.v0 が A.last と隣接していれば v0 は同じく A　グループ
-                    if vtxListA[-1] in neighborVtx:
-                        vtxListA.append(v0)
-                        vtxListB.append(v1)
-                    else:
-                        vtxListB.append(v0)
-                        vtxListA.append(v1)
-
-            # 頂点を座標値にパース
-            for i in range(0, edgeCount):
-                pntListA.append(cmds.xform(
-                    vtxListA[i], q=True, ws=True, t=True))
-                pntListB.append(cmds.xform(
-                    vtxListB[i], q=True, ws=True, t=True))
-
-            # キャッシュの更新
-            self.selEdges = selEdges
-            self.sortedSelEdges = sortedSelEdges
-            self.vtxListA = vtxListA
-            self.vtxListB = vtxListB
-            self.pntListA = pntListA
-            self.pntListB = pntListB
+        sortedSelEdges = self.sortedSelEdges
+        vtxListA = self.vtxListA
+        vtxListB = self.vtxListB
+        pntListA = self.pntListA
+        pntListB = self.pntListB
+        edgeCount = len(sortedSelEdges)
 
         baseVtx = []  # 動かない側の頂点オブジェクト
         moveVtx = []  # 動かす側の頂点オブジェクト
@@ -744,17 +868,9 @@ class NN_AlignedgeRingWindow(object):
 
         # base,move がどちら側か決定する
         # ABの各経路の長さ計算
-        pathLengthA = 0
-        pathLengthB = 0
+        pathLengthA = path_length(pntListA)
+        pathLengthB = path_length(pntListB)
         basePathLength = 0
-        for i in range(0, edgeCount-1):
-            p1 = pntListA[i]
-            p2 = pntListA[i+1]
-            pathLengthA += distance(p1, p2)
-
-            p1 = pntListB[i]
-            p2 = pntListB[i+1]
-            pathLengthB += distance(p1, p2)
 
         # 経路が短い方が IN としてモードに従って base/move 決める
         if alignMode == self.AM_IN:
