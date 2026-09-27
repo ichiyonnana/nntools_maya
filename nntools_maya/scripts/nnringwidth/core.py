@@ -1,5 +1,6 @@
 # エッジのリスト選択して実行すると片側固定して幅を統一するやつ
 import maya.cmds as cmds
+import maya.api.OpenMaya as om
 import math
 
 import nnutil.ui as ui
@@ -198,10 +199,24 @@ class NN_AlignedgeRingWindow(object):
             with ui.column_layout():
                 # その他機能
                 with ui.row_layout():
+                    ui.header(label='Angle')
+                    ui.text(label="To Bisector")
+                    ui.button(label='In', c=self.onToBisectorIn)
+                    ui.button(label='Out', c=self.onToBisectorOut)
+                    
+                with ui.row_layout():
+                    ui.header(label='')
+                    ui.text(label="Parallel To")
+                    ui.button(label='In', c=self.onParallelToIn)
+                    ui.button(label='Out', c=self.onParallelToOut)
+                                   
+                ui.separator(width=window_width)
+                 
+                with ui.row_layout():
                     ui.header(label='Func')
                     ui.button(label='Reset', c=self.onReset)    
                     ui.button(label='ClearCache', c=self.onClearCache)
-                    ui.button(label='Smooth', c=self.onSmoothAngle)
+                    
 
                 with ui.row_layout():
                     ui.header(label='')
@@ -653,12 +668,104 @@ class NN_AlignedgeRingWindow(object):
         if existing_nodes:
             cmds.delete(existing_nodes)
 
-    # エッジの角度を前後を参照して平均化する
-    def onSmoothAngle(self, *args):
-        # TODO:実装する
-        # p[i] と p[i-1],p[i+1] の三点で作られる平面内で前後エッジの中間角度を求めヨーだけ使用してピッチは元のエッジの値を使う
-        # E.first と E.last はそのまま
-        print(self.MSG_NOT_IMPLEMENTED)
+    def onToBisectorIn(self, *args):
+        """In 側を固定し、各エッジを In 側エッジ列の角の二等分方向へ向ける"""
+        self._orient_edge_ring(alignMode=self.AM_IN, parallel=False)
+
+    def onToBisectorOut(self, *args):
+        """Out 側を固定し、各エッジを Out 側エッジ列の角の二等分方向へ向ける"""
+        self._orient_edge_ring(alignMode=self.AM_OUT, parallel=False)
+
+    def onParallelToIn(self, *args):
+        """In 側を固定し、Out 側エッジ列を In 側エッジ列と近似的に平行にする"""
+        self._orient_edge_ring(alignMode=self.AM_IN, parallel=True)
+
+    def onParallelToOut(self, *args):
+        """Out 側を固定し、In 側エッジ列を Out 側エッジ列と近似的に平行にする"""
+        self._orient_edge_ring(alignMode=self.AM_OUT, parallel=True)
+
+    def _orient_edge_ring(self, alignMode, parallel):
+        """動かない側のエッジ列を基準に、反対側の頂点を移動する
+
+        parallel が False なら反対側の頂点を既存のエッジ列上でスライドさせ、エッジを二等分面に乗せる
+        parallel が True なら選択エッジの向きを保ったまま頂点を選択エッジ上でスライドさせ、反対側のエッジ列を動かない側のエッジ列に近似的に平行にする
+        """
+        selEdges = cmds.ls(orderedSelection=True, flatten=True)
+        if not selEdges:
+            print(self.MSG_NOT_SELECTED)
+
+            return
+
+        if set(selEdges) != set(self.selEdges):
+            self._build_cache(selEdges)
+
+        # 経路が短い方が IN
+        a_is_in = path_length(self.pntListA) <= path_length(self.pntListB)
+        if a_is_in == (alignMode == self.AM_IN):
+            baseVtx, moveVtx, basePoints, movePoints = self.vtxListA, self.vtxListB, self.pntListA, self.pntListB
+        else:
+            baseVtx, moveVtx, basePoints, movePoints = self.vtxListB, self.vtxListA, self.pntListB, self.pntListA
+
+        n = len(basePoints)
+        if n < 2:
+            return
+
+        # 動かない側の先頭と末尾の頂点がエッジで繋がっていればループ
+        is_loop = n > 2 and bool(cmds.polyListComponentConversion([baseVtx[0], baseVtx[-1]], fromVertex=True, toEdge=True, internal=True))
+
+        P = [om.MPoint(p) for p in basePoints]
+        Q = [om.MPoint(p) for p in movePoints]
+
+        # 各頂点の二等分面の法線 (動かない側の経路の接線方向)。ループしていない場合の両端は None
+        tangents = [None] * n
+        for i in range(n):
+            if not is_loop and (i == 0 or i == n - 1):
+                continue
+
+            a = (P[i - 1] - P[i]).normal()
+            b = (P[(i + 1) % n] - P[i]).normal()
+            tangents[i] = (b - a).normal()
+
+        newPoints = list(Q)
+
+        if not parallel:
+            # 前後どちらかの動かす側エッジと二等分面の交点へスライドする
+            for i, t in enumerate(tangents):
+                if t is None:
+                    continue
+
+                fi = (Q[i] - P[i]) * t
+                for j in (i + 1, i - 1):
+                    Qj = Q[j % n]
+                    fj = (Qj - P[i]) * t
+                    if fi * fj <= 0 and fi != fj:
+                        newPoints[i] = Q[i] + (Qj - Q[i]) * (fi / (fi - fj))
+                        break
+
+        else:
+            # 動かす側の各セグメントを、中点を通り対応する動かない側のセグメントと平行な直線に置き換え、
+            # 両端の選択エッジの直線との交点 (ねじれの位置なら選択エッジ側の最近点) を求める
+            candidates = [[] for _ in range(n)]
+            for i in range(n if is_loop else n - 1):
+                j = (i + 1) % n
+                s = (P[j] - P[i]).normal()
+                m = Q[i] + (Q[j] - Q[i]) * 0.5
+                for k in (i, j):
+                    e = (Q[k] - P[k]).normal()
+                    es = e * s
+                    if 1.0 - es * es < 1e-6:
+                        continue
+
+                    w = P[k] - m
+                    candidates[k].append(P[k] + e * ((es * (s * w) - e * w) / (1.0 - es * es)))
+
+            # 前後のセグメントから求めた 2 点の中間点 (両端は 1 点) を新しい位置にする
+            for i, points in enumerate(candidates):
+                if points:
+                    newPoints[i] = points[0] + (points[-1] - points[0]) * 0.5
+
+        for vtx, p in zip(moveVtx, newPoints):
+            cmds.xform(vtx, worldSpace=True, translation=(p.x, p.y, p.z))
 
     # 全ての頂点をキャッシュの位置へ戻す
     def onReset(self, *args):
