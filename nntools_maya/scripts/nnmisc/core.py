@@ -5,6 +5,7 @@ import re
 import maya.cmds as cmds
 import maya.mel as mel
 import maya.api.OpenMaya as om
+import maya.api.OpenMayaAnim as oma
 import maya.OpenMayaUI as omui
 
 import nnutil.ui as ui
@@ -828,3 +829,75 @@ def unparent_one_level(objects=None):
             cmds.parent(obj, grandparent[0])
         else:
             cmds.parent(obj, world=True)
+
+
+def _get_border_vertex_component(dp_obj):
+    """メッシュのボーダー頂点のインデックス (昇順) とそのコンポーネントを返す."""
+    border_indices = []
+    it_vtx = om.MItMeshVertex(dp_obj)
+
+    while not it_vtx.isDone():
+        if it_vtx.onBoundary():
+            border_indices.append(it_vtx.index())
+
+        it_vtx.next()
+
+    fn_comp = om.MFnSingleIndexedComponent()
+    comp = fn_comp.create(om.MFn.kMeshVertComponent)
+    fn_comp.addElements(border_indices)
+
+    return border_indices, comp
+
+
+@nd.undo_chunk
+def delete_nondeformer_history(objects=None):
+    """ボーダー頂点のウェイトを退避・復帰しながらノンデフォーマーヒストリを削除する.
+
+    Maya 2019 以降はノンデフォーマーヒストリ削除時にボーダー頂点のウェイトが壊れるため、
+    削除前にボーダー頂点のウェイトと位置を取得し、削除後に位置が最も近いボーダー頂点のウェイトで上書きする.
+    """
+    if not objects:
+        objects = cmds.ls(selection=True, objectsOnly=True)
+
+    for obj in objects:
+        skincluster_list = cmds.ls(cmds.listHistory(obj), type="skinCluster") or []
+
+        # スキンクラスターが無ければヒストリ削除のみ
+        if not skincluster_list:
+            cmds.bakePartialHistory(obj, prePostDeformers=True)
+            continue
+
+        skincluster = skincluster_list[0]
+
+        slist = om.MSelectionList()
+        slist.add(obj)
+        slist.add(skincluster)
+        dp_obj = slist.getDagPath(0)
+        fn_skin = oma.MFnSkinCluster(slist.getDependNode(1))
+
+        # ヒストリ削除前のボーダー頂点の位置とウェイト
+        src_indices, src_comp = _get_border_vertex_component(dp_obj)
+
+        if not src_indices:
+            cmds.bakePartialHistory(obj, prePostDeformers=True)
+            continue
+
+        src_points = om.MFnMesh(dp_obj).getPoints(om.MSpace.kObject)
+        src_border_points = [src_points[i] for i in src_indices]
+        weights, num_influences = fn_skin.getWeights(dp_obj, src_comp)
+        src_weights = list(weights)
+
+        cmds.bakePartialHistory(obj, prePostDeformers=True)
+
+        # ヒストリ削除後はインデックスがずれているので、位置が最も近い削除前のボーダー頂点のウェイトを使う
+        dst_indices, dst_comp = _get_border_vertex_component(dp_obj)
+        dst_points = om.MFnMesh(dp_obj).getPoints(om.MSpace.kObject)
+        dst_weights = []
+
+        for dst_index in dst_indices:
+            dst_point = dst_points[dst_index]
+            nearest = min(range(len(src_border_points)), key=lambda i: src_border_points[i].distanceTo(dst_point))
+            dst_weights.extend(src_weights[nearest * num_influences:(nearest + 1) * num_influences])
+
+        influence_indices = om.MIntArray(list(range(num_influences)))
+        fn_skin.setWeights(dp_obj, dst_comp, influence_indices, om.MDoubleArray(dst_weights), normalize=False)
