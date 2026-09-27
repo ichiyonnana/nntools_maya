@@ -540,112 +540,92 @@ class NN_ToolWindow(object):
         cmds.showWindow(self.window)
 
     def layout(self):
-        ui.column_layout()
+        with ui.column_layout():
+            with ui.row_layout():
+                ui.header(label="Set")
+                cmds.button(l='End (Avg)', width=ui.width(2.5), c=self.on_set_end_point)
+                cmds.button(l='End (Multi)', width=ui.width(2.5), c=self.on_set_multi_end_point)
 
-        ui.row_layout()
-        ui.header(label="Set")
-        cmds.button(l='End (Avg)', width=ui.width(2.5), c=self.on_set_end_point)
-        cmds.button(l='End (Multi)', width=ui.width(2.5), c=self.on_set_multi_end_point)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Linearize")
+                cmds.button(l='Specified', width=ui.width(2), c=self.on_linearize_specified)
+                cmds.button(l='End to End')
+                cmds.button(l='Farthest', width=ui.width(2), c=self.on_linearize_farthest)
 
-        ui.row_layout()
-        ui.header(label="Linearize")
-        cmds.button(l='Specified', width=ui.width(2), c=self.on_linearize_specified)
-        cmds.button(l='End to End')
-        cmds.button(l='Farthest', width=ui.width(2), c=self.on_linearize_farthest)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Mode")
+                self.rbc_mode = ui.radio_collection()
+                ui.radio_button(label="Linear", width=ui.width(2), select=True)
+                ui.radio_button(label="Cosine", width=ui.width(2))
+                ui.radio_button(label="Formula", width=ui.width(2.5))
 
-        ui.row_layout()
-        ui.header(label="Mode")
-        self.rbc_mode = ui.radio_collection()
-        ui.radio_button(label="Linear", width=ui.width(2), select=True)
-        ui.radio_button(label="Cosine", width=ui.width(2))
-        ui.radio_button(label="Formula", width=ui.width(2.5))
-        ui.end_layout()  # radio_collection
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Formula")
+                ui.text(label="f(x) = ", width=ui.width(1.5))
+                self.eb_formula = ui.eb_text(text="", width=ui.width(5.5))
 
-        ui.row_layout()
-        ui.header(label="Formula")
-        ui.text(label="f(x) = ", width=ui.width(1.5))
-        self.eb_formula = ui.eb_text(text="", width=ui.width(5.5))
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Smooth")
+                ui.text(label="Targets", width=ui.width(1.5))
+                self.eb_smooth_target = ui.eb_text(text="", width=ui.width(5.5))
 
-        ui.row_layout()
-        ui.header(label="Smooth")
-        ui.text(label="Targets", width=ui.width(1.5))
-        self.eb_smooth_target = ui.eb_text(text="", width=ui.width(5.5))
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                self.cb_protect_zero = ui.check_box(label="Protect 0", v=False)
+                self.cb_protect_one = ui.check_box(label="Protect 1", v=False)
 
-        ui.row_layout()
-        ui.header(label="")
-        self.cb_protect_zero = ui.check_box(label="Protect 0", v=False)
-        self.cb_protect_one = ui.check_box(label="Protect 1", v=False)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.text(label="iterate", width=ui.width(1.5))
+                self.eb_iterate = ui.eb_int(v=1.0, min=1, max=10, width=ui.width(1))
+                ui.text(label="alpha", width=ui.width(1.5))
+                self.eb_smooth_blend = ui.eb_float(v=1.0, width=ui.width(1))
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.text(label="iterate", width=ui.width(1.5))
-        self.eb_iterate = ui.eb_int(v=1.0, min=1, max=10, width=ui.width(1))
-        ui.text(label="alpha", width=ui.width(1.5))
-        self.eb_smooth_blend = ui.eb_float(v=1.0, width=ui.width(1))
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label="Smooth", width=ui.width(3), c=self.on_smooth)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label="Smooth", width=ui.width(3), c=self.on_smooth)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="RingCopy")
+                ui.button(label="Set Ring Source", c=self.on_set_ring_source)
+                ui.button(label="Ring Paste", c=self.on_ring_paste)
 
-        ui.row_layout()
-        ui.header(label="RingCopy")
-        ui.button(label="Set Ring Source", c=self.on_set_ring_source)
-        ui.button(label="Ring Paste", c=self.on_ring_paste)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="CopyPaste")
+                cmds.button(l='copy', c=self.on_copy)
+                cmds.button(l='paste_p', c=self.on_paste_possible)
+                cmds.button(l='paste_f', c=self.on_paste_force)
+                cmds.button(l='avg', c=self.on_average)
 
-        ui.row_layout()
-        ui.header(label="CopyPaste")
-        cmds.button(l='copy', c=self.on_copy)
-        cmds.button(l='paste_p', c=self.on_paste_possible)
-        cmds.button(l='paste_f', c=self.on_paste_force)
-        cmds.button(l='avg', c=self.on_average)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label='copy from nearest', c=self.on_copy_from_nearest)
+                self.eb_max_distance = ui.eb_float(v=1.0)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label='copy from nearest', c=self.on_copy_from_nearest)
-        self.eb_max_distance = ui.eb_float(v=1.0)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Inf Order")
+                cmds.button(l='copy', c=self.on_copy_influence_order)
+                cmds.button(l='paste', c=self.on_paste_influence_order)
+                cmds.button(l='compare', c=self.on_compare_influence_order)
 
-        ui.row_layout()
-        ui.header(label="Inf Order")
-        cmds.button(l='copy', c=self.on_copy_influence_order)
-        cmds.button(l='paste', c=self.on_paste_influence_order)
-        cmds.button(l='compare', c=self.on_compare_influence_order)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Replace")
+                self.eb_replace_before = ui.eb_text(width=ui.width(5))
 
-        ui.row_layout()
-        ui.header(label="Replace")
-        self.eb_replace_before = ui.eb_text(width=ui.width(5))
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                self.eb_replace_after = ui.eb_text(width=ui.width(5))
+                ui.button(label="Replace", c=self.on_replace)
 
-        ui.row_layout()
-        ui.header(label="")
-        self.eb_replace_after = ui.eb_text(width=ui.width(5))
-        ui.button(label="Replace", c=self.on_replace)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Etc")
+                cmds.button(l='Checker', c=self.on_skin_checker)
+                cmds.button(l='SIWE', c=self.on_siwe)
 
-        ui.row_layout()
-        ui.header(label="Etc")
-        cmds.button(l='Checker', c=self.on_skin_checker)
-        cmds.button(l='SIWE', c=self.on_siwe)
-        ui.end_layout()
-
-        ui.row_layout()
-        ui.header()
-        cmds.button(l='Delete Dup Orig', c=self.on_delete_unconnected_orig_mesh)
-        cmds.button(l='Check Fractions', c=self.on_check_fractions)
-        ui.end_layout()
-
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header()
+                cmds.button(l='Delete Dup Orig', c=self.on_delete_unconnected_orig_mesh)
+                cmds.button(l='Check Fractions', c=self.on_check_fractions)
 
     @deco.undo_chunk
     def on_set_end_point(self, *args):

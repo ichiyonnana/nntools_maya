@@ -52,75 +52,66 @@ class NN_ToolWindow(object):
     def layout(self):
         separator_width = window_width
 
-        ui.column_layout()
+        with ui.column_layout():
+            with ui.row_layout():
+                ui.header(label='Freeze')
+                ui.button(label='All', c=self.onFreezeTransformAll, width=ui.width1)
+                ui.button(label='Tra', c=self.onFreezeTransformTra, width=ui.width1)
+                ui.button(label='Rot', c=self.onFreezeTransformRot, width=ui.width1)
+                ui.button(label='Sca', c=self.onFreezeTransformSca, width=ui.width1)
+                ui.button(label='Op', c=self.onFreezeTransformOp, width=ui.width1)
 
-        ui.row_layout()
-        ui.header(label='Freeze')
-        ui.button(label='All', c=self.onFreezeTransformAll, width=ui.width1)
-        ui.button(label='Tra', c=self.onFreezeTransformTra, width=ui.width1)
-        ui.button(label='Rot', c=self.onFreezeTransformRot, width=ui.width1)
-        ui.button(label='Sca', c=self.onFreezeTransformSca, width=ui.width1)
-        ui.button(label='Op', c=self.onFreezeTransformOp, width=ui.width1)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.header(label='Reset')
+                ui.button(label='All', c=self.onResetTransformAll, width=ui.width1)
+                ui.button(label='Op', c=self.onResetTransformOp, width=ui.width1)
 
-        ui.row_layout()
-        ui.header(label='Reset')
-        ui.button(label='All', c=self.onResetTransformAll, width=ui.width1)
-        ui.button(label='Op', c=self.onResetTransformOp, width=ui.width1)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.header(label='TRS Lock')
+                ui.button(label='Unlock', c=self.onUnlockTRS)
+                ui.button(label='Lock', c=self.onLockTRS)
 
-        ui.row_layout()
-        ui.header(label='TRS Lock')
-        ui.button(label='Unlock', c=self.onUnlockTRS)
-        ui.button(label='Lock', c=self.onLockTRS)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.header(label='Match')
+                ui.button(label='All', c=self.onMatchTransformAll, width=ui.width1)
+                ui.button(label='Tra', c=self.onMatchTransformTra, width=ui.width1)
+                ui.button(label='Rot', c=self.onMatchTransformRot, width=ui.width1)
+                ui.button(label='Sca', c=self.onMatchTransformSca, width=ui.width1)
+                ui.button(label='Piv', c=self.onMatchTransformPivot, width=ui.width1)
+                ui.button(label='Sp', c=self.onMatchTransformValue, width=ui.width1)
 
-        ui.row_layout()
-        ui.header(label='Match')
-        ui.button(label='All', c=self.onMatchTransformAll, width=ui.width1)
-        ui.button(label='Tra', c=self.onMatchTransformTra, width=ui.width1)
-        ui.button(label='Rot', c=self.onMatchTransformRot, width=ui.width1)
-        ui.button(label='Sca', c=self.onMatchTransformSca, width=ui.width1)
-        ui.button(label='Piv', c=self.onMatchTransformPivot, width=ui.width1)
-        ui.button(label='Sp', c=self.onMatchTransformValue, width=ui.width1)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.header(label='Pivot')
+                ui.button(label='Center', c=self.onCenterPivot, width=ui.width2)
+                ui.button(label='Bake', c=self.onBakePivot, width=ui.width2)
 
-        ui.row_layout()
-        ui.header(label='Pivot')
-        ui.button(label='Center', c=self.onCenterPivot, width=ui.width2)
-        ui.button(label='Bake', c=self.onBakePivot, width=ui.width2)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.header(label='Create')
+                ui.button(label='Locator', c=self.onCreateLOcator, width=ui.width2)
+                ui.button(label='Joint', c=self.onCreateJoint, width=ui.width2)
+                ui.button(label='Empty', c=self.onCreateEmpty, width=ui.width2)
 
-        ui.row_layout()
-        ui.header(label='Create')
-        ui.button(label='Locator', c=self.onCreateLOcator, width=ui.width2)
-        ui.button(label='Joint', c=self.onCreateJoint, width=ui.width2)
-        ui.button(label='Empty', c=self.onCreateEmpty, width=ui.width2)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.header(label='Convert')
+                ui.button(label='Instance to Mesh', c=self.onInstanceToMesh, width=ui.width(6))
 
-        ui.row_layout()
-        ui.header(label='Convert')
-        ui.button(label='Instance to Mesh', c=self.onInstanceToMesh, width=ui.width(6))
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='Smooth Preview to Mesh', c=self.onSmoothPreviewToMesh, width=ui.width(6))
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='Smooth Preview to Mesh', c=self.onSmoothPreviewToMesh, width=ui.width(6))
-        ui.end_layout()
-
-        ui.separator(width=separator_width)
+            ui.separator(width=separator_width)
 
     def onFreezeTransformAll(self, *args):
         mel.eval("makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -pn 1;")

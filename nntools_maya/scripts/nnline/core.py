@@ -48,35 +48,29 @@ class NN_ToolWindow(object):
 
     def layout(self):
         """UI レイアウト."""
-        ui.column_layout()
+        with ui.column_layout():
+            with ui.row_layout():
+                ui.header(label="Node")
+                ui.button(label="Create", c=self.on_create_node)
+                ui.button(label="Select", c=self.on_select_node)
 
-        ui.row_layout()
-        ui.header(label="Node")
-        ui.button(label="Create", c=self.on_create_node)
-        ui.button(label="Select", c=self.on_select_node)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Display")
+                ui.button(label="Enable", c=self.on_enable_line_display)
+                ui.button(label="Disable", c=self.on_disable_line_display)
 
-        ui.row_layout()
-        ui.header(label="Display")
-        ui.button(label="Enable", c=self.on_enable_line_display)
-        ui.button(label="Disable", c=self.on_disable_line_display)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Set")
+                self.eb_set_name = ui.eb_text(text="")
 
-        ui.row_layout()
-        ui.header(label="Set")
-        self.eb_set_name = ui.eb_text(text="")
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Edge")
+                ui.button(label="Add", c=self.on_add_component)
+                ui.button(label="Remove", c=self.on_remove_component)
 
-        ui.row_layout()
-        ui.header(label="Edge")
-        ui.button(label="Add", c=self.on_add_component)
-        ui.button(label="Remove", c=self.on_remove_component)
-        ui.end_layout()
-
-        ui.row_layout()
-        ui.header(label="Options")
-        ui.button(label="X-Ray Component", c=self.on_toggle_xray_component)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Options")
+                ui.button(label="X-Ray Component", c=self.on_toggle_xray_component)
 
     def _get_set_name(self):
         return ui.get_value(self.eb_set_name)

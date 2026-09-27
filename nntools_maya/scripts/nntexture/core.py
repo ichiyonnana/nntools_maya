@@ -64,31 +64,24 @@ class NN_ToolWindow(object):
 
     def layout(self):
         """UI レイアウト."""
-        ui.column_layout()
+        with ui.column_layout():
+            with ui.row_layout(numberOfColumns=100):
+                ui.header(label="Temptex:")
+                self.temptex_buttons = []
+                for i in range(self.grid_num):
+                    self.temptex_buttons.append(ui.button(label=str(i), c=lambda *args, i=i: self.on_temptex(i), width=ui.width(1), height=ui.height(1)))
 
-        ui.row_layout(numberOfColumns=100)
-        ui.header(label="Temptex:")
-        self.temptex_buttons = []
-        for i in range(self.grid_num):
-            self.temptex_buttons.append(ui.button(label=str(i), c=lambda *args, i=i: self.on_temptex(i), width=ui.width(1), height=ui.height(1)))
+            with ui.row_layout():
+                ui.header(label="")
+                self.base_button = ui.button(label="Base", c=self.on_base)
+                self.shadow_button = ui.button(label="Shadow", c=self.on_shadow)
+                ui.button(label="Get", c=self.on_get)
 
-        ui.end_layout()
+            ui.separator(h=10)
 
-        ui.row_layout()
-        ui.header(label="")
-        self.base_button = ui.button(label="Base", c=self.on_base)
-        self.shadow_button = ui.button(label="Shadow", c=self.on_shadow)
-        ui.button(label="Get", c=self.on_get)
-
-        ui.end_layout()
-
-        ui.separator(h=10)
-
-        ui.row_layout()
-        ui.header(label="Photoshop")
-        ui.button(label="Create Shape", c=self.on_create_shape)
-
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Photoshop")
+                ui.button(label="Create Shape", c=self.on_create_shape)
 
     def onTest(self, *args):
         """Testハンドラ."""

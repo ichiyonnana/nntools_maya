@@ -122,67 +122,55 @@ class NN_ToolWindow(object):
         cmds.showWindow(self.window)
 
     def layout(self):
-        ui.column_layout()
+        with ui.column_layout():
+            with ui.row_layout():
 
-        ui.row_layout()
+                # 左ペイン
+                with ui.column_layout():
+                    with ui.row_layout():
+                        ui.button(label="Update", c=self.onUpdateCameraList)
+                        ui.button(label="Select", c=self.onSelectCameraObject)
+                        ui.button(label="Lock", c=self.onLockCamera, dgc=self.onUnLockCamera, annotation="L: Lock\nM: Unlock")
+                    self.camera_list = cmds.textScrollList(
+                                                                numberOfRows=20,
+                                                                allowMultiSelection=False,
+                                                                append=[""],
+                                                                selectIndexedItem=1,
+                                                                showIndexedItem=1,
+                                                                selectCommand=self.onClickCameraListItem,
+                                                                doubleClickCommand=self.onDoubleClickCameraListItem,
+                                                                height=ui.height(10)
+                                                                )
 
-        # 左ペイン
-        ui.column_layout()
-        ui.row_layout()
-        ui.button(label="Update", c=self.onUpdateCameraList)
-        ui.button(label="Select", c=self.onSelectCameraObject)
-        ui.button(label="Lock", c=self.onLockCamera, dgc=self.onUnLockCamera, annotation="L: Lock\nM: Unlock")
-        ui.end_layout()
-        self.camera_list = cmds.textScrollList(
-                                                    numberOfRows=20,
-                                                    allowMultiSelection=False,
-                                                    append=[""],
-                                                    selectIndexedItem=1,
-                                                    showIndexedItem=1,
-                                                    selectCommand=self.onClickCameraListItem,
-                                                    doubleClickCommand=self.onDoubleClickCameraListItem,
-                                                    height=ui.height(10)
-                                                    )
-        ui.end_layout()
+                # 右ペイン
+                with ui.column_layout():
+                    with ui.row_layout():
+                        ui.button(label="Lock", c=self.onLockImageplane, dgc=self.onUnLockImageplane, annotation="L: Lock\nM: Unlock")
+                        ui.button(label="Dup", c=self.onDuplicateImageplane)
+                        ui.button(label="Edit", c=self.onEditImage, dgc=self.onSetImageEditor, annotation="L: Launch Editor\nM: Set Editor Path")
+                    self.item_list = cmds.textScrollList(
+                                                                numberOfRows=20,
+                                                                allowMultiSelection=True,
+                                                                append=[""],
+                                                                selectIndexedItem=1,
+                                                                selectCommand=self.onClickImageplaneListItem,
+                                                                doubleClickCommand=self.onDoubleClickImageplaneListItem,
+                                                                height=ui.height(10)
+                                                                )
 
-        # 右ペイン
-        ui.column_layout()
-        ui.row_layout()
-        ui.button(label="Lock", c=self.onLockImageplane, dgc=self.onUnLockImageplane, annotation="L: Lock\nM: Unlock")
-        ui.button(label="Dup", c=self.onDuplicateImageplane)
-        ui.button(label="Edit", c=self.onEditImage, dgc=self.onSetImageEditor, annotation="L: Launch Editor\nM: Set Editor Path")
-        ui.end_layout()
-        self.item_list = cmds.textScrollList(
-                                                    numberOfRows=20,
-                                                    allowMultiSelection=True,
-                                                    append=[""],
-                                                    selectIndexedItem=1,
-                                                    selectCommand=self.onClickImageplaneListItem,
-                                                    doubleClickCommand=self.onDoubleClickImageplaneListItem,
-                                                    height=ui.height(10)
-                                                    )
-        ui.end_layout()
+            with ui.row_layout():
+                ui.button(label="TearOff", c=self.onTearOff)
+                ui.button(label="Toggle Display", c=self.onToggleDisplay)
+                ui.button(label="Hide Camera", c=self.onHideCamera)
 
-        ui.end_layout()
+            with ui.row_layout():
+                ui.button(label="Fix Panel", c=self.onFixPanel)
+                self.cb_fix_target = ui.check_box(label="Fix Panel")
 
-        ui.row_layout()
-        ui.button(label="TearOff", c=self.onTearOff)
-        ui.button(label="Toggle Display", c=self.onToggleDisplay)
-        ui.button(label="Hide Camera", c=self.onHideCamera)
-        ui.end_layout()
-
-        ui.row_layout()
-        ui.button(label="Fix Panel", c=self.onFixPanel)
-        self.cb_fix_target = ui.check_box(label="Fix Panel")
-        ui.end_layout()
-
-        ui.row_layout()
-        ui.button(label="LookThrough Parent", c=self.onLookThroughParent)
-        ui.button(label="Create ImagePlane", c=self.onCreateImageplane)
-        ui.button(label="Create from All Images", c=self.onCreatefromAllImages)
-        ui.end_layout()
-
-        ui.end_layout()
+            with ui.row_layout():
+                ui.button(label="LookThrough Parent", c=self.onLookThroughParent)
+                ui.button(label="Create ImagePlane", c=self.onCreateImageplane)
+                ui.button(label="Create from All Images", c=self.onCreatefromAllImages)
 
     def get_selected_camera_item(self):
         """カメラリストUIで選択されているカメラの ListItem オブジェクトを返す"""

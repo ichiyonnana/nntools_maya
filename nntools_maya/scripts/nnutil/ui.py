@@ -6,6 +6,7 @@ http://www.not-enough.org/abe/manual/maya/pymel-quick.html
 import re
 import ctypes
 import functools
+from contextlib import contextmanager
 
 from . import windows_vk as vk
 
@@ -141,12 +142,24 @@ def decide_width(word, with_icon=False):
     return actual_width
 
 
+@contextmanager
 def column_layout(*args, **kwargs):
-    return cmds.columnLayout(*args, **kwargs)
+    """UI の columnLayout を開始する関数。 with で呼び出し自動で setParent("..") する。"""
+    layout = cmds.columnLayout(*args, **kwargs)
+
+    yield layout
+
+    cmds.setParent("..")
 
 
+@contextmanager
 def row_layout(numberOfColumns=16, *args, **kwargs):
-    return cmds.rowLayout(numberOfColumns=numberOfColumns, *args, **kwargs)
+    """UI の rowLayout を開始する関数。 with で呼び出し自動で setParent("..") する。"""
+    layout = cmds.rowLayout(numberOfColumns=numberOfColumns, *args, **kwargs)
+
+    yield layout
+
+    cmds.setParent("..")
 
 
 def end_layout():

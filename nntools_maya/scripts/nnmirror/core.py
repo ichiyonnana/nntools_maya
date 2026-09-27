@@ -391,180 +391,158 @@ class NN_ToolWindow(object):
     def layout(self):
         separator_width = 250
 
-        ui.column_layout()
+        with ui.column_layout():
+            with ui.row_layout():
+                ui.button(label='Geo', width=ui.width(2), c=self.onMirrorFaceOp)
+                ui.button(label='X+', c=self.onMirrorFaceXPosi, dgc=self.onCutGeoXPosi, bgc=ui.color_x, annotation="L: Mirror\nM: Cut")
+                ui.button(label='X-', c=self.onMirrorFaceXNega, dgc=self.onCutGeoXNega, bgc=ui.color_x, annotation="L: Mirror\nM: Cut")
+                ui.button(label='Y+', c=self.onMirrorFaceYPosi, dgc=self.onCutGeoYPosi, bgc=ui.color_y, annotation="L: Mirror\nM: Cut")
+                ui.button(label='Y-', c=self.onMirrorFaceYNega, dgc=self.onCutGeoYNega, bgc=ui.color_y, annotation="L: Mirror\nM: Cut")
+                ui.button(label='Z+', c=self.onMirrorFaceZPosi, dgc=self.onCutGeoZPosi, bgc=ui.color_z, annotation="L: Mirror\nM: Cut")
+                ui.button(label='Z-', c=self.onMirrorFaceZNega, dgc=self.onCutGeoZNega, bgc=ui.color_z, annotation="L: Mirror\nM: Cut")
+                self.eb_center_threshold = ui.eb_float(v=0.001, width=ui.width2)
 
-        ui.row_layout()
-        ui.button(label='Geo', width=ui.width(2), c=self.onMirrorFaceOp)
-        ui.button(label='X+', c=self.onMirrorFaceXPosi, dgc=self.onCutGeoXPosi, bgc=ui.color_x, annotation="L: Mirror\nM: Cut")
-        ui.button(label='X-', c=self.onMirrorFaceXNega, dgc=self.onCutGeoXNega, bgc=ui.color_x, annotation="L: Mirror\nM: Cut")
-        ui.button(label='Y+', c=self.onMirrorFaceYPosi, dgc=self.onCutGeoYPosi, bgc=ui.color_y, annotation="L: Mirror\nM: Cut")
-        ui.button(label='Y-', c=self.onMirrorFaceYNega, dgc=self.onCutGeoYNega, bgc=ui.color_y, annotation="L: Mirror\nM: Cut")
-        ui.button(label='Z+', c=self.onMirrorFaceZPosi, dgc=self.onCutGeoZPosi, bgc=ui.color_z, annotation="L: Mirror\nM: Cut")
-        ui.button(label='Z-', c=self.onMirrorFaceZNega, dgc=self.onCutGeoZNega, bgc=ui.color_z, annotation="L: Mirror\nM: Cut")
-        self.eb_center_threshold = ui.eb_float(v=0.001, width=ui.width2)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='Set')
+                ui.button(label='X = ', c=self.onSetXOS, dgc=self.onSetXWS, bgc=ui.color_x, width=ui.width1, annotation="L: Object\nM: World\nShift: Negative")
+                ui.button(label='Y = ', c=self.onSetYOS, dgc=self.onSetYWS, bgc=ui.color_y, width=ui.width1, annotation="L: Object\nM: World\nShift: Negative")
+                ui.button(label='Z = ', c=self.onSetZOS, dgc=self.onSetZWS, bgc=ui.color_z, width=ui.width1, annotation="L: Object\nM: World\nShift: Negative")
+                self.coord_value = ui.eb_float(v=0, width=ui.width2)
+                self.cb_set_position_relative = ui.check_box(label="Relative", v=False)
 
-        ui.row_layout()
-        ui.header(label='Set')
-        ui.button(label='X = ', c=self.onSetXOS, dgc=self.onSetXWS, bgc=ui.color_x, width=ui.width1, annotation="L: Object\nM: World\nShift: Negative")
-        ui.button(label='Y = ', c=self.onSetYOS, dgc=self.onSetYWS, bgc=ui.color_y, width=ui.width1, annotation="L: Object\nM: World\nShift: Negative")
-        ui.button(label='Z = ', c=self.onSetZOS, dgc=self.onSetZWS, bgc=ui.color_z, width=ui.width1, annotation="L: Object\nM: World\nShift: Negative")
-        self.coord_value = ui.eb_float(v=0, width=ui.width2)
-        self.cb_set_position_relative = ui.check_box(label="Relative", v=False)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='Flip')
+                ui.button(label='X', c=self.onFlipX, bgc=ui.color_x, width=ui.width2)
+                ui.button(label='Y', c=self.onFlipY, bgc=ui.color_y, width=ui.width2)
+                ui.button(label='Z', c=self.onFlipZ, bgc=ui.color_z, width=ui.width2)
 
-        ui.row_layout()
-        ui.header(label='Flip')
-        ui.button(label='X', c=self.onFlipX, bgc=ui.color_x, width=ui.width2)
-        ui.button(label='Y', c=self.onFlipY, bgc=ui.color_y, width=ui.width2)
-        ui.button(label='Z', c=self.onFlipZ, bgc=ui.color_z, width=ui.width2)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='Flatten')
+                ui.button(label='X', c=self.onFlattenX, bgc=ui.color_x, width=ui.width2)
+                ui.button(label='Y', c=self.onFlattenY, bgc=ui.color_y, width=ui.width2)
+                ui.button(label='Z', c=self.onFlattenZ, bgc=ui.color_z, width=ui.width2)
 
-        ui.row_layout()
-        ui.header(label='Flatten')
-        ui.button(label='X', c=self.onFlattenX, bgc=ui.color_x, width=ui.width2)
-        ui.button(label='Y', c=self.onFlattenY, bgc=ui.color_y, width=ui.width2)
-        ui.button(label='Z', c=self.onFlattenZ, bgc=ui.color_z, width=ui.width2)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.button(label='Weight', width=ui.width(2), c=self.onMirrorWeightOp)
+                ui.button(label='X+', c=self.onMirrorWeightXPosi, bgc=ui.color_x)
+                ui.button(label='X-', c=self.onMirrorWeightXNega, bgc=ui.color_x)
+                ui.button(label='Y+', c=self.onMirrorWeightYPosi, bgc=ui.color_y)
+                ui.button(label='Y-', c=self.onMirrorWeightYNega, bgc=ui.color_y)
+                ui.button(label='Z+', c=self.onMirrorWeightZPosi, bgc=ui.color_z)
+                ui.button(label='Z-', c=self.onMirrorWeightZNega, bgc=ui.color_z)
+                self.cb_label_mirror = ui.check_box(label="Label", v=False)
 
-        ui.row_layout()
-        ui.button(label='Weight', width=ui.width(2), c=self.onMirrorWeightOp)
-        ui.button(label='X+', c=self.onMirrorWeightXPosi, bgc=ui.color_x)
-        ui.button(label='X-', c=self.onMirrorWeightXNega, bgc=ui.color_x)
-        ui.button(label='Y+', c=self.onMirrorWeightYPosi, bgc=ui.color_y)
-        ui.button(label='Y-', c=self.onMirrorWeightYNega, bgc=ui.color_y)
-        ui.button(label='Z+', c=self.onMirrorWeightZPosi, bgc=ui.color_z)
-        ui.button(label='Z-', c=self.onMirrorWeightZNega, bgc=ui.color_z)
-        self.cb_label_mirror = ui.check_box(label="Label", v=False)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='copyWeightOp', c=self.onCopyWeightOp)
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='copyWeightOp', c=self.onCopyWeightOp)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.button(label='Joint', width=ui.width(2), c=self.onMirrorJointOp)
+                ui.button(label='X', c=self.onMirrorJointX, dgc=self.onMirrorJointXWorld, bgc=ui.color_x, width=ui.width2, annotation="L: Object (with parent)\nM: World")
+                ui.button(label='Y', c=self.onMirrorJointY, dgc=self.onMirrorJointYWorld, bgc=ui.color_y, width=ui.width2, annotation="L: Object (with parent)\nM: World")
+                ui.button(label='Z', c=self.onMirrorJointZ, dgc=self.onMirrorJointZWorld, bgc=ui.color_z, width=ui.width2, annotation="L: Object (with parent)\nM: World")
+                ui.button(label='Symm', c=self.onSymmetrizeJointOriPos, width=ui.width(2), annotation="")
 
-        ui.row_layout()
-        ui.button(label='Joint', width=ui.width(2), c=self.onMirrorJointOp)
-        ui.button(label='X', c=self.onMirrorJointX, dgc=self.onMirrorJointXWorld, bgc=ui.color_x, width=ui.width2, annotation="L: Object (with parent)\nM: World")
-        ui.button(label='Y', c=self.onMirrorJointY, dgc=self.onMirrorJointYWorld, bgc=ui.color_y, width=ui.width2, annotation="L: Object (with parent)\nM: World")
-        ui.button(label='Z', c=self.onMirrorJointZ, dgc=self.onMirrorJointZWorld, bgc=ui.color_z, width=ui.width2, annotation="L: Object (with parent)\nM: World")
-        ui.button(label='Symm', c=self.onSymmetrizeJointOriPos, width=ui.width(2), annotation="")
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header()
+                self.eb_prefix_from = ui.eb_text(text="L_")
+                self.eb_prefix_to = ui.eb_text(text="R_")
 
-        ui.row_layout()
-        ui.header()
-        self.eb_prefix_from = ui.eb_text(text="L_")
-        self.eb_prefix_to = ui.eb_text(text="R_")
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='JointTool', c=self.onJointTool, bgc=ui.color_joint, width=ui.width2)
+                ui.button(label='SetRadius', c=self.onSetRadius, width=ui.width2)
+                ui.button(label="Add Inf", c=self.onAddInfluence, width=ui.width(2))
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='JointTool', c=self.onJointTool, bgc=ui.color_joint, width=ui.width2)
-        ui.button(label='SetRadius', c=self.onSetRadius, width=ui.width2)
-        ui.button(label="Add Inf", c=self.onAddInfluence, width=ui.width(2))
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.button(label="Orient", c=self.onOrientJointOp, width=ui.width(2))
+                ui.button(label="Radial", c=self.onOrientRadial, width=ui.width(2))
+                ui.button(label="PreserveY", c=self.onOrientPreserveY, dgc=self.onOrientPreserveZ, width=ui.width(2), annotation="L: Preserve Y \nM: Preserve Z")
+                ui.button(label="Equalize", c=self.onJointEqualize, width=ui.width(2))
 
-        ui.row_layout()
-        ui.button(label="Orient", c=self.onOrientJointOp, width=ui.width(2))
-        ui.button(label="Radial", c=self.onOrientRadial, width=ui.width(2))
-        ui.button(label="PreserveY", c=self.onOrientPreserveY, dgc=self.onOrientPreserveZ, width=ui.width(2), annotation="L: Preserve Y \nM: Preserve Z")
-        ui.button(label="Equalize", c=self.onJointEqualize, width=ui.width(2))
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.header(label='weight')
+                ui.button(label='export', c=self.onExportWeight, dgc=self.onExportWeightOptions)
+                self.cb_specify_name = ui.check_box(label='specify name', v=False)
+                self.eb_tempname = ui.eb_text(text="temp", width=ui.width(3))
 
-        ui.row_layout()
-        ui.header(label='weight')
-        ui.button(label='export', c=self.onExportWeight, dgc=self.onExportWeightOptions)
-        self.cb_specify_name = ui.check_box(label='specify name', v=False)
-        self.eb_tempname = ui.eb_text(text="temp", width=ui.width(3))
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='index', c=self.onImportWeightIndex, dgc=self.onImportWeightIndexB, annotation="L: ReBind\nM: Keep Bind")
+                ui.button(label='nearest', c=self.onImportWeightNearest, dgc=self.onImportWeightNearestB, annotation="L: ReBind\nM: Keep Bind")
+                # ui.button(label='barycentric', c=self.onImportWeightBarycentric, dgc=self.onImportWeightOptions, annotation="L: ReBind\nM: Keep Bind")
+                ui.button(label='bilinear', c=self.onImportWeightBilinear, dgc=self.onImportWeightBilinearB, annotation="L: ReBind\nM: Keep Bind")
+                ui.button(label='over', c=self.onImportWeightOver, dgc=self.onImportWeightOverB, annotation="L: ReBind\nM: Keep Bind")
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='index', c=self.onImportWeightIndex, dgc=self.onImportWeightIndexB, annotation="L: ReBind\nM: Keep Bind")
-        ui.button(label='nearest', c=self.onImportWeightNearest, dgc=self.onImportWeightNearestB, annotation="L: ReBind\nM: Keep Bind")
-        # ui.button(label='barycentric', c=self.onImportWeightBarycentric, dgc=self.onImportWeightOptions, annotation="L: ReBind\nM: Keep Bind")
-        ui.button(label='bilinear', c=self.onImportWeightBilinear, dgc=self.onImportWeightBilinearB, annotation="L: ReBind\nM: Keep Bind")
-        ui.button(label='over', c=self.onImportWeightOver, dgc=self.onImportWeightOverB, annotation="L: ReBind\nM: Keep Bind")
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.header(label='bind')
+                ui.button(label='bind Op', c=self.onBindOptions, dgc=self.onBind, annotation="L: Bind Options\nM: Auto")
+                ui.button(label='unbind', c=self.onUnbind, dgc=self.onUnbindOptions, annotation="L: Unbind\nM: Options")
+                ui.button(label='unlockTRS [lock]', c=self.onUnlockTRS, dgc=self.onLockTRS, annotation="L: Unlock\nM: Lock")
 
-        ui.row_layout()
-        ui.header(label='bind')
-        ui.button(label='bind Op', c=self.onBindOptions, dgc=self.onBind, annotation="L: Bind Options\nM: Auto")
-        ui.button(label='unbind', c=self.onUnbind, dgc=self.onUnbindOptions, annotation="L: Unbind\nM: Options")
-        ui.button(label='unlockTRS [lock]', c=self.onUnlockTRS, dgc=self.onLockTRS, annotation="L: Unlock\nM: Lock")
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='reset pose', c=self.onResetPose)
+                ui.button(label='move joint', c=self.onMoveSkinedJointTool)
+                ui.button(label='del pose', c=self.onDeletePose)
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='reset pose', c=self.onResetPose)
-        ui.button(label='move joint', c=self.onMoveSkinedJointTool)
-        ui.button(label='del pose', c=self.onDeletePose)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.header(label='combine')
+                ui.button(label='combine', c=self.onCombine)
+                ui.button(label='combine Op', c=self.onCombineOptions)
 
-        ui.row_layout()
-        ui.header(label='combine')
-        ui.button(label='combine', c=self.onCombine)
-        ui.button(label='combine Op', c=self.onCombineOptions)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.header(label='Anim')
+                ui.button(label='export', c=self.onExportAnim)
+                ui.button(label='import', c=self.onImportAnim)
 
-        ui.row_layout()
-        ui.header(label='Anim')
-        ui.button(label='export', c=self.onExportAnim)
-        ui.button(label='import', c=self.onImportAnim)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.header(label='Editor')
+                ui.button(label='SIWE', c=self.onEditorSIWE)
 
-        ui.row_layout()
-        ui.header(label='Editor')
-        ui.button(label='SIWE', c=self.onEditorSIWE)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.header(label='AriTools')
+                ui.button(label='Symm', c=self.onAriSymmetryChecker)
+                ui.button(label='Circle', c=self.onAriCircleVertex)
+                ui.button(label='SelectEdge', c=self.onAriSelectEdgeLoopRing)
 
-        ui.row_layout()
-        ui.header(label='AriTools')
-        ui.button(label='Symm', c=self.onAriSymmetryChecker)
-        ui.button(label='Circle', c=self.onAriCircleVertex)
-        ui.button(label='SelectEdge', c=self.onAriSelectEdgeLoopRing)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='SplitPolygon', c=self.onAriSplitPolygon)
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='SplitPolygon', c=self.onAriSplitPolygon)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
+            with ui.row_layout():
+                ui.header(label='Mesh')
+                ui.button(label='Extract', c=self.onExtract)
+                ui.button(label='Duplicate', c=self.onDuplicate)
+                ui.button(label='QRemesher', c=self.onQuadRemesher)
 
-        ui.row_layout()
-        ui.header(label='Mesh')
-        ui.button(label='Extract', c=self.onExtract)
-        ui.button(label='Duplicate', c=self.onDuplicate)
-        ui.button(label='QRemesher', c=self.onQuadRemesher)
-        ui.end_layout()
+            ui.separator(width=separator_width)
 
-        ui.separator(width=separator_width)
-
-        ui.row_layout()
-        ui.header(label='Etc')
-        ui.button(label='Get Pos', c=self.onGetPos, annotation=u"Shift + L: World")
-        ui.button(label='Set Pos', c=self.onSetPos, annotation=u"Shift + L: World")
-        ui.button(label="GoZ", c=self.onGoZ)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='Etc')
+                ui.button(label='Get Pos', c=self.onGetPos, annotation=u"Shift + L: World")
+                ui.button(label='Set Pos', c=self.onSetPos, annotation=u"Shift + L: World")
+                ui.button(label="GoZ", c=self.onGoZ)
 
     def onMirrorFaceXPosi(self, *args):
         center_threshold = ui.get_value(self.eb_center_threshold)

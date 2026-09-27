@@ -140,104 +140,87 @@ class NN_ToolWindow(object):
         cmds.showWindow(self.window)
 
     def layout(self):
-        ui.column_layout()
+        with ui.column_layout():
+            with ui.row_layout():
+                ui.header(label="Set")
+                ui.button(label="Root", c=self.onSetRoot)
+                ui.button(label="Joints", c=self.onSetJoints)
+                ui.button(label="Meshes", c=self.onSetMeshes)
 
-        ui.row_layout()
-        ui.header(label="Set")
-        ui.button(label="Root", c=self.onSetRoot)
-        ui.button(label="Joints", c=self.onSetJoints)
-        ui.button(label="Meshes", c=self.onSetMeshes)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.text(label="Root Joint :", width=ui.width3)
+                self.text_root = ui.text(label="None", width=ui.width3)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.text(label="Root Joint :", width=ui.width3)
-        self.text_root = ui.text(label="None", width=ui.width3)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.text(label="Current Joint :", width=ui.width3)
+                self.text_current = ui.text(label="None", width=ui.width3)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.text(label="Current Joint :", width=ui.width3)
-        self.text_current = ui.text(label="None", width=ui.width3)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.text(label="Meshes :", width=ui.width3)
+                self.text_meshes = ui.text(label="None", width=ui.width3)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.text(label="Meshes :", width=ui.width3)
-        self.text_meshes = ui.text(label="None", width=ui.width3)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label="Prev", c=self.onPrevNoFocus, dgc=self.onPrevFocus)
+                ui.button(label="Select", c=self.onSelectNoFocus, dgc=self.onSelectFocus)
+                ui.button(label="Next", c=self.onNextNoFocus, dgc=self.onNextFocus)
+                ui.button(label="Reset", c=self.onResetNoFocus, dgc=self.onResetFocus)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label="Prev", c=self.onPrevNoFocus, dgc=self.onPrevFocus)
-        ui.button(label="Select", c=self.onSelectNoFocus, dgc=self.onSelectFocus)
-        ui.button(label="Next", c=self.onNextNoFocus, dgc=self.onNextFocus)
-        ui.button(label="Reset", c=self.onResetNoFocus, dgc=self.onResetFocus)
-        ui.end_layout()
+            ui.separator(height=ui.height1)
 
-        ui.separator(height=ui.height1)
+            with ui.row_layout():
+                ui.header(label="Translate")
+                ui.text(label="X", bgc=ui.color_x)
+                self.fs_tra_x = ui.float_slider(min=-1.0, max=1.0, value=0, width=ui.width6, dc=self.onDragTranslateX, cc=self.onChangeTranslateX)
 
-        ui.row_layout()
-        ui.header(label="Translate")
-        ui.text(label="X", bgc=ui.color_x)
-        self.fs_tra_x = ui.float_slider(min=-1.0, max=1.0, value=0, width=ui.width6, dc=self.onDragTranslateX, cc=self.onChangeTranslateX)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.text(label="Y", bgc=ui.color_y)
+                self.fs_tra_y = ui.float_slider(min=-1.0, max=1.0, value=0, width=ui.width6, dc=self.onDragTranslateY, cc=self.onChangeTranslateY)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.text(label="Y", bgc=ui.color_y)
-        self.fs_tra_y = ui.float_slider(min=-1.0, max=1.0, value=0, width=ui.width6, dc=self.onDragTranslateY, cc=self.onChangeTranslateY)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.text(label="Z", bgc=ui.color_z)
+                self.fs_tra_z = ui.float_slider(min=-1.0, max=1.0, value=0, width=ui.width6, dc=self.onDragTranslateZ, cc=self.onChangeTranslateZ)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.text(label="Z", bgc=ui.color_z)
-        self.fs_tra_z = ui.float_slider(min=-1.0, max=1.0, value=0, width=ui.width6, dc=self.onDragTranslateZ, cc=self.onChangeTranslateZ)
-        ui.end_layout()
+            ui.separator(height=ui.height1)
 
-        ui.separator(height=ui.height1)
+            with ui.row_layout():
+                ui.header(label="Rotate")
+                ui.text(label="X", bgc=ui.color_x)
+                self.fs_rot_x = ui.float_slider(min=-1.0, max=1.0, value=0, width=ui.width6, dc=self.onDragRotateX, cc=self.onChangeRotateX)
 
-        ui.row_layout()
-        ui.header(label="Rotate")
-        ui.text(label="X", bgc=ui.color_x)
-        self.fs_rot_x = ui.float_slider(min=-1.0, max=1.0, value=0, width=ui.width6, dc=self.onDragRotateX, cc=self.onChangeRotateX)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.text(label="Y", bgc=ui.color_y)
+                self.fs_rot_y = ui.float_slider(min=-1.0, max=1.0, value=0, width=ui.width6, dc=self.onDragRotateY, cc=self.onChangeRotateY)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.text(label="Y", bgc=ui.color_y)
-        self.fs_rot_y = ui.float_slider(min=-1.0, max=1.0, value=0, width=ui.width6, dc=self.onDragRotateY, cc=self.onChangeRotateY)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.text(label="Z", bgc=ui.color_z)
+                self.fs_rot_z = ui.float_slider(min=-1.0, max=1.0, value=0, width=ui.width6, dc=self.onDragRotateZ, cc=self.onChangeRotateZ)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.text(label="Z", bgc=ui.color_z)
-        self.fs_rot_z = ui.float_slider(min=-1.0, max=1.0, value=0, width=ui.width6, dc=self.onDragRotateZ, cc=self.onChangeRotateZ)
-        ui.end_layout()
+            ui.separator(height=ui.height1)
 
-        ui.separator(height=ui.height1)
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label="Gradation", c=self.onGradation)
+                ui.button(label="Animation", c=self.onAnimation)
+                ui.button(label="PaintMode", c=self.onPaintMode)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label="Gradation", c=self.onGradation)
-        ui.button(label="Animation", c=self.onAnimation)
-        ui.button(label="PaintMode", c=self.onPaintMode)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label="SelHilight 0 [1]", c=self.onSelHilightingFalse, dgc=self.onSelHilightingTrue)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label="SelHilight 0 [1]", c=self.onSelHilightingFalse, dgc=self.onSelHilightingTrue)
-        ui.end_layout()
-
-        ui.row_layout()
-        ui.header(label="factor")
-        ui.text(label="Tra", width=ui.width1)
-        self.eb_translate_factor = ui.eb_int(v=default_translate_factor)
-        ui.text(label="Rot", width=ui.width1)
-        self.eb_rotate_factor = ui.eb_int(v=default_rotate_factor)
-        ui.end_layout()
-
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="factor")
+                ui.text(label="Tra", width=ui.width1)
+                self.eb_translate_factor = ui.eb_int(v=default_translate_factor)
+                ui.text(label="Rot", width=ui.width1)
+                self.eb_rotate_factor = ui.eb_int(v=default_rotate_factor)
 
     def current_joint(self):
         return self.joints[self.cursor]
