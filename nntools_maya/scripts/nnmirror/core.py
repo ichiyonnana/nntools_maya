@@ -5,6 +5,7 @@ import sys
 import traceback
 
 import maya.api.OpenMaya as om
+import maya.api.OpenMayaAnim as oma
 import maya.cmds as cmds
 import maya.mel as mel
 
@@ -15,6 +16,8 @@ import nnutil.ui as ui
 import nnskin.core as nnskin
 
 import plugin_util.snapshotState as ss
+
+from .fast_weight import FastWeightFile
 
 
 window_name = "NN_Mirror"
@@ -214,6 +217,185 @@ def import_weight(objects=None, method=BM_BILINEAR, specified_name=None, unbind=
             # インポート
             cmds.deformerWeights(filename, im=True, method=method, deformer=skincluster, path=dir)
             cmds.skinCluster(skincluster, e=True, forceNormalizeWeights=True)
+
+    cmds.select(current_selections, replace=True)
+
+
+def fast_export_weight(objects=None, specified_name=None):
+    """ウェイトを API で取得して独自バイナリ形式でエクスポートする
+
+    Args:
+        objects (Transform or Mesh, optional): 対象のオブジェクト。省略時は選択オブジェクトを使用する. Defaults to None.
+        specified_name (str, optional): ウェイトを書き出す際のファイル名。省略時はオブジェクト名。 Defaults to None.
+    """
+    if not objects:
+        objects = cmds.ls(selection=True, flatten=True)
+
+        if not objects:
+            raise(Exception("no targets"))
+
+    # 保存先がシーンのパスから決まるため未保存のシーンでは実行できない
+    currentScene = cmds.file(q=True, sn=True)
+
+    if not currentScene:
+        om.MGlobal.displayWarning("シーンを保存してから実行して下さい")
+        return
+
+    # ウェイト用ディレクトリがなければ作成する
+    dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
+
+    try:
+        os.mkdir(dir)
+    except:
+        pass
+
+    for obj in objects:
+        # meshでなければskip
+        if cmds.objectType(obj) not in ('transform', 'mesh'):
+            continue
+
+        skincluster_list = cmds.ls(cmds.listHistory(obj), type="skinCluster") or []
+
+        # skincluster 無ければskip
+        if not skincluster_list:
+            continue
+
+        skincluster = skincluster_list[0]
+
+        # エクスポートするファイル名の決定
+        if specified_name is None:
+            filename = nu.get_basename(obj) + FastWeightFile.EXTENSION
+        else:
+            filename = specified_name + FastWeightFile.EXTENSION
+
+        # API でウェイトとインフルエンスを取得
+        slist = om.MSelectionList()
+        slist.add(obj)
+        slist.add(skincluster)
+        dp_obj = slist.getDagPath(0)
+        fn_skin = oma.MFnSkinCluster(slist.getDependNode(1))
+
+        weights = fn_skin.getWeights(dp_obj, om.MObject.kNullObj)[0]
+        influences = [dp.partialPathName() for dp in fn_skin.influenceObjects()]
+        vertex_count = om.MFnMesh(dp_obj).numVertices
+        max_influences = cmds.getAttr(skincluster + ".maxInfluences")
+        maintain_max_influences = cmds.getAttr(skincluster + ".maintainMaxInfluences")
+
+        # エクスポート
+        FastWeightFile(influences, weights, vertex_count, max_influences, maintain_max_influences).write(dir + filename)
+        om.MGlobal.displayInfo(f"ウェイトエクスポート完了: {dir + filename}")
+
+
+def fast_import_weight(objects=None, specified_name=None):
+    """独自バイナリ形式のウェイトファイルからインフルエンスを取得して再バインドし、API でウェイトを設定する
+
+    Args:
+        objects (Transform or Mesh, optional): 対象のオブジェクト。省略時は選択オブジェクトを使用する. Defaults to None.
+        specified_name (str, optional): ウェイトを読み込む際のファイル名。省略時はオブジェクト名。 Defaults to None.
+    """
+    current_selections = cmds.ls(selection=True)
+
+    if not objects:
+        objects = cmds.ls(selection=True, flatten=True)
+
+        if not objects:
+            raise(Exception("no targets"))
+
+    elif not isinstance(objects, list):
+        raise(Exception())
+
+    # 読み込み元がシーンのパスから決まるため未保存のシーンでは実行できない
+    currentScene = cmds.file(q=True, sn=True)
+
+    if not currentScene:
+        om.MGlobal.displayWarning("シーンを保存してから実行して下さい")
+        return
+
+    dir = re.sub(r'/scenes/.+$', '/weights/', currentScene, 1)
+
+    for obj in objects:
+        # meshでなければskip
+        if cmds.objectType(obj) not in ('transform', 'mesh'):
+            print(f"skip {obj}")
+            continue
+
+        # インポートするファイル名の決定
+        if specified_name is None:
+            filename = nu.get_basename(obj) + FastWeightFile.EXTENSION
+        else:
+            filename = specified_name + FastWeightFile.EXTENSION
+
+        # ウェイトファイルがあるオブジェクトだけ処理
+        print(dir + filename)
+        if not nu.exist_file(dir, filename):
+            continue
+
+        weight_file = FastWeightFile.read(dir + filename)
+
+        if len(weight_file.influences) == 0:
+            continue
+
+        # 頂点インデックスでウェイトを設定するため頂点数が異なるメッシュには適用しない
+        slist = om.MSelectionList()
+        slist.add(obj)
+        dp_obj = slist.getDagPath(0)
+        fn_mesh = om.MFnMesh(dp_obj)
+
+        if fn_mesh.numVertices != weight_file.vertex_count:
+            print(f"vertex count mismatch: {obj} (file: {weight_file.vertex_count}, mesh: {fn_mesh.numVertices})")
+            continue
+
+        # インフルエンス名と一致するジョイントがシーン内に無ければ警告
+        joints_not_exist = []
+        for joint in weight_file.influences:
+            if not cmds.objExists(joint):
+                joints_not_exist.append(joint)
+
+        if len(joints_not_exist) != 0:
+            print("The following joints do not exist in the scene:")
+            print(joints_not_exist)
+
+        # バインド済なら一度アンバインドする
+        skincluster_list = cmds.ls(cmds.listHistory(obj), type="skinCluster") or []
+        if skincluster_list:
+            cmds.dagPose(cmds.skinCluster(skincluster_list[0], q=True, influence=True), bp=True, restore=True)
+            cmds.skinCluster(obj, e=True, unbind=True)
+
+        # ウェイトファイルに保存されていたインフルエンスだけで改めてバインドする
+        joints = nu.list_diff(weight_file.influences, joints_not_exist)
+
+        try:
+            skincluster = cmds.skinCluster(joints, obj, toSelectedBones=True, maximumInfluences=weight_file.max_influences, obeyMaxInfluences=False)[0]
+
+        except:
+            print(f"bind error: {obj}")
+            continue
+
+        cmds.setAttr(skincluster + ".maxInfluences", weight_file.max_influences)
+        cmds.setAttr(skincluster + ".maintainMaxInfluences", weight_file.maintain_max_influences)
+
+        # シーンに無いインフルエンスの列を除いたウェイトを作る
+        if joints_not_exist:
+            count = len(weight_file.influences)
+            columns = [i for i, name in enumerate(weight_file.influences) if name not in joints_not_exist]
+            values = weight_file.weights
+            weights = om.MDoubleArray([values[base + c] for base in range(0, len(values), count) for c in columns])
+        else:
+            weights = om.MDoubleArray(weight_file.weights)
+
+        # ウェイトの列順 (ジョイント名) に対応するインフルエンスインデックスを名前で引く
+        fn_skin = oma.MFnSkinCluster(om.MGlobal.getSelectionListByName(skincluster).getDependNode(0))
+        index_by_name = {dp.partialPathName(): fn_skin.indexForInfluenceObject(dp) for dp in fn_skin.influenceObjects()}
+        influence_indices = om.MIntArray([index_by_name[joint] for joint in joints])
+
+        fn_comp = om.MFnSingleIndexedComponent()
+        all_vtx_comp = fn_comp.create(om.MFn.kMeshVertComponent)
+        fn_comp.setCompleteData(fn_mesh.numVertices)
+
+        # インポート
+        fn_skin.setWeights(dp_obj, all_vtx_comp, influence_indices, weights, normalize=False)
+        cmds.skinCluster(skincluster, e=True, forceNormalizeWeights=True)
+        om.MGlobal.displayInfo(f"ウェイトインポート完了: {dir + filename}")
 
     cmds.select(current_selections, replace=True)
 
@@ -481,6 +663,11 @@ class NN_ToolWindow(object):
                 # ui.button(label='barycentric', c=self.onImportWeightBarycentric, dgc=self.onImportWeightOptions, annotation="L: ReBind\nM: Keep Bind")
                 ui.button(label='bilinear', c=self.onImportWeightBilinear, dgc=self.onImportWeightBilinearB, annotation="L: ReBind\nM: Keep Bind")
                 ui.button(label='over', c=self.onImportWeightOver, dgc=self.onImportWeightOverB, annotation="L: ReBind\nM: Keep Bind")
+
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='Fast Export', c=self.onFastExportWeight)
+                ui.button(label='Fast Import', c=self.onFastImportWeight)
 
             ui.separator(width=separator_width)
 
@@ -1037,6 +1224,24 @@ class NN_ToolWindow(object):
 
     def onImportWeightOptions(self, *args):
         mel.eval('ImportDeformerWeights')
+
+    def onFastExportWeight(self, *args):
+        is_specify_name = ui.get_value(self.cb_specify_name)
+        filename = ui.get_value(self.eb_tempname)
+
+        if is_specify_name:
+            fast_export_weight(specified_name=filename)
+        else:
+            fast_export_weight()
+
+    def onFastImportWeight(self, *args):
+        is_specify_name = ui.get_value(self.cb_specify_name)
+        filename = ui.get_value(self.eb_tempname)
+
+        if is_specify_name:
+            fast_import_weight(specified_name=filename)
+        else:
+            fast_import_weight()
 
     def onBindOptions(self, *args):
         mel.eval('SmoothBindSkinOptions')
