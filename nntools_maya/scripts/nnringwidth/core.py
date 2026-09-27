@@ -91,88 +91,105 @@ class NN_AlignedgeRingWindow(object):
         window_width = 260
 
         with ui.column_layout():
-            # 絶対モード
+            # モード切り替え
             with ui.row_layout():
-                ui.header(label="Absolute")
-
-            with ui.row_layout():
-                ui.header(label='width1:')
-                ui.button(label='-', c=self.onDecreaseLength1)
-                self.field_length1 = ui.eb_float(v=0.1, dc=self.onChangeLength1)
-                ui.button(label='+', c=self.onIncreaseLength1)
-                ui.button(label='swap', c=self.onSwapLength)
-
-            with ui.row_layout():
-                ui.header(label='width2:')
-                ui.button(label='-', c=self.onDecreaseLength2)
-                self.field_length2 = ui.eb_float(v=0.1, en=False, dc=self.onChangeLength2)
-                ui.button(label='+', c=self.onIncreaseLength2)
-                self.constMode = ui.check_box(label='const', v=True, cc=self.onSetConst)
-
-            with ui.row_layout():
-                ui.header(label="Align")
-                ui.button(label='In', c=self.onAlignInAbsolute)
-                ui.button(label='Center', c=self.onAlignCenterAbsolute)
-                ui.button(label='Out', c=self.onAlignOutAbsolute)
+                ui.radio_collection()
+                self.rb_absolute = ui.radio_button(label="Absolute", width=ui.width(4), height=ui.height(1), select=True, onCommand=self.onChangeMode)
+                self.rb_relative = ui.radio_button(label="Relative", width=ui.width(4), height=ui.height(1), onCommand=self.onChangeMode)
 
             ui.separator(width=window_width)
+
+            # 絶対モード
+            with ui.column_layout() as self.layout_absolute:
+                with ui.row_layout():
+                    ui.header(label="Absolute")
+
+                with ui.row_layout():
+                    ui.header(label='width1:')
+                    ui.button(label='-', c=self.onDecreaseLength1)
+                    self.field_length1 = ui.eb_float(v=0.1, dc=self.onChangeLength1)
+                    ui.button(label='+', c=self.onIncreaseLength1)
+                    ui.button(label='swap', c=self.onSwapLength)
+
+                with ui.row_layout():
+                    ui.header(label='width2:')
+                    ui.button(label='-', c=self.onDecreaseLength2)
+                    self.field_length2 = ui.eb_float(v=0.1, en=False, dc=self.onChangeLength2)
+                    ui.button(label='+', c=self.onIncreaseLength2)
+                    self.constMode = ui.check_box(label='const', v=True, cc=self.onSetConst)
+
+                with ui.row_layout():
+                    ui.header(label="Align")
+                    ui.button(label='In', c=self.onAlignInAbsolute)
+                    ui.button(label='Center', c=self.onAlignCenterAbsolute)
+                    ui.button(label='Out', c=self.onAlignOutAbsolute)
+
+                ui.separator(width=window_width)
+
+                # 取得系
+                with ui.row_layout():
+                    ui.header(label='Get from ')
+                    ui.button(label='First', c=self.onSetLengthFromFirstEdge)
+                    ui.button(label='Last', c=self.onSetLengthFromLastEdge)
+                    ui.button(label='Mode', c=self.onSetLengthFromMode)
+                    ui.button(label='Path', c=self.onSetLengthFromEdgePath)
+
+                with ui.row_layout():
+                    ui.header(label='')
+                    ui.button(label='Min', c=self.onSetLengthFromMin)
+                    ui.button(label='Max', c=self.onSetLengthFromMax)
+                    ui.button(label='Average', c=self.onSetLengthFromAverage)
+
+                ui.separator(width=window_width)
 
             # 相対モード
-            with ui.row_layout():
-                ui.header(label="Relative")
+            with ui.column_layout(visible=False) as self.layout_relative:
+                with ui.row_layout():
+                    ui.header(label="Relative")
 
-            with ui.row_layout():
-                ui.header(label="mul")
-                ui.button(label='-10%', c=self.onRelativeDiv_90, width=ui.width(1.5))
-                ui.button(label='-1%', c=self.onRelativeDiv_99, width=ui.width(1.5))
-                self.ff_acc_mul = ui.eb_float(v=1)
-                ui.button(label='+1%', c=self.onRelativeMul_1, width=ui.width(1.5))
-                ui.button(label='+10%', c=self.onRelativeMul_10, width=ui.width(1.5))
+                with ui.row_layout():
+                    ui.header(label="mul")
+                    ui.button(label='-10%', c=self.onRelativeDiv_90, width=ui.width(1.5))
+                    ui.button(label='-1%', c=self.onRelativeDiv_99, width=ui.width(1.5))
+                    self.ff_acc_mul = ui.eb_float(v=1)
+                    ui.button(label='+1%', c=self.onRelativeMul_1, width=ui.width(1.5))
+                    ui.button(label='+10%', c=self.onRelativeMul_10, width=ui.width(1.5))
 
-            with ui.row_layout():
-                ui.header(label="add")
-                ui.button(label='-0.1', c=self.onRelativeDiff_10, width=ui.width(1.5))
-                ui.button(label='-0.01', c=self.onRelativeDiff_1, width=ui.width(1.5))
-                self.ff_acc_add = ui.eb_float(v=0)
-                ui.button(label='+0.01', c=self.onRelativeAdd_1, width=ui.width(1.5))
-                ui.button(label='+0.1', c=self.onRelativeAdd_10, width=ui.width(1.5))
+                with ui.row_layout():
+                    ui.header(label="add")
+                    ui.button(label='-0.1', c=self.onRelativeDiff_10, width=ui.width(1.5))
+                    ui.button(label='-0.01', c=self.onRelativeDiff_1, width=ui.width(1.5))
+                    self.ff_acc_add = ui.eb_float(v=0)
+                    ui.button(label='+0.01', c=self.onRelativeAdd_1, width=ui.width(1.5))
+                    ui.button(label='+0.1', c=self.onRelativeAdd_10, width=ui.width(1.5))
 
-            with ui.row_layout():
-                ui.header(label="Align")
-                ui.button(label='In', c=self.onAlignInRelative)
-                ui.button(label='Center', c=self.onAlignCenterRelative)
-                ui.button(label='Out', c=self.onAlignOutRelative)
+                with ui.row_layout():
+                    ui.header(label="Align")
+                    ui.button(label='In', c=self.onAlignInRelative)
+                    ui.button(label='Center', c=self.onAlignCenterRelative)
+                    ui.button(label='Out', c=self.onAlignOutRelative)
 
-            ui.separator(width=window_width)
+                ui.separator(width=window_width)
 
-            # 取得系
-            with ui.row_layout():
-                ui.header(label='Get from ')
-                ui.button(label='First', c=self.onSetLengthFromFirstEdge)
-                ui.button(label='Last', c=self.onSetLengthFromLastEdge)
-                ui.button(label='Mode', c=self.onSetLengthFromMode)
-                ui.button(label='Path', c=self.onSetLengthFromEdgePath)
+            with ui.column_layout():
+                # その他機能
+                with ui.row_layout():
+                    ui.header(label='Func')
+                    ui.button(label='Reset', c=self.onReset)    
+                    ui.button(label='ClearCache', c=self.onClearCache)
+                    ui.button(label='Smooth', c=self.onSmoothAngle)
 
-            with ui.row_layout():
-                ui.header(label='')
-                ui.button(label='Min', c=self.onSetLengthFromMin)
-                ui.button(label='Max', c=self.onSetLengthFromMax)
-                ui.button(label='Average', c=self.onSetLengthFromAverage)
+                with ui.row_layout():
+                    ui.header(label='')
+                    ui.check_box(label="Highlight Inner", v=False, cc=self.onHighlightInner)
 
-            ui.separator(width=window_width)
+                ui.separator(width=window_width)
 
-            # その他機能
-            with ui.row_layout():
-                ui.header(label='')
-                ui.button(label='Reset', c=self.onReset)
-                ui.button(label='ClearCache', c=self.onClearCache)
-                ui.button(label='Smooth', c=self.onSmoothAngle)
-
-            with ui.row_layout():
-                ui.header(label='')
-                ui.check_box(label="Hilite Inner", v=False, cc=self.onHiliteInner)
-
-            ui.separator(width=window_width)
+    def onChangeMode(self, *args):
+        """モード切り替えラジオボタンのハンドラ。選択されたモードのグループだけを表示する"""
+        is_absolute = cmds.radioButton(self.rb_absolute, q=True, select=True)
+        cmds.columnLayout(self.layout_absolute, e=True, visible=is_absolute)
+        cmds.columnLayout(self.layout_relative, e=True, visible=not is_absolute)
 
     def onChangeLength1(self, *args):
         """値変更時のハンドラ"""
@@ -521,7 +538,7 @@ class NN_AlignedgeRingWindow(object):
         self.last_executed_mode = mode
         self.last_relative_mode = True
 
-    def onHiliteInner(self, *args):
+    def onHighlightInner(self, *args):
         pass
 
     # エッジの角度を前後を参照して平均化する
