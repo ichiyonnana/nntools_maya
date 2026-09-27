@@ -299,15 +299,19 @@ class NN_ToolWindow(MayaQWidgetBaseMixin, QMainWindow):
         NN_ToolWindow.singleton_instance = self
 
     def layout(self):
-        row_height1 = 36
-        row_height2 = 30
-        button_width1 = 80
-        button_width2 = 54
+        # Maya の UI スケール設定
+        scale = cmds.mayaDpiSetting(query=True, realScaleValue=True)
+
+        # UI サイズ. 100%時の数値 * スケール設定倍率
+        row_height1 = round(24 * scale)
+        row_height2 = round(20 * scale)
+        button_width1 = round(53 * scale)
+        button_width2 = round(36 * scale)
         edit_box_width = button_width1
-        separater_height1 = 4
-        separater_height2 = 8
-        outer_margin = 2
-        spacing = 3
+        separater_height1 = round(3 * scale)
+        separater_height2 = round(5 * scale)
+        outer_margin = round(1 * scale)
+        spacing = round(2 * scale)
 
         # レウアウト枠組み
         central_widget = QWidget()
