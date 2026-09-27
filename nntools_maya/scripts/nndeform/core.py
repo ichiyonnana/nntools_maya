@@ -60,42 +60,34 @@ class NN_ToolWindow(object):
 
     def layout(self):
         """UI レイアウト."""
-        ui.column_layout()
-        ui.text(label="=== Sine Deform ===")
+        with ui.column_layout():
+            ui.text(label="=== Sine Deform ===")
 
-        ui.row_layout()
-        ui.header(label="Radial")
-        self.eb_radial = ui.eb_float(v=1.0)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Radial")
+                self.eb_radial = ui.eb_float(v=1.0)
 
-        ui.row_layout()
-        ui.header(label="Axial")
-        self.eb_axial = ui.eb_float(v=0.5)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Axial")
+                self.eb_axial = ui.eb_float(v=0.5)
 
-        ui.row_layout()
-        ui.header(label="Frequency")
-        self.eb_frequency = ui.eb_float(v=3.0)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Frequency")
+                self.eb_frequency = ui.eb_float(v=3.0)
 
-        ui.row_layout()
-        ui.header(label="Offset")
-        self.eb_offset = ui.eb_float(v=0.0)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Offset")
+                self.eb_offset = ui.eb_float(v=0.0)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label="Deform", c=self.on_deform)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label="Deform", c=self.on_deform)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label="Clear Cache", c=self.on_clear_cache)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label="Clear Cache", c=self.on_clear_cache)
 
-        ui.separator(width=160, height=10)
-
-        ui.end_layout()
+            ui.separator(width=160, height=10)
 
     def _sine_deform(self, radial_amount=1.0, axial_amount=0.5, frequency=1.0, offset=0.0):
         selection = cmds.ls(sl=True, fl=True)

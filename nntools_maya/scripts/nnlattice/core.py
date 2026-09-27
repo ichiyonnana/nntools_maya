@@ -685,69 +685,59 @@ class NN_ToolWindow(object):
         cmds.showWindow(self.window)
 
     def layout(self):
-        ui.column_layout()
+        with ui.column_layout():
 
-        # 絶対モード
+            # 絶対モード
 
-        ui.row_layout()
-        ui.header(label='Divsions')
-        self.rebuild_s = ui.eb_int(v=3, cc=self.onChangeS)
-        self.rebuild_t = ui.eb_int(v=3, cc=self.onChangeT)
-        self.rebuild_u = ui.eb_int(v=3, cc=self.onChangeU)
-        ui.button(label='Get', c=self.onGetDivisions)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='Divsions')
+                self.rebuild_s = ui.eb_int(v=3, cc=self.onChangeS)
+                self.rebuild_t = ui.eb_int(v=3, cc=self.onChangeT)
+                self.rebuild_u = ui.eb_int(v=3, cc=self.onChangeU)
+                ui.button(label='Get', c=self.onGetDivisions)
 
-        ui.row_layout()
-        ui.header(label='Rebuild')
-        ui.button(label='S', c=self.onRebuildS, width=ui.width(2))
-        ui.button(label='T', c=self.onRebuildT, width=ui.width(2))
-        ui.button(label='U', c=self.onRebuildU, width=ui.width(2))
-        ui.button(label='STU', c=self.onRebuidLattice)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='Rebuild')
+                ui.button(label='S', c=self.onRebuildS, width=ui.width(2))
+                ui.button(label='T', c=self.onRebuildT, width=ui.width(2))
+                ui.button(label='U', c=self.onRebuildU, width=ui.width(2))
+                ui.button(label='STU', c=self.onRebuidLattice)
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='-1', c=self.onSub1)
-        ui.button(label='+1', c=self.onAdd1)
-        ui.button(label='/2', c=self.onDiv2)
-        ui.button(label='x2', c=self.onMul2)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='-1', c=self.onSub1)
+                ui.button(label='+1', c=self.onAdd1)
+                ui.button(label='/2', c=self.onDiv2)
+                ui.button(label='x2', c=self.onMul2)
 
-        ui.row_layout()
-        ui.header(label='Func')
-        ui.button(label='Smooth', c=self.onSmoothLatticePoint)
-        self.cb_smooth_completely = ui.check_box(label="completely", v=False)
-        ui.button(label='SymX', c=self.onSymmetrizeX)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='Func')
+                ui.button(label='Smooth', c=self.onSmoothLatticePoint)
+                self.cb_smooth_completely = ui.check_box(label="completely", v=False)
+                ui.button(label='SymX', c=self.onSymmetrizeX)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label='Add Member', c=self.onAddMember)
-        ui.button(label='Select Member', c=self.onSelectMember)
-        ui.end_layout()
-        ui.row_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label='Add Member', c=self.onAddMember)
+                ui.button(label='Select Member', c=self.onSelectMember)
+            with ui.row_layout():
 
-        ui.header(label="")
-        ui.button(label='Apply Lattice', c=self.onApplyLattice)
-        ui.button(label='Match Lattice', c=self.onMatchLattice)
-        ui.button(label='Reset', c=self.onResetLattice)
-        ui.end_layout()
+                ui.header(label="")
+                ui.button(label='Apply Lattice', c=self.onApplyLattice)
+                ui.button(label='Match Lattice', c=self.onMatchLattice)
+                ui.button(label='Reset', c=self.onResetLattice)
 
-        ui.row_layout()
-        ui.header(label='Select')
-        ui.button(label='inner', c=self.onSelectInner)
-        ui.button(label='surface', c=self.onSelectSurface)
-        ui.button(label='grow', c=self.onSelectGrow)
-        ui.button(label='shrink', c=self.onSelectShrink)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='Select')
+                ui.button(label='inner', c=self.onSelectInner)
+                ui.button(label='surface', c=self.onSelectSurface)
+                ui.button(label='grow', c=self.onSelectGrow)
+                ui.button(label='shrink', c=self.onSelectShrink)
 
-        ui.row_layout()
-        ui.header(label='Etc')
-        ui.button(label='Toggle Envelope', c=self.onToggleEnvelope)
-        ui.button(label='Hide Deformers', c=self.onHideDeformers)
-        ui.end_layout()
-
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='Etc')
+                ui.button(label='Toggle Envelope', c=self.onToggleEnvelope)
+                ui.button(label='Hide Deformers', c=self.onHideDeformers)
 
     def onChangeS(self, *args):
         s = ui.get_value(self.rebuild_s)

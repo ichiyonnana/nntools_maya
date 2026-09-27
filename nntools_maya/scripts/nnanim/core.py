@@ -84,49 +84,40 @@ class NN_ToolWindow(object):
         cmds.showWindow(self.window)
 
     def layout(self):
-        ui.column_layout()
+        with ui.column_layout():
+            with ui.row_layout():
+                ui.header(label="Rig")
+                ui.button(label="IK (Plane)", c=self.onMakeIKHandlePlane)
+                ui.button(label="IK (Chain)", c=self.onMakeIKHandleChain)
+                ui.button(label="IK (Spline)", c=self.onMakeIKHandleSpline)
 
-        ui.row_layout()
-        ui.header(label="Rig")
-        ui.button(label="IK (Plane)", c=self.onMakeIKHandlePlane)
-        ui.button(label="IK (Chain)", c=self.onMakeIKHandleChain)
-        ui.button(label="IK (Spline)", c=self.onMakeIKHandleSpline)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label="IK (Hair)", c=self.onMakeIKHandleHair)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label="IK (Hair)", c=self.onMakeIKHandleHair)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label="Delete IK", c=self.onDeleteIK)
+                ui.button(label="Interactive", c=self.onInteractivePlayback, dgc=self.onInteractivePlaybackCurrentFrame)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label="Delete IK", c=self.onDeleteIK)
-        ui.button(label="Interactive", c=self.onInteractivePlayback, dgc=self.onInteractivePlaybackCurrentFrame)
-        ui.end_layout()
+            ui.separator(height=ui.height(1))
 
-        ui.separator(height=ui.height(1))
+            with ui.row_layout():
+                ui.header(label="Collider")
+                ui.button(label="Set to Passive", c=self.onSetToPassiveCollider)
 
-        ui.row_layout()
-        ui.header(label="Collider")
-        ui.button(label="Set to Passive", c=self.onSetToPassiveCollider)
-        ui.end_layout()
+            ui.separator(height=ui.height(1))
 
-        ui.separator(height=ui.height(1))
+            with ui.row_layout():
+                ui.header(label="Picker")
+                self.bt_ik_handle = ui.button(label="IK Handle", enable=False, c=self.onPickIKHandle)
+                self.bt_pv_locator = ui.button(label="Pole Vector", enable=False, c=self.onPickPoleVector)
 
-        ui.row_layout()
-        ui.header(label="Picker")
-        self.bt_ik_handle = ui.button(label="IK Handle", enable=False, c=self.onPickIKHandle)
-        self.bt_pv_locator = ui.button(label="Pole Vector", enable=False, c=self.onPickPoleVector)
-        ui.end_layout()
-
-        ui.row_layout()
-        ui.header(label="")
-        self.bt_spline_curve = ui.button(label="Spline Curve", enable=False, c=self.onPickSplineCurve)
-        ui.text(label="CV")
-        self.sl_cv_index = ui.int_slider(min=0, max=2, width=ui.width(4), enable=False, cc=self.onChangePickSplineCurveCV, dc=self.onDragPickSplineCurveCV)
-        ui.end_layout()
-
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                self.bt_spline_curve = ui.button(label="Spline Curve", enable=False, c=self.onPickSplineCurve)
+                ui.text(label="CV")
+                self.sl_cv_index = ui.int_slider(min=0, max=2, width=ui.width(4), enable=False, cc=self.onChangePickSplineCurveCV, dc=self.onDragPickSplineCurveCV)
 
     def onMakeIKHandlePlane(self, *args):
         """IK (Plane) ボタンクリック

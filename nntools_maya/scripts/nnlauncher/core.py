@@ -87,62 +87,52 @@ class NN_ToolWindow(object):
         cmds.showWindow(self.window)
 
     def layout(self):
-        ui.column_layout()
+        with ui.column_layout():
+            with ui.row_layout():
+                ui.header(label="Edit:")
+                ui.button(label="Mirror", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onMirror)
+                ui.button(label="UV", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onUV)
+                ui.button(label="Camera", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onCamera)
 
-        ui.row_layout()
-        ui.header(label="Edit:")
-        ui.button(label="Mirror", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onMirror)
-        ui.button(label="UV", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onUV)
-        ui.button(label="Camera", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onCamera)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Align:")
+                ui.button(label="RingWidth", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onRingWidth)
+                ui.button(label="Curve", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onCurve)
+                ui.button(label="Simplify", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onSimplify)
+                ui.button(label="Straighten", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onStraighten)
 
-        ui.row_layout()
-        ui.header(label="Align:")
-        ui.button(label="RingWidth", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onRingWidth)
-        ui.button(label="Curve", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onCurve)
-        ui.button(label="Simplify", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onSimplify)
-        ui.button(label="Straighten", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onStraighten)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Util:")
+                ui.button(label="Lattice", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onLattice)
+                ui.button(label="Normal", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onNormal)
+                ui.button(label="VColor", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onVColor)
+                ui.button(label="Sweep", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onSweep)
 
-        ui.row_layout()
-        ui.header(label="Util:")
-        ui.button(label="Lattice", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onLattice)
-        ui.button(label="Normal", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onNormal)
-        ui.button(label="VColor", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onVColor)
-        ui.button(label="Sweep", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onSweep)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Etc:")
+                ui.button(label="Skin", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onSKin)
+                ui.button(label="Subdiv", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onSubdiv)
+                ui.button(label="Anim", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onAnim)
+                ui.button(label="Transform", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onTransform)
 
-        ui.row_layout()
-        ui.header(label="Etc:")
-        ui.button(label="Skin", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onSKin)
-        ui.button(label="Subdiv", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onSubdiv)
-        ui.button(label="Anim", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onAnim)
-        ui.button(label="Transform", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onTransform)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Misc:")
+                ui.button(label="Align", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onAlign)
+                ui.button(label="Primitive", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onPrimitive)
+                ui.button(label="Deform", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onDeform)
+                ui.button(label="Texture", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onTexture)
 
-        ui.row_layout()
-        ui.header(label="Misc:")
-        ui.button(label="Align", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onAlign)
-        ui.button(label="Primitive", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onPrimitive)
-        ui.button(label="Deform", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onDeform)
-        ui.button(label="Texture", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onTexture)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label="Line", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onLine)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label="Line", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onLine)
-        ui.end_layout()
+            ui.separator(height=ui.height(0.5))
 
-        ui.separator(height=ui.height(0.5))
-
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label="Close All", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onCloseAll)
-        ui.button(label="Reload All", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onReloadAll)
-        ui.button(label="Close", width=ui.width(4.4), height=ui.height(self.common_button_height), c=self.onClose)
-        ui.end_layout()
-
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label="Close All", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onCloseAll)
+                ui.button(label="Reload All", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onReloadAll)
+                ui.button(label="Close", width=ui.width(4.4), height=ui.height(self.common_button_height), c=self.onClose)
 
     def onMirror(self, *args):
         """"""

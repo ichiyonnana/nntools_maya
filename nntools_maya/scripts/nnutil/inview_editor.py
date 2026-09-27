@@ -90,33 +90,27 @@ class InviewEditor(object):
             resizeToFitChildren=True
             )
 
-        ui.column_layout()
+        with ui.column_layout():
+            with ui.row_layout():
+                ui.header(label="Nodes")
+                ui.eb_text(text=",".join(nodes), width=ui.width(4))
 
-        ui.row_layout()
-        ui.header(label="Nodes")
-        ui.eb_text(text=",".join(nodes), width=ui.width(4))
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Attribute")
+                ui.eb_text(text=attribute, width=ui.width(4))
 
-        ui.row_layout()
-        ui.header(label="Attribute")
-        ui.eb_text(text=attribute, width=ui.width(4))
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Min/Max")
+                self.min_field = ui.eb_float(v=InviewEditor.min_value, cc=on_min_change)
+                self.max_field = ui.eb_float(v=InviewEditor.max_value, cc=on_max_change)
 
-        ui.row_layout()
-        ui.header(label="Min/Max")
-        self.min_field = ui.eb_float(v=InviewEditor.min_value, cc=on_min_change)
-        self.max_field = ui.eb_float(v=InviewEditor.max_value, cc=on_max_change)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Value")
+                self.slider = ui.float_slider(min=InviewEditor.min_value, max=InviewEditor.max_value, value=original_values[nodes[0]], dc=on_drag_slider, cc=on_change_slider, width=ui.width(4))
 
-        ui.row_layout()
-        ui.header(label="Value")
-        self.slider = ui.float_slider(min=InviewEditor.min_value, max=InviewEditor.max_value, value=original_values[nodes[0]], dc=on_drag_slider, cc=on_change_slider, width=ui.width(4))
-        ui.end_layout()
-
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label="OK", c=on_ok)
-        ui.button(label="Cancel", c=on_cancel)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label="OK", c=on_ok)
+                ui.button(label="Cancel", c=on_cancel)
 
         cmds.showWindow(self.window)

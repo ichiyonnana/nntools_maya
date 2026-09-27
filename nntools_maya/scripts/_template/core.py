@@ -50,14 +50,10 @@ class NN_ToolWindow(object):
 
     def layout(self):
         """UI レイアウト."""
-        ui.column_layout()
-
-        ui.row_layout()
-        ui.header(label="sample:")
-        ui.button(label="Test", c=self.onTest)
-        ui.end_layout()
-
-        ui.end_layout()
+        with ui.column_layout():
+            with ui.row_layout():
+                ui.header(label="sample:")
+                ui.button(label="Test", c=self.onTest)
 
     def onTest(self, *args):
         """Testハンドラ."""

@@ -223,93 +223,80 @@ class NN_ToolWindow(object):
     def layout(self):
         window_width = 255
 
-        ui.column_layout()
+        with ui.column_layout():
+            with ui.row_layout():
+                ui.header(label='Make')
+                ui.button(label='Make Curve', c=self.onMakeCurve)
 
-        ui.row_layout()
-        ui.header(label='Make')
-        ui.button(label='Make Curve', c=self.onMakeCurve)
-        ui.end_layout()
+            ui.separator(width=window_width)
 
-        ui.separator(width=window_width)
+            with ui.row_layout():
+                ui.header(label='Curve')
+                self.ed_curve = cmds.textField(tx='')
+                ui.button(label='Set', c=self.onSetCurve)
+                ui.button(label='Sel', c=self.onSelectCurve)
 
-        ui.row_layout()
-        ui.header(label='Curve')
-        self.ed_curve = cmds.textField(tx='')
-        ui.button(label='Set', c=self.onSetCurve)
-        ui.button(label='Sel', c=self.onSelectCurve)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='Edges')
+                self.ed_edges = cmds.textField(tx='')
+                ui.button(label='Set', c=self.onSetEdges)
+                ui.button(label='Sel', c=self.onSelectEdges)
 
-        ui.row_layout()
-        ui.header(label='Edges')
-        self.ed_edges = cmds.textField(tx='')
-        ui.button(label='Set', c=self.onSetEdges)
-        ui.button(label='Sel', c=self.onSelectEdges)
-        ui.end_layout()
+            ui.separator(width=window_width)
 
-        ui.separator(width=window_width)
+            with ui.row_layout():
+                ui.button(label='Active', c=self.onSetActive, width=ui.width(2))
+                ui.button(label='Fit to Curve', c=self.onFitActive, width=ui.width(2.5))
+                ui.button(label='Smooth', c=self.onSmoothActive, width=ui.width(2.5))
+                ui.button(label='Remake', c=self.onReMakeCurve, width=ui.width(2.5))
 
-        ui.row_layout()
-        ui.button(label='Active', c=self.onSetActive, width=ui.width(2))
-        ui.button(label='Fit to Curve', c=self.onFitActive, width=ui.width(2.5))
-        ui.button(label='Smooth', c=self.onSmoothActive, width=ui.width(2.5))
-        ui.button(label='Remake', c=self.onReMakeCurve, width=ui.width(2.5))
-        ui.end_layout()
+            #ui.row_layout()
+            #ui.header(label='')
+            #ui.button(label='Reassign', c=self.onReAssignEdges, width=ui.width(2.5))
+            #ui.end_layout()
 
-        #ui.row_layout()
-        #ui.header(label='')
-        #ui.button(label='Reassign', c=self.onReAssignEdges, width=ui.width(2.5))
-        #ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label='Rebuild', c=self.onRebuildActive, width=ui.width(2.5))
+                ui.button(label='/2', c=self.onRebuildResolutionDiv2)
+                self.tx_rebuild_resolution = cmds.textField(tx='2', width=32)
+                ui.button(label='x2', c=self.onRebuildResolutionMul2)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label='Rebuild', c=self.onRebuildActive, width=ui.width(2.5))
-        ui.button(label='/2', c=self.onRebuildResolutionDiv2)
-        self.tx_rebuild_resolution = cmds.textField(tx='2', width=32)
-        ui.button(label='x2', c=self.onRebuildResolutionMul2)
-        ui.end_layout()
+            ui.separator(width=window_width)
 
-        ui.separator(width=window_width)
+            with ui.row_layout():
+                ui.header(label="Options")
+                self.cb_equalize = cmds.checkBox(l='Equalize', v=False, cc=self.onSetEqualize)
 
-        ui.row_layout()
-        ui.header(label="Options")
-        self.cb_equalize = cmds.checkBox(l='Equalize', v=False, cc=self.onSetEqualize)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                self.cb_surface_constraint = cmds.checkBox(l='Surface Constraint', v=False, cc=self.onSetSurfaceConstraint)
+                self.cb_preserve_uv = cmds.checkBox(l='Preserve UVs', v=False, cc=self.onSetPreserveUV)
 
-        ui.row_layout()
-        ui.header(label="")
-        self.cb_surface_constraint = cmds.checkBox(l='Surface Constraint', v=False, cc=self.onSetSurfaceConstraint)
-        self.cb_preserve_uv = cmds.checkBox(l='Preserve UVs', v=False, cc=self.onSetPreserveUV)
-        ui.end_layout()
+            ui.separator(width=window_width)
 
-        ui.separator(width=window_width)
+            with ui.row_layout():
+                ui.header(label='Selected')
+                ui.button(label='Fit', c=self.onFitSelection, width=ui.width(2))
+                ui.button(label='Rebuild [Op]', c=self.onRebuildSelection, dgc=self.onRebuildOp, width=ui.width(2.8))
+                ui.button(label='Smooth [Op]', c=self.onSmoothSelection, dgc=self.onSmoothOp, width=ui.width(2.8))
 
-        ui.row_layout()
-        ui.header(label='Selected')
-        ui.button(label='Fit', c=self.onFitSelection, width=ui.width(2))
-        ui.button(label='Rebuild [Op]', c=self.onRebuildSelection, dgc=self.onRebuildOp, width=ui.width(2.8))
-        ui.button(label='Smooth [Op]', c=self.onSmoothSelection, dgc=self.onSmoothOp, width=ui.width(2.8))
-        ui.end_layout()
+            ui.separator(width=window_width)
 
-        ui.separator(width=window_width)
+            with ui.row_layout():
+                ui.header(label='Select')
+                ui.button(label='All', c=self.onSelectAll, width=ui.width(2))
+                ui.button(label='Visible [invis]', c=self.onSelectVisible, dgc=self.onSelectInvisible, width=ui.width(2.8))
+                ui.button(label='1stCV', c=self.onSelect1stCV)
 
-        ui.row_layout()
-        ui.header(label='Select')
-        ui.button(label='All', c=self.onSelectAll, width=ui.width(2))
-        ui.button(label='Visible [invis]', c=self.onSelectVisible, dgc=self.onSelectInvisible, width=ui.width(2.8))
-        ui.button(label='1stCV', c=self.onSelect1stCV)
-        ui.end_layout()
+            ui.separator(width=window_width)
 
-        ui.separator(width=window_width)
+            with ui.row_layout():
+                ui.header(label='Display')
+                ui.button(label='Draw On Top [off]', c=self.onEnableDrawOnTop, dgc=self.onDisableDrawOnTop, width=ui.width(3.8))
+                ui.button(label="Show Curve [off]", c=self.onShowCurve, dgc=self.onHideCurve, width=ui.width(3.8))
 
-        ui.row_layout()
-        ui.header(label='Display')
-        ui.button(label='Draw On Top [off]', c=self.onEnableDrawOnTop, dgc=self.onDisableDrawOnTop, width=ui.width(3.8))
-        ui.button(label="Show Curve [off]", c=self.onShowCurve, dgc=self.onHideCurve, width=ui.width(3.8))
-        ui.end_layout()
-
-        ui.separator(width=window_width)
-
-        ui.end_layout()
+            ui.separator(width=window_width)
 
     def onSetEqualize(self, *args):
         pass

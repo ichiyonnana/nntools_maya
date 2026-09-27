@@ -842,191 +842,167 @@ class NN_ToolWindow(object):
         ui.set_value(self.mapSize, 1024)
 
     def layout(self):
-        self.columnLayout = ui.column_layout()
+        with ui.column_layout() as self.columnLayout:
 
-        # Projection
-        ui.row_layout()
-        ui.header(label='Projection')
-        ui.button(label='X', c=self.onPlanerX, bgc=ui.color_x)
-        ui.button(label='Y', c=self.onPlanerY, bgc=ui.color_y)
-        ui.button(label='Z', c=self.onPlanerZ, bgc=ui.color_z)
-        ui.button(label='Camera', c=self.onPlanerCamera)
-        ui.button(label='Best', c=self.onPlanerBest)
-        ui.end_layout()
+            # Projection
+            with ui.row_layout():
+                ui.header(label='Projection')
+                ui.button(label='X', c=self.onPlanerX, bgc=ui.color_x)
+                ui.button(label='Y', c=self.onPlanerY, bgc=ui.color_y)
+                ui.button(label='Z', c=self.onPlanerZ, bgc=ui.color_z)
+                ui.button(label='Camera', c=self.onPlanerCamera)
+                ui.button(label='Best', c=self.onPlanerBest)
 
-        # Align & Snap
-        ui.row_layout()
-        ui.header(label='Align & Snap')
-        ui.button(label='Border', c=self.onStraightenBorder)
-        ui.button(label='Inner', c=self.onStraightenInner)
-        ui.button(label='All', c=self.onStraightenAll)
-        ui.button(label='Linear', c=self.onLinearAlign)
-        ui.end_layout()
+            # Align & Snap
+            with ui.row_layout():
+                ui.header(label='Align & Snap')
+                ui.button(label='Border', c=self.onStraightenBorder)
+                ui.button(label='Inner', c=self.onStraightenInner)
+                ui.button(label='All', c=self.onStraightenAll)
+                ui.button(label='Linear', c=self.onLinearAlign)
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='AriGridding', c=self.onGridding)
-        ui.button(label='Rectilinearize', c=self.onRectilinearize)
-        ui.button(label='MatchUV', c=self.onMatchUV, dgc=self.onMatchUVOptions, annotation="L: Match UV\nM: Options")
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='AriGridding', c=self.onGridding)
+                ui.button(label='Rectilinearize', c=self.onRectilinearize)
+                ui.button(label='MatchUV', c=self.onMatchUV, dgc=self.onMatchUVOptions, annotation="L: Match UV\nM: Options")
 
-        # MatchUV
-        ui.row_layout()
-        ui.header(label='MatchUV')
-        ui.button(label='to Front [back]', c=self.onOnewayMatchUVF, dgc=self.onOnewayMatchUVB, width=ui.button_width3, annotation="L: to Front\nM: to Back")
-        ui.button(label='to Pin [unpin]', c=self.onOnewayMatchUVP, dgc=self.onOnewayMatchUVUp, width=ui.button_width3, annotation="L: to Pined\nM: to UnPined")
-        ui.button(label='to Shared', c=self.onOnewayMatchUVS, width=ui.button_width3, annotation="")
-        ui.end_layout()
+            # MatchUV
+            with ui.row_layout():
+                ui.header(label='MatchUV')
+                ui.button(label='to Front [back]', c=self.onOnewayMatchUVF, dgc=self.onOnewayMatchUVB, width=ui.button_width3, annotation="L: to Front\nM: to Back")
+                ui.button(label='to Pin [unpin]', c=self.onOnewayMatchUVP, dgc=self.onOnewayMatchUVUp, width=ui.button_width3, annotation="L: to Pined\nM: to UnPined")
+                ui.button(label='to Shared', c=self.onOnewayMatchUVS, width=ui.button_width3, annotation="")
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='expand/fold', c=self.onExpandFoldRD, dgc=self.onExpandFoldLU, annotation="L: to Right/Bottom\nM: to Left/Top")
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='expand/fold', c=self.onExpandFoldRD, dgc=self.onExpandFoldLU, annotation="L: to Right/Bottom\nM: to Left/Top")
 
-        # Flip
-        ui.row_layout()
-        ui.header(label="Flip")
-        ui.button(label='FlipU', c=self.onFlipUinTile, dgc=self.onFlipUinTilePiv, bgc=ui.color_u, annotation="L: at Tile Center\nM: at Pivot")
-        ui.button(label='FlipV', c=self.onFlipVinTile, dgc=self.onFlipVinTilePiv, bgc=ui.color_v, annotation="L: at Tile Center\nM: at Pivot")
-        self.flip_pivot_u = ui.eb_float(width=ui.button_width2)
-        self.flip_pivot_v = ui.eb_float(width=ui.button_width2)
-        ui.button(label="get", width=ui.button_width1, c=self.onGetFlipPivot)
-        ui.end_layout()
+            # Flip
+            with ui.row_layout():
+                ui.header(label="Flip")
+                ui.button(label='FlipU', c=self.onFlipUinTile, dgc=self.onFlipUinTilePiv, bgc=ui.color_u, annotation="L: at Tile Center\nM: at Pivot")
+                ui.button(label='FlipV', c=self.onFlipVinTile, dgc=self.onFlipVinTilePiv, bgc=ui.color_v, annotation="L: at Tile Center\nM: at Pivot")
+                self.flip_pivot_u = ui.eb_float(width=ui.button_width2)
+                self.flip_pivot_v = ui.eb_float(width=ui.button_width2)
+                ui.button(label="get", width=ui.button_width1, c=self.onGetFlipPivot)
 
-        # Cut & Sew
-        ui.row_layout()
-        ui.header(label='Cut & Sew')
-        ui.button(label='Cut', c=self.onCut)
-        ui.button(label='Sew', c=self.onSew)
-        ui.button(label='Shell', c=self.onCreateShell)
-        ui.button(label='Merge', c=self.onMerge)
-        ui.end_layout()
+            # Cut & Sew
+            with ui.row_layout():
+                ui.header(label='Cut & Sew')
+                ui.button(label='Cut', c=self.onCut)
+                ui.button(label='Sew', c=self.onSew)
+                ui.button(label='Shell', c=self.onCreateShell)
+                ui.button(label='Merge', c=self.onMerge)
 
-        # Optimize
-        ui.row_layout()
-        ui.header(label='Optimize')
-        ui.button(label='Get', c=self.onGetTexel)
-        self.texel = ui.eb_float(cc=self.onChangeTexel, v=10, width=ui.button_width2)
-        self.mapSize = ui.eb_int(cc=self.onChangeMapSize, width=ui.button_width1_5)
-        ui.text(label='px')
-        ui.end_layout()
+            # Optimize
+            with ui.row_layout():
+                ui.header(label='Optimize')
+                ui.button(label='Get', c=self.onGetTexel)
+                self.texel = ui.eb_float(cc=self.onChangeTexel, v=10, width=ui.button_width2)
+                self.mapSize = ui.eb_int(cc=self.onChangeMapSize, width=ui.button_width1_5)
+                ui.text(label='px')
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='Set', c=self.onSetTexel)
-        ui.button(label='U', c=self.onSetEdgeTexelUMin, dgc=self.onSetEdgeTexelUMax, bgc=ui.color_u, annotation="L: base on Min\nM: base on Max")
-        ui.button(label='V', c=self.onSetEdgeTexelVMin, dgc=self.onSetEdgeTexelVMax, bgc=ui.color_v, annotation="L: base on Min\nM: base on Max")
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='Set', c=self.onSetTexel)
+                ui.button(label='U', c=self.onSetEdgeTexelUMin, dgc=self.onSetEdgeTexelUMax, bgc=ui.color_u, annotation="L: base on Min\nM: base on Max")
+                ui.button(label='V', c=self.onSetEdgeTexelVMin, dgc=self.onSetEdgeTexelVMax, bgc=ui.color_v, annotation="L: base on Min\nM: base on Max")
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='AriUVRatio', c=self.onUVRatio, dgc=self.onUVRatioOptions, annotation="L: AriUVRatio\nM: Options")
-        ui.button(label='UnfoldU', c=self.onUnfoldU, bgc=ui.color_u)
-        ui.button(label='UnfoldV', c=self.onUnfoldV, bgc=ui.color_v)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='AriUVRatio', c=self.onUVRatio, dgc=self.onUVRatioOptions, annotation="L: AriUVRatio\nM: Options")
+                ui.button(label='UnfoldU', c=self.onUnfoldU, bgc=ui.color_u)
+                ui.button(label='UnfoldV', c=self.onUnfoldV, bgc=ui.color_v)
 
-        # Checker
-        ui.row_layout()
-        ui.header(label='Checker')
-        ui.text(label="dense:")
-        self.checkerDensity = ui.eb_int(v=256, cc=self.onChangeUVCheckerDensity, width=ui.button_width1_5)
-        ui.button(label='/2', c=self.onUVCheckerDensityDiv2)
-        ui.button(label='x2', c=self.onUVCheckerDensityMul2)
-        ui.button(label="Toggle", c=self.onToggleChecker)
-        ui.end_layout()
+            # Checker
+            with ui.row_layout():
+                ui.header(label='Checker')
+                ui.text(label="dense:")
+                self.checkerDensity = ui.eb_int(v=256, cc=self.onChangeUVCheckerDensity, width=ui.button_width1_5)
+                ui.button(label='/2', c=self.onUVCheckerDensityDiv2)
+                ui.button(label='x2', c=self.onUVCheckerDensityMul2)
+                ui.button(label="Toggle", c=self.onToggleChecker)
 
-        # Layout
-        ui.row_layout()
-        ui.header(label='Layout')
-        ui.button(label='Orient to Edge', c=self.onOrientEdge)
-        ui.button(label='Orient Shells', c=self.onOrientShells)
-        ui.button(label='SymArrange', c=self.onSymArrange)
-        ui.end_layout()
+            # Layout
+            with ui.row_layout():
+                ui.header(label='Layout')
+                ui.button(label='Orient to Edge', c=self.onOrientEdge)
+                ui.button(label='Orient Shells', c=self.onOrientShells)
+                ui.button(label='SymArrange', c=self.onSymArrange)
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='SanpStack', c=self.onSnapStack)
-        ui.button(label='Stack', c=self.onStack)
-        ui.button(label='Unstack', c=self.onUnStack)
-        ui.button(label='Normalize', c=self.onNormalize)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='SanpStack', c=self.onSnapStack)
+                ui.button(label='Stack', c=self.onStack)
+                ui.button(label='Unstack', c=self.onUnStack)
+                ui.button(label='Normalize', c=self.onNormalize)
 
-        # Tools
-        ui.row_layout()
-        ui.header(label='Tools')
-        ui.button(label='Lattice', c=self.onUVLatticeTool)
-        ui.button(label='Tweak', c=self.onUVTweakTool)
-        ui.button(label='Cut', c=self.onUVCutTool)
-        ui.button(label='Optimize', c=self.onUVOptimizeTool)
-        ui.end_layout()
+            # Tools
+            with ui.row_layout():
+                ui.header(label='Tools')
+                ui.button(label='Lattice', c=self.onUVLatticeTool)
+                ui.button(label='Tweak', c=self.onUVTweakTool)
+                ui.button(label='Cut', c=self.onUVCutTool)
+                ui.button(label='Optimize', c=self.onUVOptimizeTool)
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.button(label='Symmetrize [setU]', c=self.onUVSymmetrizeTool, dgc=self.onSetUVSymmetrizeCenter, annotation="L: Symmetrize\nM: Set Center")
-        ui.button(label='Shortest Tool', c=self.onShortestEdgeTool)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='Symmetrize [setU]', c=self.onUVSymmetrizeTool, dgc=self.onSetUVSymmetrizeCenter, annotation="L: Symmetrize\nM: Set Center")
+                ui.button(label='Shortest Tool', c=self.onShortestEdgeTool)
 
-        # Convert
-        ui.row_layout()
-        ui.header(label='Convert')
-        ui.button(label='to Border', c=self.onConvertToShellBorder)
-        ui.button(label='to Inner', c=self.onConvertToShellInner)
-        ui.end_layout()
+            # Convert
+            with ui.row_layout():
+                ui.header(label='Convert')
+                ui.button(label='to Border', c=self.onConvertToShellBorder)
+                ui.button(label='to Inner', c=self.onConvertToShellInner)
 
-        # Select
-        ui.row_layout()
-        ui.header(label='Select')
-        ui.button(label='Frontface', c=self.onSelectFrontface)
-        ui.button(label='Backface', c=self.onSelectBackface)
-        ui.button(label='All Borders', c=self.onSelectAllUVBorders)
-        ui.end_layout()
+            # Select
+            with ui.row_layout():
+                ui.header(label='Select')
+                ui.button(label='Frontface', c=self.onSelectFrontface)
+                ui.button(label='Backface', c=self.onSelectBackface)
+                ui.button(label='All Borders', c=self.onSelectAllUVBorders)
 
-        # Transform
-        ui.row_layout()
-        ui.header(label='Transform')
-        ui.text(label='Move')
-        self.translateValue = ui.eb_float(v=0.1, width=ui.button_width2)
-        ui.button(label=u'←', c=self.onTranslateUDiff, bgc=ui.color_u)
-        ui.button(label=u'→', c=self.onTranslateUAdd, bgc=ui.color_u)
-        ui.button(label=u'↑', c=self.onTranslateVAdd, bgc=ui.color_v)
-        ui.button(label=u'↓', c=self.onTranslateVDiff, bgc=ui.color_v)
-        self.cb_transform_in_pixel = ui.check_box(label="px")
-        ui.end_layout()
+            # Transform
+            with ui.row_layout():
+                ui.header(label='Transform')
+                ui.text(label='Move')
+                self.translateValue = ui.eb_float(v=0.1, width=ui.button_width2)
+                ui.button(label=u'←', c=self.onTranslateUDiff, bgc=ui.color_u)
+                ui.button(label=u'→', c=self.onTranslateUAdd, bgc=ui.color_u)
+                ui.button(label=u'↑', c=self.onTranslateVAdd, bgc=ui.color_v)
+                ui.button(label=u'↓', c=self.onTranslateVDiff, bgc=ui.color_v)
+                self.cb_transform_in_pixel = ui.check_box(label="px")
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.header(label='Rotate')
-        self.rotationAngle = ui.eb_float(v=90, width=ui.button_width2)
-        ui.button(label=u'←', c=self.onRotateLeft)
-        ui.button(label=u'→', c=self.onRotateRight)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.header(label='Rotate')
+                self.rotationAngle = ui.eb_float(v=90, width=ui.button_width2)
+                ui.button(label=u'←', c=self.onRotateLeft)
+                ui.button(label=u'→', c=self.onRotateRight)
 
-        ui.row_layout()
-        ui.header(label='')
-        ui.header(label='Scale')
-        self.scaleValue = ui.eb_float(v=2, width=ui.button_width2)
-        ui.button(label='U*', c=self.onOrigScaleUMul, bgc=ui.color_u)
-        ui.button(label='U/', c=self.onOrigScaleUDiv, bgc=ui.color_u)
-        ui.button(label='V*', c=self.onOrigScaleVMul, bgc=ui.color_v)
-        ui.button(label='V/', c=self.onOrigScaleVDiv, bgc=ui.color_v)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label='')
+                ui.header(label='Scale')
+                self.scaleValue = ui.eb_float(v=2, width=ui.button_width2)
+                ui.button(label='U*', c=self.onOrigScaleUMul, bgc=ui.color_u)
+                ui.button(label='U/', c=self.onOrigScaleUDiv, bgc=ui.color_u)
+                ui.button(label='V*', c=self.onOrigScaleVMul, bgc=ui.color_v)
+                ui.button(label='V/', c=self.onOrigScaleVDiv, bgc=ui.color_v)
 
-        # Editor
-        ui.row_layout()
-        ui.header(label="Editor")
-        ui.button(label='UVEditor', c=self.onUVEditor)
-        ui.button(label='UVToolkit', c=self.onUVToolKit)
-        ui.button(label='UVSnapShot', c=self.onUVSnapShot)
-        ui.button(label='DrawEdge', c=self.onDrawEdge)
-        ui.end_layout()
+            # Editor
+            with ui.row_layout():
+                ui.header(label="Editor")
+                ui.button(label='UVEditor', c=self.onUVEditor)
+                ui.button(label='UVToolkit', c=self.onUVToolKit)
+                ui.button(label='UVSnapShot', c=self.onUVSnapShot)
+                ui.button(label='DrawEdge', c=self.onDrawEdge)
 
-        ui.row_layout()
-        ui.header(label="")
-        ui.button(label="Grid Layout", c=self.onGridLayout)
-        ui.button(label="Parent to UVEditor", c=self.onParentToUVEditor)
-        ui.end_layout()
-
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="")
+                ui.button(label="Grid Layout", c=self.onGridLayout)
+                ui.button(label="Parent to UVEditor", c=self.onParentToUVEditor)
 
     def initialize(self):
         # テクセルとマップサイズを UVToolkit から取得

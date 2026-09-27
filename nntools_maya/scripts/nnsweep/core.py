@@ -110,106 +110,90 @@ class NN_ToolWindow(object):
 
     def layout(self):
         """UIレイアウト."""
-        ui.column_layout()
+        with ui.column_layout():
+            with ui.row_layout():
+                ui.header(label="Create:")
+                ui.button(label="Sweep", c=self.onCreateSweep)
+                ui.text(label="mat:", width=ui.width(1))
+                self.eb_material = ui.eb_text(text="", width=ui.width(5))
 
-        ui.row_layout()
-        ui.header(label="Create:")
-        ui.button(label="Sweep", c=self.onCreateSweep)
-        ui.text(label="mat:", width=ui.width(1))
-        self.eb_material = ui.eb_text(text="", width=ui.width(5))
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Type:")
+                ui.button(label="Poly", c=self.onSetTypePoly)
+                ui.button(label="Rect", c=self.onSetTypeRect)
+                ui.button(label="Line", c=self.onSetTypeLine)
+                ui.button(label="Custom", c=self.onSetTypeCustom)
+                # ui.button(label="cross section", c=self.onSetCrossSectionMesh)
 
-        ui.row_layout()
-        ui.header(label="Type:")
-        ui.button(label="Poly", c=self.onSetTypePoly)
-        ui.button(label="Rect", c=self.onSetTypeRect)
-        ui.button(label="Line", c=self.onSetTypeLine)
-        ui.button(label="Custom", c=self.onSetTypeCustom)
-        # ui.button(label="cross section", c=self.onSetCrossSectionMesh)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Taper:")
+                ui.button(label="=>", c=self.onSetTaperEither)
+                ui.button(label="<>", c=self.onSetTaperBoth)
+                ui.button(label="==", c=self.onSetTaperNeither)
+                ui.button(label="Reverse", c=self.onReverse)
 
-        ui.row_layout()
-        ui.header(label="Taper:")
-        ui.button(label="=>", c=self.onSetTaperEither)
-        ui.button(label="<>", c=self.onSetTaperBoth)
-        ui.button(label="==", c=self.onSetTaperNeither)
-        ui.button(label="Reverse", c=self.onReverse)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Mode")
+                ui.button(label="Precision", width=ui.width(2), c=self.onSetModePrecision)
+                ui.button(label="Distance", width=ui.width(2), c=self.onSetModeDistance)
+                ui.button(label="Whole", width=ui.width(2), c=self.onSetModeWhole)
+                ui.button(label="Span", width=ui.width(2), c=self.onSetModeSpan)
 
-        ui.row_layout()
-        ui.header(label="Mode")
-        ui.button(label="Precision", width=ui.width(2), c=self.onSetModePrecision)
-        ui.button(label="Distance", width=ui.width(2), c=self.onSetModeDistance)
-        ui.button(label="Whole", width=ui.width(2), c=self.onSetModeWhole)
-        ui.button(label="Span", width=ui.width(2), c=self.onSetModeSpan)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Resolution")
+                ui.button(label="- Low", c=self.onSetResolutionLow)
+                ui.button(label="High +", c=self.onSetResolutionHigh)
+                ui.button(label="Optimize [dis]", c=self.onOptimizeEnable, dgc=self.onOptimizeDisable)
 
-        ui.row_layout()
-        ui.header(label="Resolution")
-        ui.button(label="- Low", c=self.onSetResolutionLow)
-        ui.button(label="High +", c=self.onSetResolutionHigh)
-        ui.button(label="Optimize [dis]", c=self.onOptimizeEnable, dgc=self.onOptimizeDisable)
-        ui.end_layout()
+            ui.separator()
 
-        ui.separator()
+            with ui.row_layout():
+                ui.header(label="Rebuild:")
+                ui.button(label="0", c=self.onRebuild0)
+                ui.button(label="1", c=self.onRebuild1)
+                ui.button(label="2", c=self.onRebuild2)
+                ui.button(label="3", c=self.onRebuild3)
+                ui.button(label="4", c=self.onRebuild4)
+                ui.check_box(label="with taper pos")
 
-        ui.row_layout()
-        ui.header(label="Rebuild:")
-        ui.button(label="0", c=self.onRebuild0)
-        ui.button(label="1", c=self.onRebuild1)
-        ui.button(label="2", c=self.onRebuild2)
-        ui.button(label="3", c=self.onRebuild3)
-        ui.button(label="4", c=self.onRebuild4)
-        ui.check_box(label="with taper pos")
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Select:")
+                ui.button(label="1stCV", c=self.onSelectFirstCVs)
 
-        ui.row_layout()
-        ui.header(label="Select:")
-        ui.button(label="1stCV", c=self.onSelectFirstCVs)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Curve:")
+                ui.button(label="Show Curve", c=self.onToggleShowCurve)
+                ui.button(label="Ref Mesh", c=self.onToggleMeshType)
 
-        ui.row_layout()
-        ui.header(label="Curve:")
-        ui.button(label="Show Curve", c=self.onToggleShowCurve)
-        ui.button(label="Ref Mesh", c=self.onToggleMeshType)
-        ui.end_layout()
+            ui.separator()
 
-        ui.separator()
+            with ui.row_layout():
+                ui.header(label="ScaleX:")
+                self.scale_slider_x = ui.float_slider(width=ui.width(5), min=0, max=5, value=1, dc=self.onUpdateScaleX, cc=self.onChangeScaleX)
+                ui.button(label="Reset", c=self.onResetScaleX)
+                ui.button(label="GetAttr", c=self.onGetAttr)
 
-        ui.row_layout()
-        ui.header(label="ScaleX:")
-        self.scale_slider_x = ui.float_slider(width=ui.width(5), min=0, max=5, value=1, dc=self.onUpdateScaleX, cc=self.onChangeScaleX)
-        ui.button(label="Reset", c=self.onResetScaleX)
-        ui.button(label="GetAttr", c=self.onGetAttr)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="ScaleY:")
+                self.scale_slider_y = ui.float_slider(width=ui.width(5), min=0, max=5, value=1, dc=self.onUpdateScaleY, cc=self.onChangeScaleY)
+                ui.button(label="Reset", c=self.onResetScaleY)
 
-        ui.row_layout()
-        ui.header(label="ScaleY:")
-        self.scale_slider_y = ui.float_slider(width=ui.width(5), min=0, max=5, value=1, dc=self.onUpdateScaleY, cc=self.onChangeScaleY)
-        ui.button(label="Reset", c=self.onResetScaleY)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Rot:")
+                self.rotation_slider = ui.float_slider(width=ui.width(5), min=-360, max=360, value=0, dc=self.onUpdateRotation, cc=self.onChangeRotation)
+                ui.button(label="Reset", c=self.onResetRotation)
 
-        ui.row_layout()
-        ui.header(label="Rot:")
-        self.rotation_slider = ui.float_slider(width=ui.width(5), min=-360, max=360, value=0, dc=self.onUpdateRotation, cc=self.onChangeRotation)
-        ui.button(label="Reset", c=self.onResetRotation)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Twist:")
+                self.twist_slider = ui.float_slider(width=ui.width(5), min=-2, max=2, value=0, dc=self.onUpdateTwist, cc=self.onChangeTwist)
+                ui.button(label="Reset", c=self.onResetTwist)
 
-        ui.row_layout()
-        ui.header(label="Twist:")
-        self.twist_slider = ui.float_slider(width=ui.width(5), min=-2, max=2, value=0, dc=self.onUpdateTwist, cc=self.onChangeTwist)
-        ui.button(label="Reset", c=self.onResetTwist)
-        ui.end_layout()
+            ui.separator()
 
-        ui.separator()
-
-        ui.row_layout()
-        ui.header(label="Advanced:")
-        ui.button(label="Auto Roll [dis]", c=self.onAutomaticRollEnable, dgc=self.onAutomaticRollDisable)
-        ui.button(label="Uni Scale [dis]", c=self.onScaleProfileUniformEnable, dgc=self.onScaleProfileUniformDisable)
-        ui.end_layout()
-
-        ui.end_layout()
+            with ui.row_layout():
+                ui.header(label="Advanced:")
+                ui.button(label="Auto Roll [dis]", c=self.onAutomaticRollEnable, dgc=self.onAutomaticRollDisable)
+                ui.button(label="Uni Scale [dis]", c=self.onScaleProfileUniformEnable, dgc=self.onScaleProfileUniformDisable)
 
     def onCreateSweep(self, *args):
         """Testハンドラ"""

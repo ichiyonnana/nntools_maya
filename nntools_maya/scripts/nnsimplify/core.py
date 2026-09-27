@@ -163,35 +163,28 @@ class NN_ToolWindow(object):
         cmds.showWindow(self.window)
 
     def layout(self):
-        ui.column_layout()
+        with ui.column_layout():
+            with ui.row_layout():
+                ui.button(label="Simplify", c=self.onSimplify)
+                self.simplify_slider = ui.float_slider(min=0, max=8, value=self.last_simplify_span, step=1,
+                                                       dc=self.onUpdateSimplifySlider, cc=self.onChangeSimplifySlider, width=ui.button_width5)
+                self.simplify_label = ui.text(label=self.last_simplify_span, width=ui.button_width2)
 
-        ui.row_layout()
-        ui.button(label="Simplify", c=self.onSimplify)
-        self.simplify_slider = ui.float_slider(min=0, max=8, value=self.last_simplify_span, step=1,
-                                               dc=self.onUpdateSimplifySlider, cc=self.onChangeSimplifySlider, width=ui.button_width5)
-        self.simplify_label = ui.text(label=self.last_simplify_span, width=ui.button_width2)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.button(label="Smooth", c=self.onSmooth)
+                self.smooth_slider = ui.float_slider(min=0, max=self.max_smooth, value=self.max_smooth/2, step=1,
+                                                     dc=self.onUpdateSmoothSlider, cc=self.onChangeSmoothSlider, width=ui.button_width5)
+                self.smooth_label = ui.text(label=str(self.max_smooth/2), width=ui.button_width2)
 
-        ui.row_layout()
-        ui.button(label="Smooth", c=self.onSmooth)
-        self.smooth_slider = ui.float_slider(min=0, max=self.max_smooth, value=self.max_smooth/2, step=1,
-                                             dc=self.onUpdateSmoothSlider, cc=self.onChangeSmoothSlider, width=ui.button_width5)
-        self.smooth_label = ui.text(label=str(self.max_smooth/2), width=ui.button_width2)
-        ui.end_layout()
+            with ui.row_layout():
+                ui.button(label="Equalize", c=self.onEqualize, dgc=self.onEqualizeReverse)
+                self.equalize_slider = ui.float_slider(min=0.5, max=1.0, value=1.0, step=0.1,
+                                                       dc=self.onUpdateEqualizeSlider, cc=self.onChangeEqualizeSlider, width=ui.button_width5)
+                self.equalize_label = ui.text(label=1.0, width=ui.button_width2)
 
-        ui.row_layout()
-        ui.button(label="Equalize", c=self.onEqualize, dgc=self.onEqualizeReverse)
-        self.equalize_slider = ui.float_slider(min=0.5, max=1.0, value=1.0, step=0.1,
-                                               dc=self.onUpdateEqualizeSlider, cc=self.onChangeEqualizeSlider, width=ui.button_width5)
-        self.equalize_label = ui.text(label=1.0, width=ui.button_width2)
-        ui.end_layout()
-
-        ui.row_layout()
-        self.cb_surface_constraint = ui.check_box(label="Surface Constraint", value=True, width=ui.width(4.5), height=ui.height(1))
-        self.cb_preserve_uv = ui.check_box(label="Preserve UVs", value=True, width=ui.width(4.5), height=ui.height(1))
-        ui.end_layout()
-
-        ui.end_layout()
+            with ui.row_layout():
+                self.cb_surface_constraint = ui.check_box(label="Surface Constraint", value=True, width=ui.width(4.5), height=ui.height(1))
+                self.cb_preserve_uv = ui.check_box(label="Preserve UVs", value=True, width=ui.width(4.5), height=ui.height(1))
 
     @nu.undo_chunk
     def onSimplify(self, *args):

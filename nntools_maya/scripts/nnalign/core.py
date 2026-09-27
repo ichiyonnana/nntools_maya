@@ -159,30 +159,24 @@ def create_ui():
         resizeToFitChildren=True
     )
 
-    ui.column_layout()
+    with ui.column_layout():
+        with ui.row_layout():
+            ui.header(label='x')
+            ui.button(label='min', c=align_x_min)
+            ui.button(label='max', c=align_x_max)
+            ui.button(label='avg', c=align_x_avg)
 
-    ui.row_layout()
-    ui.header(label='x')
-    ui.button(label='min', c=align_x_min)
-    ui.button(label='max', c=align_x_max)
-    ui.button(label='avg', c=align_x_avg)
-    ui.end_layout()
+        with ui.row_layout():
+            ui.header(label='y')
+            ui.button(label='min', c=align_y_min)
+            ui.button(label='max', c=align_y_max)
+            ui.button(label='avg', c=align_y_avg)
 
-    ui.row_layout()
-    ui.header(label='y')
-    ui.button(label='min', c=align_y_min)
-    ui.button(label='max', c=align_y_max)
-    ui.button(label='avg', c=align_y_avg)
-    ui.end_layout()
-
-    ui.row_layout()
-    ui.header(label='z')
-    ui.button(label='min', c=align_z_min)
-    ui.button(label='max', c=align_z_max)
-    ui.button(label='avg', c=align_z_avg)
-    ui.end_layout()
-
-    ui.end_layout()
+        with ui.row_layout():
+            ui.header(label='z')
+            ui.button(label='min', c=align_z_min)
+            ui.button(label='max', c=align_z_max)
+            ui.button(label='avg', c=align_z_avg)
 
     cmds.showWindow(window)
 
