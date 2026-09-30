@@ -120,10 +120,11 @@ class NN_ToolWindow(object):
                 ui.button(label="Align", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onAlign)
                 ui.button(label="Primitive", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onPrimitive)
                 ui.button(label="Deform", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onDeform)
-                ui.button(label="Texture", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onTexture)
+                ui.button(label="Frill", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onFrill)
 
             with ui.row_layout():
                 ui.header(label="")
+                ui.button(label="Texture", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onTexture)
                 ui.button(label="Line", width=ui.width(2.2), height=ui.height(self.common_button_height/2), c=self.onLine)
 
             ui.separator(height=ui.height(0.5))
@@ -203,6 +204,11 @@ class NN_ToolWindow(object):
         nndeform.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
+
+    def onFrill(self, *args):
+        """"""
+        import _experimental.frill_curve.frill_curve as fc
+        fc.main()
 
     def onTexture(self, *args):
         """"""
