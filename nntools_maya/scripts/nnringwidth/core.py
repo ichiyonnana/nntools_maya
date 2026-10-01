@@ -666,7 +666,11 @@ class NN_AlignedgeRingWindow(object):
             if hilited_objects:
                 cmds.hilite(hilited_objects, replace=True)
 
-            cmds.select(current_selections, replace=True)
+            # 選択の復帰
+            # 選択順を含めて復元するため add で一つずつ選択追加する
+            cmds.select(clear=True)
+            for x in current_selections:
+                cmds.select(x, add=True)
 
             for created_nodes, color in created_curves:
                 curve = cmds.rename(created_nodes[0], self.HIGHLIGHT_PREFIX + "curve#")
