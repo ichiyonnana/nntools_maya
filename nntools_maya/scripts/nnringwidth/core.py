@@ -10,6 +10,10 @@ import nnutil.ui as ui
 window_name = "NN_RingWidth"
 window = None
 
+color_in = (0x80 / 255, 0x40 / 255, 0x40 / 255)  # Align In ボタンの背景色 (#804040)
+color_out = (0x40 / 255, 0x40 / 255, 0x80 / 255)  # Align Out ボタンの背景色 (#404080)
+color_center = (0x80 / 255, 0x60 / 255, 0x40 / 255)  # Align Center ボタンの背景色 (#806040)
+
 
 def get_window():
     return window
@@ -42,10 +46,8 @@ def normalize(v):
         return (0, 0, 0)
 
 
-def set_highlight_appearance(curve):
+def set_highlight_appearance(curve, color=(1.0, 0.0, 0.0)):
     """強調表示用カーブの見た目を設定する (赤・太線)"""
-    color = [1.0, 0.0, 0.0]
-
     curve_shape = cmds.listRelatives(curve, shapes=True, fullPath=True)[0]
     cmds.setAttr(curve + ".overrideEnabled", True)
     cmds.setAttr(curve + ".overrideRGBColors", True)
@@ -146,9 +148,9 @@ class NN_AlignedgeRingWindow(object):
 
                 with ui.row_layout():
                     ui.header(label="Align")
-                    ui.button(label='In', c=self.onAlignInAbsolute)
-                    ui.button(label='Center', c=self.onAlignCenterAbsolute)
-                    ui.button(label='Out', c=self.onAlignOutAbsolute)
+                    ui.button(label='In', c=self.onAlignInAbsolute, bgc=color_in)
+                    ui.button(label='Center', c=self.onAlignCenterAbsolute, bgc=color_center)
+                    ui.button(label='Out', c=self.onAlignOutAbsolute, bgc=color_out)
 
                 ui.separator(width=window_width)
 
@@ -191,9 +193,9 @@ class NN_AlignedgeRingWindow(object):
 
                 with ui.row_layout():
                     ui.header(label="Align")
-                    ui.button(label='In', c=self.onAlignInRelative)
-                    ui.button(label='Center', c=self.onAlignCenterRelative)
-                    ui.button(label='Out', c=self.onAlignOutRelative)
+                    ui.button(label='In', c=self.onAlignInRelative, bgc=color_in)
+                    ui.button(label='Center', c=self.onAlignCenterRelative, bgc=color_center)
+                    ui.button(label='Out', c=self.onAlignOutRelative, bgc=color_out)
 
                 ui.separator(width=window_width)
 
@@ -202,14 +204,14 @@ class NN_AlignedgeRingWindow(object):
                 with ui.row_layout():
                     ui.header(label='Angle')
                     ui.text(label="To Bisector")
-                    ui.button(label='In', c=self.onToBisectorIn)
-                    ui.button(label='Out', c=self.onToBisectorOut)
+                    ui.button(label='In', c=self.onToBisectorIn, bgc=color_in)
+                    ui.button(label='Out', c=self.onToBisectorOut, bgc=color_out)
                     
                 with ui.row_layout():
                     ui.header(label='')
                     ui.text(label="Parallel To")
-                    ui.button(label='In', c=self.onParallelToIn)
-                    ui.button(label='Out', c=self.onParallelToOut)
+                    ui.button(label='In', c=self.onParallelToIn, bgc=color_in)
+                    ui.button(label='Out', c=self.onParallelToOut, bgc=color_out)
                                    
                 ui.separator(width=window_width)
                  
@@ -624,16 +626,22 @@ class NN_AlignedgeRingWindow(object):
                 _, vtxListA, vtxListB, pntListA, pntListB = self._evaluate_ring(selEdges)
 
             if path_length(pntListA) <= path_length(pntListB):
-                innerVtx = vtxListA
+                innerVtx, outerVtx = vtxListA, vtxListB
             else:
-                innerVtx = vtxListB
+                innerVtx, outerVtx = vtxListB, vtxListA
 
-            # 隣り合う内側頂点を結ぶエッジ (ループしている場合は末尾と先頭も繋がる)
-            innerEdges = []
-            for v0, v1 in zip(innerVtx, innerVtx[1:] + innerVtx[:1]):
-                innerEdges += cmds.polyListComponentConversion([v0, v1], fromVertex=True, toEdge=True, internal=True)
+            # 強調表示するエッジ列とその色 (内側は赤、外側は青)
+            highlights = []
+            for vtxList, color in [(innerVtx, (1.0, 0.0, 0.0)), (outerVtx, (0.0, 0.0, 1.0))]:
+                # 隣り合う頂点を結ぶエッジ (ループしている場合は末尾と先頭も繋がる)
+                edges = []
+                for v0, v1 in zip(vtxList, vtxList[1:] + vtxList[:1]):
+                    edges += cmds.polyListComponentConversion([v0, v1], fromVertex=True, toEdge=True, internal=True)
 
-            if not innerEdges:
+                if edges:
+                    highlights.append((edges, color))
+
+            if not highlights:
                 return
 
             # polyToCurve の引数仕様が不明なため引数でのコンポーネント指定をせず選択経由で実行する
@@ -642,8 +650,11 @@ class NN_AlignedgeRingWindow(object):
             hilited_objects = cmds.ls(hilite=True)
             select_types = {x: cmds.selectType(q=True, **{x: True}) for x in ["polymeshVertex", "polymeshEdge", "polymeshFace", "polymeshUV", "polymeshVtxFace"]}
 
-            cmds.select(innerEdges, replace=True)
-            created_nodes = cmds.polyToCurve(form=2, degree=1, conformToSmoothMeshPreview=False)
+            created_curves = []
+            for edges, color in highlights:
+                cmds.select(edges, replace=True)
+                created_nodes = cmds.polyToCurve(form=2, degree=1, conformToSmoothMeshPreview=False)
+                created_curves.append((created_nodes, color))
 
             if is_component_mode:
                 cmds.selectMode(component=True)
@@ -657,9 +668,10 @@ class NN_AlignedgeRingWindow(object):
 
             cmds.select(current_selections, replace=True)
 
-            curve = cmds.rename(created_nodes[0], self.HIGHLIGHT_PREFIX + "curve#")
-            cmds.rename(created_nodes[1], self.HIGHLIGHT_PREFIX + "polyEdgeToCurve#")
-            set_highlight_appearance(curve)
+            for created_nodes, color in created_curves:
+                curve = cmds.rename(created_nodes[0], self.HIGHLIGHT_PREFIX + "curve#")
+                cmds.rename(created_nodes[1], self.HIGHLIGHT_PREFIX + "polyEdgeToCurve#")
+                set_highlight_appearance(curve, color)
 
         finally:
             cmds.undoInfo(stateWithoutFlush=undo_state)
