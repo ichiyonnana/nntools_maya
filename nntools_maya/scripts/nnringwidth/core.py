@@ -853,10 +853,17 @@ class NN_AlignedgeRingWindow(object):
 
         # すべての選択フェイスが選択エッジをふたつ以上持っていればループ
         if startFace is None:
-            startEdge = selEdges[0]
+            startEdge = selEdges[-1]
             faces = cmds.filterExpand(cmds.polyListComponentConversion(
                 startEdge, fe=True, tf=True), sm=34)
             startFace = faces[0]
+
+            # 選択順で最後の 2 エッジが隣接していれば、その間で切って両端にする (共有フェースを処理済みにして反対側へ進める)
+            prevFaces = cmds.filterExpand(cmds.polyListComponentConversion(selEdges[-2], fe=True, tf=True), sm=34)
+            sharedFaces = list(set(faces) & set(prevFaces))
+            if sharedFaces:
+                startFace = sharedFaces[0]
+
             preprocessedFace = startFace
 
         # エッジのソート
