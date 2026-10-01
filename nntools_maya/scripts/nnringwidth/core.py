@@ -3,6 +3,7 @@ import maya.cmds as cmds
 import maya.api.OpenMaya as om
 import math
 
+import nnutil.core as nu
 import nnutil.ui as ui
 
 
@@ -345,8 +346,9 @@ class NN_AlignedgeRingWindow(object):
         edgeCount = len(selEdges)
         newLength = 0
         if edgeCount != 0:
+            sortedSelEdges = self._get_sorted_edges(selEdges)
             v0, v1 = cmds.filterExpand(cmds.polyListComponentConversion(
-                selEdges[0], fe=True, tv=True), sm=31)
+                sortedSelEdges[0], fe=True, tv=True), sm=31)
             p0 = cmds.xform(v0, q=True, ws=True, t=True)
             p1 = cmds.xform(v1, q=True, ws=True, t=True)
             newLength += math.sqrt((p1[0]-p0[0]) **
@@ -363,8 +365,9 @@ class NN_AlignedgeRingWindow(object):
         edgeCount = len(selEdges)
         newLength = 0
         if edgeCount != 0:
+            sortedSelEdges = self._get_sorted_edges(selEdges)
             v0, v1 = cmds.filterExpand(cmds.polyListComponentConversion(
-                selEdges[-1], fe=True, tv=True), sm=31)
+                sortedSelEdges[-1], fe=True, tv=True), sm=31)
             p0 = cmds.xform(v0, q=True, ws=True, t=True)
             p1 = cmds.xform(v1, q=True, ws=True, t=True)
             newLength += math.sqrt((p1[0]-p0[0]) **
@@ -798,6 +801,14 @@ class NN_AlignedgeRingWindow(object):
         self.pntListA = pntListA
         self.pntListB = pntListB
 
+    def _get_sorted_edges(self, selEdges):
+        """選択エッジを Align と同じ順序 (width1 側の端から width2 側の端へ) に並べたリストを返す"""
+        # 選択がキャッシュと同じなら Align と同じ順序を使う
+        if set(selEdges) == set(self.selEdges):
+            return self.sortedSelEdges
+
+        return self._evaluate_ring(selEdges)[0]
+
     def _evaluate_ring(self, selEdges):
         """選択エッジをソートして両側の頂点列に振り分ける
 
@@ -875,6 +886,10 @@ class NN_AlignedgeRingWindow(object):
                     untreatedEdges.remove(shareEdges[0])
                     processedFaces.append(face)
                     existNextEdge = True
+
+        # 同じ選択なら常に同じ向きになるよう、先頭のエッジ ID が末尾より小さくなる向きにそろえる
+        if not nu.get_index(sortedSelEdges[0]) < nu.get_index(sortedSelEdges[-1]):
+            sortedSelEdges.reverse()
 
         edgeCount = len(sortedSelEdges)
 
