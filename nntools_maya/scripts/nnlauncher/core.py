@@ -37,7 +37,7 @@ class NN_ToolWindow(object):
         "nnstraighten",
         "nnlattice",
         "nnlauncher",
-        "altunt",
+        "nnnormal",
         "nnvcolor",
         "nnskin",
         "nnsubdiv",
@@ -134,9 +134,22 @@ class NN_ToolWindow(object):
                 ui.button(label="Reload All", width=ui.width(2.2), height=ui.height(self.common_button_height), c=self.onReloadAll)
                 ui.button(label="Close", width=ui.width(4.4), height=ui.height(self.common_button_height), c=self.onClose)
 
+    def _reset_window_pref(self, module):
+        """Alt が押されていればツールのウィンドウを閉じて windowPref を削除する"""
+        if not ui.is_alt():
+            return
+
+        name = module.window_name
+        if cmds.window(name, exists=True):
+            cmds.deleteUI(name, window=True)
+
+        if cmds.windowPref(name, exists=True):
+            cmds.windowPref(name, remove=True)
+
     def onMirror(self, *args):
         """"""
         import nnmirror.core
+        self._reset_window_pref(nnmirror.core)
         nnmirror.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -144,6 +157,7 @@ class NN_ToolWindow(object):
     def onUV(self, *args):
         """"""
         import nnuvtoolkit.core
+        self._reset_window_pref(nnuvtoolkit.core)
         nnuvtoolkit.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -151,6 +165,7 @@ class NN_ToolWindow(object):
     def onCamera(self, *args):
         """"""
         import nncamera.core
+        self._reset_window_pref(nncamera.core)
         nncamera.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -158,6 +173,7 @@ class NN_ToolWindow(object):
     def onRingWidth(self, *args):
         """"""
         import nnringwidth.core
+        self._reset_window_pref(nnringwidth.core)
         nnringwidth.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -165,6 +181,7 @@ class NN_ToolWindow(object):
     def onCurve(self, *args):
         """"""
         import nncurve.core
+        self._reset_window_pref(nncurve.core)
         nncurve.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -172,6 +189,7 @@ class NN_ToolWindow(object):
     def onSimplify(self, *args):
         """"""
         import nnsimplify.core
+        self._reset_window_pref(nnsimplify.core)
         nnsimplify.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -179,6 +197,7 @@ class NN_ToolWindow(object):
     def onStraighten(self, *args):
         """"""
         import nnstraighten.core
+        self._reset_window_pref(nnstraighten.core)
         nnstraighten.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -186,6 +205,7 @@ class NN_ToolWindow(object):
     def onAlign(self, *args):
         """"""
         import nnalign.core
+        self._reset_window_pref(nnalign.core)
         nnalign.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -193,6 +213,7 @@ class NN_ToolWindow(object):
     def onPrimitive(self, *args):
         """"""
         import nnprimitive.core
+        self._reset_window_pref(nnprimitive.core)
         nnprimitive.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -200,6 +221,7 @@ class NN_ToolWindow(object):
     def onDeform(self, *args):
         """"""
         import nndeform.core
+        self._reset_window_pref(nndeform.core)
         nndeform.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -207,6 +229,7 @@ class NN_ToolWindow(object):
     def onTexture(self, *args):
         """"""
         import nntexture.core
+        self._reset_window_pref(nntexture.core)
         nntexture.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -214,6 +237,7 @@ class NN_ToolWindow(object):
     def onLine(self, *args):
         """"""
         import nnline.core
+        self._reset_window_pref(nnline.core)
         nnline.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -221,20 +245,23 @@ class NN_ToolWindow(object):
     def onLattice(self, *args):
         """"""
         import nnlattice.core
+        self._reset_window_pref(nnlattice.core)
         nnlattice.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
 
     def onNormal(self, *args):
         """"""
-        import altunt.core
-        altunt.core.main()
+        import nnnormal.core
+        self._reset_window_pref(nnnormal.core)
+        nnnormal.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
 
     def onVColor(self, *args):
         """"""
         import nnvcolor.core
+        self._reset_window_pref(nnvcolor.core)
         nnvcolor.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -242,6 +269,7 @@ class NN_ToolWindow(object):
     def onSweep(self, *args):
         """"""
         import nnsweep.core
+        self._reset_window_pref(nnsweep.core)
         nnsweep.core.main()        
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -249,6 +277,7 @@ class NN_ToolWindow(object):
     def onSKin(self, *args):
         """"""
         import nnskin.core
+        self._reset_window_pref(nnskin.core)
         nnskin.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -256,6 +285,7 @@ class NN_ToolWindow(object):
     def onSubdiv(self, *args):
         """"""
         import nnsubdiv.core
+        self._reset_window_pref(nnsubdiv.core)
         nnsubdiv.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -263,6 +293,7 @@ class NN_ToolWindow(object):
     def onAnim(self, *args):
         """"""
         import nnanim.core
+        self._reset_window_pref(nnanim.core)
         nnanim.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -270,6 +301,7 @@ class NN_ToolWindow(object):
     def onTransform(self, *args):
         """"""
         import nntransform.core
+        self._reset_window_pref(nntransform.core)
         nntransform.core.main()
         if not ui.is_shift():
             cmds.deleteUI(self.window, window=True)
@@ -277,7 +309,11 @@ class NN_ToolWindow(object):
     def onCloseAll(self, *args):
         """全ての NNTools ダイアログを閉じる"""
         for module_name in self.all_modules:
-            module = __import__(module_name)
+            try:
+                module = __import__(module_name)
+            except ImportError as e:
+                cmds.warning("%s を読み込めません: %s" % (module_name, e))
+                continue
 
             try:
                 if cmds.window(module.core.window_name, exists=True):
@@ -294,7 +330,11 @@ class NN_ToolWindow(object):
         """全ての NNTools のモジュールをリロードする"""
         for module_name in self.all_modules:
             print("reload %s" % module_name)
-            module = __import__(module_name)
+            try:
+                module = __import__(module_name)
+            except ImportError as e:
+                cmds.warning("%s を読み込めません: %s" % (module_name, e))
+                continue
 
             if sys.version_info.major >= 3:
                 if hasattr(module, "core"):

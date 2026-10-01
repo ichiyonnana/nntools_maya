@@ -4,6 +4,9 @@ import maya.mel as mel
 from . import curve_to_primitive as ctp
 
 
+window_name = "NN_Primitive"
+
+
 def place_primitive_in_front_of_camera(primitive_type='sphere'):
     # 現在アクティブなパネルを取得
     panel = cmds.getPanel(withFocus=True)
@@ -113,7 +116,6 @@ def round_trs(value):
 
 
 def create_ui():
-    window_name = "nnPrimitiveWindow"
     if cmds.window(window_name, exists=True):
         cmds.deleteUI(window_name)
 
