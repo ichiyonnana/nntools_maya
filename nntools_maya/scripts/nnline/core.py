@@ -104,7 +104,12 @@ class NN_ToolWindow(object):
             ui.set_value(self.eb_set_name, set_name)
             return
 
-        node = cmds.createNode("previewObjectSet")
+        transform = cmds.createNode("transform", name="previewObjectSet")
+        node = cmds.createNode("previewObjectSet", name="previewObjectSetShape", parent=transform)
+
+        for attr in ["tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz"]:
+            cmds.setAttr(transform + "." + attr, lock=True)
+
         cmds.setAttr(node + ".overrideEnabled", 1)
         cmds.setAttr(node + ".overrideDisplayType", 2)  # 2 = Reference
         set_name = cmds.getAttr(node + ".setName")
