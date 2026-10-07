@@ -417,10 +417,11 @@ def combine_skined_mesh(objects=None):
     elif not isinstance(objects, list):
         raise(Exception())
 
+    objects = cmds.ls(objects, long=True)
     all_meshes = []
 
     for obj in objects:
-        meshes = cmds.listRelatives(obj, allDescendents=True, noIntermediate=True, type='mesh') or []
+        meshes = cmds.listRelatives(obj, allDescendents=True, noIntermediate=True, type='mesh', fullPath=True) or []
         all_meshes.extend(meshes)
 
     skined_meshes = []
@@ -429,8 +430,8 @@ def combine_skined_mesh(objects=None):
         if cmds.listConnections(mesh, type='skinCluster'):
             skined_meshes.append(mesh)
 
-    name = objects[-1]
-    parent_list = cmds.listRelatives(objects[-1], parent=True)
+    name = objects[-1].split('|')[-1]
+    parent_list = cmds.listRelatives(objects[-1], parent=True, fullPath=True)
     parent = parent_list[0] if parent_list else None
 
     if not skined_meshes:
