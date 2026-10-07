@@ -60,8 +60,13 @@ class NN_ToolWindow(object):
                 ui.button(label="Disable", c=self.on_disable_line_display)
 
             with ui.row_layout():
+                ui.header(label="Style")
+                self.eb_line_width = ui.eb_float(v=4.0, width=ui.width(2), cc=self.on_change_line_width)
+                self.cs_line_color = cmds.colorSliderGrp(rgb=(0.0, 0.0, 0.0), width=ui.width(2), changeCommand=self.on_change_line_color)
+
+            with ui.row_layout():
                 ui.header(label="Set")
-                self.eb_set_name = ui.eb_text(text="")
+                self.eb_set_name = ui.eb_text(text="", width=ui.width(4))
 
             with ui.row_layout():
                 ui.header(label="Edge")
@@ -71,6 +76,10 @@ class NN_ToolWindow(object):
             with ui.row_layout():
                 ui.header(label="Options")
                 ui.button(label="X-Ray Component", c=self.on_toggle_xray_component)
+
+            with ui.row_layout():
+                ui.header(label="Func")
+                ui.button(label="Cleanup Set", c=self.on_cleanup_set)
 
     def _get_set_name(self):
         return ui.get_value(self.eb_set_name)
@@ -95,7 +104,12 @@ class NN_ToolWindow(object):
             ui.set_value(self.eb_set_name, set_name)
             return
 
-        node = cmds.createNode("previewObjectSet")
+        transform = cmds.createNode("transform", name="previewObjectSet")
+        node = cmds.createNode("previewObjectSet", name="previewObjectSetShape", parent=transform)
+
+        for attr in ["tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz"]:
+            cmds.setAttr(transform + "." + attr, lock=True)
+
         cmds.setAttr(node + ".overrideEnabled", 1)
         cmds.setAttr(node + ".overrideDisplayType", 2)  # 2 = Reference
         set_name = cmds.getAttr(node + ".setName")
@@ -156,6 +170,18 @@ class NN_ToolWindow(object):
         for node in cmds.ls(type="previewObjectSet"):
             cmds.setAttr(node + ".display", 0)
 
+    def on_change_line_width(self, *_):
+        """シーン中のすべての previewObjectSet の lineWidth を変更する。"""
+        line_width = ui.get_value(self.eb_line_width)
+        for node in cmds.ls(type="previewObjectSet"):
+            cmds.setAttr(node + ".lineWidth", line_width)
+
+    def on_change_line_color(self, *_):
+        """シーン中のすべての previewObjectSet の lineColor を変更する。"""
+        r, g, b = cmds.colorSliderGrp(self.cs_line_color, q=True, rgb=True)
+        for node in cmds.ls(type="previewObjectSet"):
+            cmds.setAttr(node + ".lineColor", r, g, b, type="float3")
+
     def on_toggle_xray_component(self, *_):
         """全モデルパネルの X-Ray Active Components をトグルする。"""
         panels = cmds.getPanel(type="modelPanel")
@@ -164,6 +190,14 @@ class NN_ToolWindow(object):
         current = cmds.modelEditor(panels[0], q=True, activeComponentsXray=True)
         for panel in panels:
             cmds.modelEditor(panel, e=True, activeComponentsXray=(not current))
+
+    def on_cleanup_set(self, *_):
+        """セット内のエッジ以外のメンバーをセットから除外する。"""
+        set_name = self._get_set_name()
+        if not set_name or not cmds.objExists(set_name):
+            return
+
+        self._remove_non_edges(set_name)
 
 
 def main():
