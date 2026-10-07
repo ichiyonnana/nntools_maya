@@ -406,11 +406,23 @@ class NN_ToolWindow(object):
     def onToggleDisplay(self, *args):
         """シーン内のすべてのイメージプレーンの Display モード (lokking through camera / in all views) をトグルする"""
         ips = cmds.ls(type="imagePlane")
+
+        if not ips:
+            return
+
+        # シーンの最初のイメージプレーンの Display モードを取得し、反転させた値を全てのイメージプレーンに設定する
         current = cmds.getAttr(f"{ips[0]}.displayOnlyIfCurrent")
 
         for ip in ips:
             print(ip)
-            cmds.setAttr(f"{ip}.displayOnlyIfCurrent", not current)
+
+            # リファレンスのイメージプレーンなど変更できないものはスキップする
+            try:
+                cmds.setAttr(f"{ip}.displayOnlyIfCurrent", not current)
+            except RuntimeError as e:
+                cmds.warning(f"{ip}: {e}")
+                continue
+
             print(cmds.getAttr(f"{ip}.displayOnlyIfCurrent"))
 
         cmds.select(ips)
@@ -438,11 +450,16 @@ class NN_ToolWindow(object):
             camera_shape = get_parent_camera(ip_shape)
 
             if camera_shape:
-                # cmds.disconnectAttr(ip_shape + ".lookThroughCamera")
-                cmds.setAttr(ip_shape + ".displayOnlyIfCurrent", True)
-                cmds.connectAttr(camera_shape + ".message", ip_shape + ".lookThroughCamera", force=True)
+                # リファレンスのイメージプレーンなど変更できないものはスキップする
+                try:
+                    # cmds.disconnectAttr(ip_shape + ".lookThroughCamera")
+                    cmds.setAttr(ip_shape + ".displayOnlyIfCurrent", True)
+                    cmds.connectAttr(camera_shape + ".message", ip_shape + ".lookThroughCamera", force=True)
 
-                cmds.imagePlane(ip_shape, e=True, lookThrough=camera_shape, showInAllViews=False)
+                    cmds.imagePlane(ip_shape, e=True, lookThrough=camera_shape, showInAllViews=False)
+
+                except RuntimeError as e:
+                    cmds.warning(f"{ip_shape}: {e}")
 
     def onCreateImageplane(self, *args):
         """"""
