@@ -1,5 +1,8 @@
+import collections
+import itertools
 import re
 
+import maya.api.OpenMaya as om
 import maya.cmds as cmds
 import maya.mel as mel
 
@@ -271,29 +274,124 @@ def rotate_uv(angle):
     mel.eval("polyRotateUVs %f 1" % angle)
 
 
-@nd.repeatable
-def project_planer_x():
-    mel.eval("polyProjection -type Planar -ibd on -kir -md x")
+def _get_uv_shell_ids(node):
+    """node のカレント UV セットの、UV インデックスごとの UV シェル ID を返す"""
+    selection_list = om.MSelectionList()
+    selection_list.add(node)
+    dag_path = selection_list.getDagPath(0).extendToShape()
+
+    return om.MFnMesh(dag_path).getUvShellsIds()[1]
+
+
+def _get_uv_center_and_area(faces):
+    """faces の UV のバウンディングボックス中心と UV 面積の合計を返す。UV が無ければ None"""
+    uvs = cmds.polyListComponentConversion(faces, fromFace=True, toUV=True)
+
+    if not uvs:
+        return None
+
+    coords = cmds.polyEditUV(uvs, q=True)
+    us = coords[0::2]
+    vs = coords[1::2]
+    center = ((min(us) + max(us)) / 2, (min(vs) + max(vs)) / 2)
+    area = sum(abs(face_area) for face_area in cmds.polyEvaluate(faces, uvFaceArea=True))
+
+    return center, area
+
+
+def _restore_uv_center_and_area(faces, center, area):
+    """faces の UV をスケールと移動で、UV 面積の合計とバウンディングボックス中心が指定の値になるようにする"""
+    current = _get_uv_center_and_area(faces)
+
+    if current is None:
+        return
+
+    current_center, current_area = current
+    uvs = cmds.polyListComponentConversion(faces, fromFace=True, toUV=True)
+
+    # 3D の面積は変わらないので、UV 面積を戻せばテクセル密度も戻る
+    if area > 0 and current_area > 0:
+        scale = (area / current_area) ** 0.5
+        cmds.polyEditUV(uvs, pivotU=current_center[0], pivotV=current_center[1], scaleU=scale, scaleV=scale)
+
+    cmds.polyEditUV(uvs, uValue=center[0] - current_center[0], vValue=center[1] - current_center[1])
+
+
+def _project_planer(projection_command, each_shell, keep_position):
+    """
+    projection_command を実行する
+    each_shell なら選択をフェースに変換して現在の UV シェルごとに分け、シェルごとに実行する
+    keep_position なら実行単位ごとに、実行後の UV のバウンディングボックス中心とテクセル密度を実行前の値に戻す
+    each_shell / keep_position のどちらかが有効なら、選択は実行前の状態に戻す
+    """
+    if not each_shell and not keep_position:
+        mel.eval(projection_command)
+
+        return
+
+    selection = cmds.ls(selection=True)
+    faces = cmds.filterExpand(cmds.polyListComponentConversion(selection, toFace=True), selectionMask=34) or []
+
+    if each_shell:
+        face_groups = _group_faces_by_uv_shell(faces)
+    else:
+        face_groups = [faces] if faces else []
+
+    for faces_in_group in face_groups:
+        center_and_area = _get_uv_center_and_area(faces_in_group) if keep_position else None
+
+        cmds.select(faces_in_group, replace=True)
+        mel.eval(projection_command)
+
+        if center_and_area is not None:
+            _restore_uv_center_and_area(faces_in_group, *center_and_area)
+
+    cmds.select(selection, replace=True)
+
+
+def _group_faces_by_uv_shell(faces):
+    """faces を現在の UV シェルごとに分けたフェースのリストのリストを返す"""
+    # (ノード名, シェル ID) ごとにフェースを分ける。シェル ID はフェースの最初の UV のもの。UV の無いフェースは 1 つにまとめる
+    shell_faces = collections.defaultdict(list)
+    shell_ids_by_node = dict()
+    for face in faces:
+        node = re.match(r"(.+)\.f\[\d+\]", face).groups()[0]
+        uvs = cmds.filterExpand(cmds.polyListComponentConversion(face, fromFace=True, toUV=True), selectionMask=35)
+        shell_id = None
+        if uvs:
+            if node not in shell_ids_by_node:
+                shell_ids_by_node[node] = _get_uv_shell_ids(node)
+
+            shell_id = shell_ids_by_node[node][int(re.search(r"\.map\[(\d+)\]", uvs[0]).groups()[0])]
+
+        shell_faces[(node, shell_id)].append(face)
+
+    return list(shell_faces.values())
 
 
 @nd.repeatable
-def project_planer_y():
-    mel.eval("polyProjection -type Planar -ibd on -kir -md y")
+def project_planer_x(each_shell=False, keep_position=False):
+    _project_planer("polyProjection -type Planar -ibd on -kir -md x", each_shell, keep_position)
 
 
 @nd.repeatable
-def project_planer_z():
-    mel.eval("polyProjection -type Planar -ibd on -kir -md z")
+def project_planer_y(each_shell=False, keep_position=False):
+    _project_planer("polyProjection -type Planar -ibd on -kir -md y", each_shell, keep_position)
 
 
 @nd.repeatable
-def project_planer_camera():
-    mel.eval("polyProjection -type Planar -ibd on -kir -md camera")
+def project_planer_z(each_shell=False, keep_position=False):
+    _project_planer("polyProjection -type Planar -ibd on -kir -md z", each_shell, keep_position)
 
 
 @nd.repeatable
-def project_planer_best():
-    mel.eval("polyProjection -type Planar -ibd on -kir -md b;")
+def project_planer_camera(each_shell=False, keep_position=False):
+    _project_planer("polyProjection -type Planar -ibd on -kir -md camera", each_shell, keep_position)
+
+
+@nd.repeatable
+def project_planer_best(each_shell=False, keep_position=False):
+    _project_planer("polyProjection -type Planar -ibd on -kir -md b;", each_shell, keep_position)
 
 
 @nd.repeatable
@@ -501,6 +599,11 @@ def set_edge_texel(target_texel, mapsize, mode):
     if not isEdgeSelection and not isUVSelection:
         return
 
+    if mode in ("u_min", "u_max", "v_min", "v_max"):
+        _set_edge_texel_along_axis(targetUVsList, target_texel=target_texel, mapsize=mapsize, mode=mode)
+
+        return
+
     for uvPair in targetUVsList:
         uv1 = cmds.polyEditUV(uvPair[0], q=True)  # ペアの 1 つめの UV座標を持つリスト
         uv2 = cmds.polyEditUV(uvPair[1], q=True)  # ペアの 2 つめの UV座標を持つリスト
@@ -509,59 +612,83 @@ def set_edge_texel(target_texel, mapsize, mode):
         p1 = cmds.xform(vtxComponent1, q=True, ws=True, t=True)  # uv1 の XYZ 座標
         p2 = cmds.xform(vtxComponent2, q=True, ws=True, t=True)  # uv2 の XYZ 座標
         geoLength = nu.distance(p1, p2)
-        uLength = abs(uv2[0] - uv1[0])
-        vLength = abs(uv2[1] - uv1[1])
         uvLength = nu.distance2d(uv1, uv2)
 
-        if mode == "u_min":
-            currentTexel = uLength / geoLength * mapsize
-            scale = target_texel / currentTexel
-            pivU = min(uv1[0], uv2[0])
-            pivV = 0
-            cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=scale, sv=1)
-            cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=scale, sv=1)
+        print(MSG_NOT_IMPLEMENTED)
+        currentTexel = uvLength / geoLength * mapsize
+        scale = target_texel / currentTexel
+        cmds.polyEditUV(uvPair[0], pu=uv1[0], pv=uv1[1], su=scale, sv=scale)
+        cmds.polyEditUV(uvPair[1], pu=uv1[0], pv=uv1[1], su=scale, sv=scale)
 
-        elif mode == "u_max":
-            currentTexel = uLength / geoLength * mapsize
-            scale = target_texel / currentTexel
-            pivU = max(uv1[0], uv2[0])
-            pivV = 0
-            cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=scale, sv=1)
-            cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=scale, sv=1)
 
-        elif mode == "v_min":
-            currentTexel = vLength / geoLength * mapsize
-            scale = target_texel / currentTexel
-            pivU = 0
-            pivV = min(uv1[1], uv2[1])
-            cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=1, sv=scale)
-            cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=1, sv=scale)
+def _set_edge_texel_along_axis(targetUVsList, target_texel, mapsize, mode):
+    """
+    UVペアの U または V 方向の長さを指定のテクセル密度にする
+    ペアごとに順にスケールすると動いた UV が隣の UV を追い越して向きが反転するため、
+    処理前の座標で各ペアの向きを記録しておき、連結した UV ごとに起点から長さを積み上げて座標を決める
+    起点は連結した UV のうち min モードなら最小、max モードなら最大の座標を持つ UV で、起点自身は動かない
+    """
+    axis = 0 if mode in ("u_min", "u_max") else 1
+    useMin = mode in ("u_min", "v_min")
 
-        elif mode == "v_max":
-            currentTexel = vLength / geoLength * mapsize
-            scale = target_texel / currentTexel
-            pivU = 0
-            pivV = max(uv1[1], uv2[1])
-            cmds.polyEditUV(uvPair[0], pu=pivU, pv=pivV, su=1, sv=scale)
-            cmds.polyEditUV(uvPair[1], pu=pivU, pv=pivV, su=1, sv=scale)
+    # 処理前の UV 座標
+    uvCoords = dict()
+    for uvPair in targetUVsList:
+        for uvComp in uvPair:
+            if uvComp not in uvCoords:
+                uvCoords[uvComp] = cmds.polyEditUV(uvComp, q=True)
 
+    # UV ごとに隣接する UV と、処理後の (隣接 UV の座標 - 自身の座標) を持つ
+    adjacency = {uvComp: [] for uvComp in uvCoords}
+    for uvPair in targetUVsList:
+        vtxComponent1 = cmds.polyListComponentConversion(uvPair[0], fromUV=True, toVertex=True)
+        vtxComponent2 = cmds.polyListComponentConversion(uvPair[1], fromUV=True, toVertex=True)
+        p1 = cmds.xform(vtxComponent1, q=True, worldSpace=True, translation=True)
+        p2 = cmds.xform(vtxComponent2, q=True, worldSpace=True, translation=True)
+        targetLength = nu.distance(p1, p2) * target_texel / mapsize
+
+        # 処理前の向きを保つ。同じ座標にある UV 同士は同じ座標のままにする
+        diff = uvCoords[uvPair[1]][axis] - uvCoords[uvPair[0]][axis]
+        sign = (diff > 0) - (diff < 0)
+        adjacency[uvPair[0]].append((uvPair[1], sign * targetLength))
+        adjacency[uvPair[1]].append((uvPair[0], -sign * targetLength))
+
+    newCoords = dict()  # 処理後の axis 方向の座標
+    for startUV in uvCoords:
+        if startUV in newCoords:
+            continue
+
+        # startUV と連結した UV を集める
+        component = [startUV]
+        visited = {startUV}
+        queue = collections.deque([startUV])
+        while queue:
+            uvComp = queue.popleft()
+            for neighbor, _ in adjacency[uvComp]:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    component.append(neighbor)
+                    queue.append(neighbor)
+
+        # 起点から辿って座標を決める。ループしている場合は先に決まった座標を優先する
+        if useMin:
+            anchor = min(component, key=lambda uvComp: uvCoords[uvComp][axis])
         else:
-            print(MSG_NOT_IMPLEMENTED)
-            currentTexel = uvLength / geoLength * mapsize
-            scale = target_texel / currentTexel
-            cmds.polyEditUV(uvPair[0], pu=uv1[0], pv=uv1[1], su=scale, sv=scale)
-            cmds.polyEditUV(uvPair[1], pu=uv1[0], pv=uv1[1], su=scale, sv=scale)
+            anchor = max(component, key=lambda uvComp: uvCoords[uvComp][axis])
 
+        newCoords[anchor] = uvCoords[anchor][axis]
+        queue = collections.deque([anchor])
+        while queue:
+            uvComp = queue.popleft()
+            for neighbor, offset in adjacency[uvComp]:
+                if neighbor not in newCoords:
+                    newCoords[neighbor] = newCoords[uvComp] + offset
+                    queue.append(neighbor)
 
-@nd.repeatable
-def ari_uvratio():
-    mel.eval("AriUVRatio")
-
-
-@nd.repeatable
-def ari_uvratio_options():
-    mel.eval("AriUVRatioOptions")
-
+    for uvComp, coord in newCoords.items():
+        newCoord = list(uvCoords[uvComp])
+        newCoord[axis] = coord
+        cmds.polyEditUV(uvComp, uValue=newCoord[0], vValue=newCoord[1], relative=False)
 
 def _unfold_unpinned(unfold_command):
     """選択を UV に変換し、ピンされた UV を除外して unfold を実行する。選択は実行前の状態に戻す"""
@@ -586,6 +713,64 @@ def unfold_u():
 @nd.repeatable
 def unfold_v():
     _unfold_unpinned("unfold -i 5000 -ss 0.001 -gb 0 -gmb 0.5 -pub 0 -ps 0 -oa 1 -us off")
+
+
+@nd.repeatable
+def texel_equalize():
+    """選択 UV を UV シェルごとに分けて、それぞれ _texel_equalize_uvs で並べ直す"""
+    selection = cmds.ls(selection=True)
+    uvs = cmds.filterExpand(cmds.polyListComponentConversion(selection, toUV=True), selectionMask=35) or []
+
+    # (ノード名, シェル ID) ごとに UV を分ける
+    shell_uvs = collections.defaultdict(list)
+    shell_ids_by_node = dict()
+    for uv in uvs:
+        node, uv_index = re.match(r"(.+)\.map\[(\d+)\]", uv).groups()
+        if node not in shell_ids_by_node:
+            shell_ids_by_node[node] = _get_uv_shell_ids(node)
+
+        shell_uvs[(node, shell_ids_by_node[node][int(uv_index)])].append(uv)
+
+    for uvs_in_shell in shell_uvs.values():
+        _texel_equalize_uvs(uvs_in_shell)
+
+
+def _texel_equalize_uvs(uvs):
+    """
+    UV のうち最も離れた 2 点を結ぶ直線上に UV を並べ直し、テクセル密度を統一する
+    2 点は動かさず、間の UV は直線へ射影した位置の順に、隣り合う UV の頂点間の 3D 距離に比例する間隔で配置する
+    統一後のテクセル密度は 2 点間の UV 距離と、並べた順に辿った 3D 距離の合計で決まる
+    """
+    if len(uvs) < 3:
+        return
+
+    uv_points = [om.MPoint(u, v, 0) for u, v in (cmds.polyEditUV(uv, q=True) for uv in uvs)]
+
+    # 最も離れた 2 点
+    start_index, end_index = max(itertools.combinations(range(len(uvs)), 2), key=lambda pair: uv_points[pair[0]].distanceTo(uv_points[pair[1]]))
+    start_point = uv_points[start_index]
+    direction = uv_points[end_index] - start_point
+
+    if direction.length() == 0:
+        return
+
+    # 間の UV は直線へ射影した位置の順に並べる
+    middle_indices = [i for i in range(len(uvs)) if i not in (start_index, end_index)]
+    middle_indices.sort(key=lambda i: (uv_points[i] - start_point) * direction)
+    ordered_indices = [start_index] + middle_indices + [end_index]
+
+    positions = [om.MPoint(cmds.xform(cmds.polyListComponentConversion(uvs[i], fromUV=True, toVertex=True), q=True, worldSpace=True, translation=True)) for i in ordered_indices]
+    lengths = [positions[i].distanceTo(positions[i + 1]) for i in range(len(positions) - 1)]
+    total_length = sum(lengths)
+
+    if total_length == 0:
+        return
+
+    accumulated_length = 0.0
+    for i, uv_index in enumerate(middle_indices):
+        accumulated_length += lengths[i]
+        new_point = start_point + direction * (accumulated_length / total_length)
+        cmds.polyEditUV(uvs[uv_index], uValue=new_point.x, vValue=new_point.y, relative=False)
 
 
 @nd.repeatable
@@ -859,12 +1044,14 @@ class NN_ToolWindow(object):
                 ui.button(label='X', c=self.onPlanerX, bgc=ui.color_x)
                 ui.button(label='Y', c=self.onPlanerY, bgc=ui.color_y)
                 ui.button(label='Z', c=self.onPlanerZ, bgc=ui.color_z)
-                ui.button(label='Camera', c=self.onPlanerCamera)
+                #ui.button(label='Camera', c=self.onPlanerCamera)
                 ui.button(label='Best', c=self.onPlanerBest)
+                self.cb_projection_each_shell = ui.check_box(label="each shell")
+                self.cb_projection_keep_pos = ui.check_box(label="keep pos")
 
             # Align & Snap
             with ui.row_layout():
-                ui.header(label='Align & Snap')
+                ui.header(label='Align')
                 ui.button(label='Border', c=self.onStraightenBorder)
                 ui.button(label='Inner', c=self.onStraightenInner)
                 ui.button(label='All', c=self.onStraightenAll)
@@ -917,10 +1104,10 @@ class NN_ToolWindow(object):
                 ui.button(label='Set', c=self.onSetTexel)
                 ui.button(label='U', c=self.onSetEdgeTexelUMin, dgc=self.onSetEdgeTexelUMax, bgc=ui.color_u, annotation="L: base on Min\nM: base on Max")
                 ui.button(label='V', c=self.onSetEdgeTexelVMin, dgc=self.onSetEdgeTexelVMax, bgc=ui.color_v, annotation="L: base on Min\nM: base on Max")
+                ui.button(label='Equalize', c=self.onTexelEqualize)
 
             with ui.row_layout():
                 ui.header(label='')
-                ui.button(label='AriUVRatio', c=self.onUVRatio, dgc=self.onUVRatioOptions, annotation="L: AriUVRatio\nM: Options")
                 ui.button(label='UnfoldU', c=self.onUnfoldU, bgc=ui.color_u)
                 ui.button(label='UnfoldV', c=self.onUnfoldV, bgc=ui.color_v)
 
@@ -1089,23 +1276,23 @@ class NN_ToolWindow(object):
 
     @nd.undo_chunk
     def onPlanerX(self, *args):
-        project_planer_x()
+        project_planer_x(each_shell=ui.get_value(self.cb_projection_each_shell), keep_position=ui.get_value(self.cb_projection_keep_pos))
 
     @nd.undo_chunk
     def onPlanerY(self, *args):
-        project_planer_y()
+        project_planer_y(each_shell=ui.get_value(self.cb_projection_each_shell), keep_position=ui.get_value(self.cb_projection_keep_pos))
 
     @nd.undo_chunk
     def onPlanerZ(self, *args):
-        project_planer_z()
+        project_planer_z(each_shell=ui.get_value(self.cb_projection_each_shell), keep_position=ui.get_value(self.cb_projection_keep_pos))
 
     @nd.undo_chunk
     def onPlanerCamera(self, *args):
-        project_planer_camera()
+        project_planer_camera(each_shell=ui.get_value(self.cb_projection_each_shell), keep_position=ui.get_value(self.cb_projection_keep_pos))
 
     @nd.undo_chunk
     def onPlanerBest(self, *args):
-        project_planer_best()
+        project_planer_best(each_shell=ui.get_value(self.cb_projection_each_shell), keep_position=ui.get_value(self.cb_projection_keep_pos))
 
     @nd.undo_chunk
     def onStraightenBorder(self, *args):
@@ -1205,6 +1392,10 @@ class NN_ToolWindow(object):
         mapsize = ui.get_value(self.mapSize)
         mode = "v_max"
         set_edge_texel(target_texel=target_texel, mapsize=mapsize, mode=mode)
+
+    @nd.undo_chunk
+    def onTexelEqualize(self, *args):
+        texel_equalize()
 
     @nd.undo_chunk
     def onUVRatio(self, *args):
