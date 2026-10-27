@@ -482,18 +482,6 @@ def _rectilinearize(corner_uv_comps=None, target_texel=15, map_size=1024):
 
 
 @nd.repeatable
-def change_uvtk_texel_value(texel):
-    """ UVToolkit のテクセル値フィールドを設定する"""
-    mel.eval("floatField -e -v %f uvTkTexelDensityField" % texel)
-
-
-@nd.repeatable
-def change_uvtk_map_size(mapsize):
-    """mapSize 変更時に UVToolkit のフィールドを同じ値に変更する"""
-    mel.eval("intField -e -v %d uvTkTexelDensityMapSizeField" % mapsize)
-
-
-@nd.repeatable
 def get_texel(eb_texel, mapsize):
     """
     UVシェル、もしくはUVエッジのテクセルを設定
@@ -504,9 +492,8 @@ def get_texel(eb_texel, mapsize):
     isUVSelection = cmds.selectType(q=True, puv=True)
 
     if isUVShellSelection or isFaceSelection:
-        # UVToolkit の機能でテクセル取得
-        mel.eval("uvTkDoGetTexelDensity")
-        uvTkTexel = mel.eval("floatField -q -v uvTkTexelDensityField")
+        # Maya の機能でテクセル取得
+        uvTkTexel = mel.eval("texGetTexelDensity(%d)" % mapsize)
 
         # ダイアログの値更新
         ui.set_value(eb_texel, uvTkTexel)
@@ -527,8 +514,6 @@ def get_texel(eb_texel, mapsize):
 
         # ダイアログの値を更新
         ui.set_value(eb_texel, currentTexel)
-        # UVToolkit の値を更新
-        mel.eval("floatField -e -v %f uvTkTexelDensityField" % currentTexel)
     else:
         print(MSG_NOT_IMPLEMENTED)
 
@@ -1095,8 +1080,8 @@ class NN_ToolWindow(object):
             with ui.row_layout():
                 ui.header(label='Optimize')
                 ui.button(label='Get', c=self.onGetTexel)
-                self.texel = ui.eb_float(cc=self.onChangeTexel, v=10, width=ui.button_width2)
-                self.mapSize = ui.eb_int(cc=self.onChangeMapSize, width=ui.button_width1_5)
+                self.texel = ui.eb_float(v=10, width=ui.button_width2)
+                self.mapSize = ui.eb_int(width=ui.button_width1_5)
                 ui.text(label='px')
 
             with ui.row_layout():
@@ -1199,13 +1184,6 @@ class NN_ToolWindow(object):
                 ui.header(label="")
                 ui.button(label="Grid Layout", c=self.onGridLayout)
                 ui.button(label="Parent to UVEditor", c=self.onParentToUVEditor)
-
-    def initialize(self):
-        # テクセルとマップサイズを UVToolkit から取得
-        uvtkTexel = mel.eval("floatField -q -v uvTkTexelDensityField")
-        uvtkMapSize = mel.eval("intField -q -v uvTkTexelDensityMapSizeField")
-        ui.set_value(self.texel, uvtkTexel)
-        ui.set_value(self.mapSize, uvtkMapSize)
 
     # ハンドラ
     @nd.undo_chunk
@@ -1319,18 +1297,6 @@ class NN_ToolWindow(object):
         target_texel = ui.get_value(self.texel)
         map_size = ui.get_value(self.mapSize)
         _rectilinearize(target_texel=target_texel, map_size=map_size)
-
-    @nd.undo_chunk
-    def onChangeTexel(self, *args):
-        """ エディットボックスの値変更ハンドラ。texel 変更時に UVToolkit のフィールドを同じ値に変更する"""
-        texel = ui.get_value(self.texel)
-        change_uvtk_texel_value(texel=texel)
-
-    @nd.undo_chunk
-    def onChangeMapSize(self, *args):
-        """ エディットボックスの値変更ハンドラ。mapSize 変更時に UVToolkit のフィールドを同じ値に変更する"""
-        mapsize = ui.get_value(self.mapSize)
-        change_uvtk_map_size(mapsize=mapsize)
 
     @nd.undo_chunk
     def onGetTexel(self, *args):
@@ -1630,8 +1596,10 @@ def showNNToolWindow():
 
 def main():
     mel.eval("TextureViewWindow")
-    mel.eval("workspaceControl -e -visible true UVToolkitDockControl;")
-    mel.eval("workspaceControl -e -close UVToolkitDockControl;")
+
+    if cmds.workspaceControl("UVToolkitDockControl", exists=True):
+        cmds.workspaceControl("UVToolkitDockControl", e=True, close=True)
+
     showNNToolWindow()
 
 
