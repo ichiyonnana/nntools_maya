@@ -1,5 +1,6 @@
 import collections
 import itertools
+import math
 import re
 
 import maya.api.OpenMaya as om
@@ -482,18 +483,6 @@ def _rectilinearize(corner_uv_comps=None, target_texel=15, map_size=1024):
 
 
 @nd.repeatable
-def change_uvtk_texel_value(texel):
-    """ UVToolkit のテクセル値フィールドを設定する"""
-    mel.eval("floatField -e -v %f uvTkTexelDensityField" % texel)
-
-
-@nd.repeatable
-def change_uvtk_map_size(mapsize):
-    """mapSize 変更時に UVToolkit のフィールドを同じ値に変更する"""
-    mel.eval("intField -e -v %d uvTkTexelDensityMapSizeField" % mapsize)
-
-
-@nd.repeatable
 def get_texel(eb_texel, mapsize):
     """
     UVシェル、もしくはUVエッジのテクセルを設定
@@ -504,9 +493,8 @@ def get_texel(eb_texel, mapsize):
     isUVSelection = cmds.selectType(q=True, puv=True)
 
     if isUVShellSelection or isFaceSelection:
-        # UVToolkit の機能でテクセル取得
-        mel.eval("uvTkDoGetTexelDensity")
-        uvTkTexel = mel.eval("floatField -q -v uvTkTexelDensityField")
+        # Maya の機能でテクセル取得
+        uvTkTexel = mel.eval("texGetTexelDensity(%d)" % mapsize)
 
         # ダイアログの値更新
         ui.set_value(eb_texel, uvTkTexel)
@@ -527,8 +515,6 @@ def get_texel(eb_texel, mapsize):
 
         # ダイアログの値を更新
         ui.set_value(eb_texel, currentTexel)
-        # UVToolkit の値を更新
-        mel.eval("floatField -e -v %f uvTkTexelDensityField" % currentTexel)
     else:
         print(MSG_NOT_IMPLEMENTED)
 
@@ -886,6 +872,77 @@ def normalize():
 
 
 @nd.repeatable
+def layout_shells(mapsize, margin, scale):
+    """選択を含む UV シェル全体を、選択シェルのバウンディングボックス内にレイアウトする
+
+    シェル間のパディングは既定値の場合 mipmap を考慮してテクスチャ長辺の 1/128 取る
+
+    Args:
+        mapsize (int): テクスチャの解像度 (px)
+        margin (int): シェル間の間隔 (px)。負数の場合は既定値を使う
+        scale (bool): False の場合は u3dLayout に layoutScaleMode=1 を指定する
+    """
+    # 一部のフェースのみの選択でもシェル全体を対象にする
+    cmds.select(cmds.polyListComponentConversion(toUV=True), replace=True)
+    mel.eval("polySelectBorderShell 0")
+    uvs = cmds.ls(selection=True, flatten=True)
+
+    if not uvs:
+        return
+
+    # シェル間隔とタイル余白をピクセルで決めてから UV 空間の値に変換する
+    if margin < 0:
+        spacing_px = mapsize / 128.0
+        tile_margin_px = mapsize / 256.0
+    else:
+        spacing_px = float(margin)
+        tile_margin_px = spacing_px / 2
+
+    spacing = spacing_px / mapsize
+    tile_margin = tile_margin_px / mapsize
+
+    # 選択 UV のバウンディングボックスを求める
+    coords = cmds.polyEditUV(uvs, q=True)
+    umin, umax = min(coords[0::2]), max(coords[0::2])
+    vmin, vmax = min(coords[1::2]), max(coords[1::2])
+
+    # -mar は box の内側に取られるため、実行のたびに mar 分ずれないよう box を mar だけ外側に広げる
+    umin -= tile_margin
+    umax += tile_margin
+    vmin -= tile_margin
+    vmax += tile_margin
+    faces = cmds.filterExpand(cmds.polyListComponentConversion(uvs, fromUV=True, toFace=True), selectionMask=34)
+
+    # -res はパッキングのラスタ解像度で、低いとシェル間隔の誤差が大きくなるため 4096 を下限にする
+    resolution = max(mapsize, 4096)
+
+    # -spc は UV 座標値ではなくシェルの大きさに対する比率なので、UV 空間での間隔になるよう逆算する
+    # -mar は UV 座標値そのままなので変換しない
+    if scale:
+        # シェルのスケールが有効の場合、事前に spc が求められないため一度レイアウトした結果の大きさを元に spc を再計算しもう一度レイアウトする
+        cmds.u3dLayout(uvs, resolution=resolution, shellSpacing=spacing / _get_layout_spacing_base(faces), tileMargin=tile_margin, packBox=(umin, umax, vmin, vmax))
+        cmds.u3dLayout(uvs, resolution=resolution, shellSpacing=spacing / _get_layout_spacing_base(faces), tileMargin=tile_margin, packBox=(umin, umax, vmin, vmax))
+    else:
+        cmds.u3dLayout(uvs, resolution=resolution, shellSpacing=spacing / _get_layout_spacing_base(faces), tileMargin=tile_margin, packBox=(umin, umax, vmin, vmax), layoutScaleMode=1)
+
+
+def _get_layout_spacing_base(faces):
+    """u3dLayout の -spc の基準となる長さを返す
+
+    実測では、レイアウト後のシェル間隔は -spc x sqrt(UV 面積の合計 + シェルごとの UV バウンディングボックス面積の合計) になる
+    """
+    area = sum(abs(face_area) for face_area in cmds.polyEvaluate(faces, uvFaceArea=True))
+
+    for shell_faces in _group_faces_by_uv_shell(faces):
+        coords = cmds.polyEditUV(cmds.polyListComponentConversion(shell_faces, fromFace=True, toUV=True), q=True)
+        us = coords[0::2]
+        vs = coords[1::2]
+        area += (max(us) - min(us)) * (max(vs) - min(vs))
+
+    return math.sqrt(area)
+
+
+@nd.repeatable
 def uv_lattice_tool():
     mel.eval("LatticeUVTool")
 
@@ -1095,8 +1152,8 @@ class NN_ToolWindow(object):
             with ui.row_layout():
                 ui.header(label='Optimize')
                 ui.button(label='Get', c=self.onGetTexel)
-                self.texel = ui.eb_float(cc=self.onChangeTexel, v=10, width=ui.button_width2)
-                self.mapSize = ui.eb_int(cc=self.onChangeMapSize, width=ui.button_width1_5)
+                self.texel = ui.eb_float(v=10, width=ui.button_width2)
+                self.mapSize = ui.eb_int(width=ui.button_width1_5)
                 ui.text(label='px')
 
             with ui.row_layout():
@@ -1133,6 +1190,13 @@ class NN_ToolWindow(object):
                 ui.button(label='Stack', c=self.onStack)
                 ui.button(label='Unstack', c=self.onUnStack)
                 ui.button(label='Normalize', c=self.onNormalize)
+
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='Layout', c=self.onLayout, width=ui.width(4))
+                ui.text(label='margin (px):')
+                self.layout_margin = ui.eb_int(v=-1, width=ui.width(1))
+                self.cb_layout_scale = ui.check_box(label="scale", v=False)
 
             # Tools
             with ui.row_layout():
@@ -1199,13 +1263,6 @@ class NN_ToolWindow(object):
                 ui.header(label="")
                 ui.button(label="Grid Layout", c=self.onGridLayout)
                 ui.button(label="Parent to UVEditor", c=self.onParentToUVEditor)
-
-    def initialize(self):
-        # テクセルとマップサイズを UVToolkit から取得
-        uvtkTexel = mel.eval("floatField -q -v uvTkTexelDensityField")
-        uvtkMapSize = mel.eval("intField -q -v uvTkTexelDensityMapSizeField")
-        ui.set_value(self.texel, uvtkTexel)
-        ui.set_value(self.mapSize, uvtkMapSize)
 
     # ハンドラ
     @nd.undo_chunk
@@ -1319,18 +1376,6 @@ class NN_ToolWindow(object):
         target_texel = ui.get_value(self.texel)
         map_size = ui.get_value(self.mapSize)
         _rectilinearize(target_texel=target_texel, map_size=map_size)
-
-    @nd.undo_chunk
-    def onChangeTexel(self, *args):
-        """ エディットボックスの値変更ハンドラ。texel 変更時に UVToolkit のフィールドを同じ値に変更する"""
-        texel = ui.get_value(self.texel)
-        change_uvtk_texel_value(texel=texel)
-
-    @nd.undo_chunk
-    def onChangeMapSize(self, *args):
-        """ エディットボックスの値変更ハンドラ。mapSize 変更時に UVToolkit のフィールドを同じ値に変更する"""
-        mapsize = ui.get_value(self.mapSize)
-        change_uvtk_map_size(mapsize=mapsize)
 
     @nd.undo_chunk
     def onGetTexel(self, *args):
@@ -1521,6 +1566,13 @@ class NN_ToolWindow(object):
     def onNormalize(self, *args):
         normalize()
 
+    @nd.undo_chunk
+    def onLayout(self, *args):
+        mapsize = ui.get_value(self.mapSize)
+        margin = ui.get_value(self.layout_margin)
+        scale = ui.get_value(self.cb_layout_scale)
+        layout_shells(mapsize=mapsize, margin=margin, scale=scale)
+
     # Tool
     @nd.undo_chunk
     def onUVLatticeTool(self, *args):
@@ -1630,8 +1682,10 @@ def showNNToolWindow():
 
 def main():
     mel.eval("TextureViewWindow")
-    mel.eval("workspaceControl -e -visible true UVToolkitDockControl;")
-    mel.eval("workspaceControl -e -close UVToolkitDockControl;")
+
+    if cmds.workspaceControl("UVToolkitDockControl", exists=True):
+        cmds.workspaceControl("UVToolkitDockControl", e=True, close=True)
+
     showNNToolWindow()
 
 
