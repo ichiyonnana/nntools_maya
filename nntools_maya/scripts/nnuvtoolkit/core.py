@@ -563,20 +563,29 @@ def ari_uvratio_options():
     mel.eval("AriUVRatioOptions")
 
 
+def _unfold_unpinned(unfold_command):
+    """選択を UV に変換し、ピンされた UV を除外して unfold を実行する。選択は実行前の状態に戻す"""
+    selection = cmds.ls(selection=True)
+    uvs = cmds.filterExpand(cmds.polyListComponentConversion(selection, tuv=True), selectionMask=35) or []
+
+    # unfold はピンを無視するため、ピンされた UV を処理対象から外す
+    unpinned_uvs = [uv for uv in uvs if not cmds.polyPinUV(uv, query=True, value=True)[0]]
+
+    if unpinned_uvs:
+        cmds.select(unpinned_uvs, replace=True)
+        mel.eval(unfold_command)
+
+    cmds.select(selection, replace=True)
+
+
 @nd.repeatable
 def unfold_u():
-    selection = cmds.ls(selection=True)
-    new_selection = cmds.polyListComponentConversion(selection, tuv=True)
-    cmds.select(new_selection, replace=True)
-    mel.eval("unfold -i 5000 -ss 0.001 -gb 0 -gmb 0.5 -pub 0 -ps 0 -oa 2 -us off")
+    _unfold_unpinned("unfold -i 5000 -ss 0.001 -gb 0 -gmb 0.5 -pub 0 -ps 0 -oa 2 -us off")
 
 
 @nd.repeatable
 def unfold_v():
-    selection = cmds.ls(selection=True)
-    new_selection = cmds.polyListComponentConversion(selection, tuv=True)
-    cmds.select(new_selection, replace=True)
-    mel.eval("unfold -i 5000 -ss 0.001 -gb 0 -gmb 0.5 -pub 0 -ps 0 -oa 1 -us off")
+    _unfold_unpinned("unfold -i 5000 -ss 0.001 -gb 0 -gmb 0.5 -pub 0 -ps 0 -oa 1 -us off")
 
 
 @nd.repeatable
