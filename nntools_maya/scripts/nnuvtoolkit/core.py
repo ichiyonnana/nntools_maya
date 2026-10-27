@@ -1,5 +1,6 @@
 import collections
 import itertools
+import math
 import re
 
 import maya.api.OpenMaya as om
@@ -871,6 +872,77 @@ def normalize():
 
 
 @nd.repeatable
+def layout_shells(mapsize, margin, scale):
+    """選択を含む UV シェル全体を、選択シェルのバウンディングボックス内にレイアウトする
+
+    シェル間のパディングは既定値の場合 mipmap を考慮してテクスチャ長辺の 1/128 取る
+
+    Args:
+        mapsize (int): テクスチャの解像度 (px)
+        margin (int): シェル間の間隔 (px)。負数の場合は既定値を使う
+        scale (bool): False の場合は u3dLayout に layoutScaleMode=1 を指定する
+    """
+    # 一部のフェースのみの選択でもシェル全体を対象にする
+    cmds.select(cmds.polyListComponentConversion(toUV=True), replace=True)
+    mel.eval("polySelectBorderShell 0")
+    uvs = cmds.ls(selection=True, flatten=True)
+
+    if not uvs:
+        return
+
+    # シェル間隔とタイル余白をピクセルで決めてから UV 空間の値に変換する
+    if margin < 0:
+        spacing_px = mapsize / 128.0
+        tile_margin_px = mapsize / 256.0
+    else:
+        spacing_px = float(margin)
+        tile_margin_px = spacing_px / 2
+
+    spacing = spacing_px / mapsize
+    tile_margin = tile_margin_px / mapsize
+
+    # 選択 UV のバウンディングボックスを求める
+    coords = cmds.polyEditUV(uvs, q=True)
+    umin, umax = min(coords[0::2]), max(coords[0::2])
+    vmin, vmax = min(coords[1::2]), max(coords[1::2])
+
+    # -mar は box の内側に取られるため、実行のたびに mar 分ずれないよう box を mar だけ外側に広げる
+    umin -= tile_margin
+    umax += tile_margin
+    vmin -= tile_margin
+    vmax += tile_margin
+    faces = cmds.filterExpand(cmds.polyListComponentConversion(uvs, fromUV=True, toFace=True), selectionMask=34)
+
+    # -res はパッキングのラスタ解像度で、低いとシェル間隔の誤差が大きくなるため 4096 を下限にする
+    resolution = max(mapsize, 4096)
+
+    # -spc は UV 座標値ではなくシェルの大きさに対する比率なので、UV 空間での間隔になるよう逆算する
+    # -mar は UV 座標値そのままなので変換しない
+    if scale:
+        # シェルのスケールが有効の場合、事前に spc が求められないため一度レイアウトした結果の大きさを元に spc を再計算しもう一度レイアウトする
+        cmds.u3dLayout(uvs, resolution=resolution, shellSpacing=spacing / _get_layout_spacing_base(faces), tileMargin=tile_margin, packBox=(umin, umax, vmin, vmax))
+        cmds.u3dLayout(uvs, resolution=resolution, shellSpacing=spacing / _get_layout_spacing_base(faces), tileMargin=tile_margin, packBox=(umin, umax, vmin, vmax))
+    else:
+        cmds.u3dLayout(uvs, resolution=resolution, shellSpacing=spacing / _get_layout_spacing_base(faces), tileMargin=tile_margin, packBox=(umin, umax, vmin, vmax), layoutScaleMode=1)
+
+
+def _get_layout_spacing_base(faces):
+    """u3dLayout の -spc の基準となる長さを返す
+
+    実測では、レイアウト後のシェル間隔は -spc x sqrt(UV 面積の合計 + シェルごとの UV バウンディングボックス面積の合計) になる
+    """
+    area = sum(abs(face_area) for face_area in cmds.polyEvaluate(faces, uvFaceArea=True))
+
+    for shell_faces in _group_faces_by_uv_shell(faces):
+        coords = cmds.polyEditUV(cmds.polyListComponentConversion(shell_faces, fromFace=True, toUV=True), q=True)
+        us = coords[0::2]
+        vs = coords[1::2]
+        area += (max(us) - min(us)) * (max(vs) - min(vs))
+
+    return math.sqrt(area)
+
+
+@nd.repeatable
 def uv_lattice_tool():
     mel.eval("LatticeUVTool")
 
@@ -1118,6 +1190,13 @@ class NN_ToolWindow(object):
                 ui.button(label='Stack', c=self.onStack)
                 ui.button(label='Unstack', c=self.onUnStack)
                 ui.button(label='Normalize', c=self.onNormalize)
+
+            with ui.row_layout():
+                ui.header(label='')
+                ui.button(label='Layout', c=self.onLayout, width=ui.width(4))
+                ui.text(label='margin (px):')
+                self.layout_margin = ui.eb_int(v=-1, width=ui.width(1))
+                self.cb_layout_scale = ui.check_box(label="scale", v=False)
 
             # Tools
             with ui.row_layout():
@@ -1486,6 +1565,13 @@ class NN_ToolWindow(object):
     @nd.undo_chunk
     def onNormalize(self, *args):
         normalize()
+
+    @nd.undo_chunk
+    def onLayout(self, *args):
+        mapsize = ui.get_value(self.mapSize)
+        margin = ui.get_value(self.layout_margin)
+        scale = ui.get_value(self.cb_layout_scale)
+        layout_shells(mapsize=mapsize, margin=margin, scale=scale)
 
     # Tool
     @nd.undo_chunk
