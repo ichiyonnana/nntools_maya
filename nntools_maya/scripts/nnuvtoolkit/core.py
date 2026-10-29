@@ -837,13 +837,14 @@ def get_flip_pivot(ui_pivot_u, ui_pivot_v):
 
 
 @nd.repeatable
-def orient_edge():
-    mel.eval("texOrientEdge")
-
-
-@nd.repeatable
 def orient_shells():
-    mel.eval("texOrientShells")
+    # エッジが選択されていれば OrientEdge を実行し、そうでなければ OrientShells を実行する
+    edges = cmds.filterExpand(cmds.ls(selection=True), selectionMask=32)
+
+    if edges:
+        mel.eval("texOrientEdge")
+    else:
+        mel.eval("texOrientShells")
 
 
 @nd.repeatable
@@ -1180,7 +1181,6 @@ class NN_ToolWindow(object):
             # Layout
             with ui.row_layout():
                 ui.header(label='Layout')
-                ui.button(label='Orient to Edge', c=self.onOrientEdge)
                 ui.button(label='Orient Shells', c=self.onOrientShells)
                 ui.button(label='SymArrange', c=self.onSymArrange)
 
@@ -1537,10 +1537,6 @@ class NN_ToolWindow(object):
     @nd.undo_chunk
     def onMerge(self, *args):
         cmds.polyMergeUV(d=0.0001)
-
-    @nd.undo_chunk
-    def onOrientEdge(self, *args):
-        orient_edge()
 
     @nd.undo_chunk
     def onOrientShells(self, *args):
