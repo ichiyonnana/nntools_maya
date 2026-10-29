@@ -1,6 +1,7 @@
 import collections
 import itertools
 import math
+import os
 import re
 
 import maya.api.OpenMaya as om
@@ -519,6 +520,89 @@ def get_texel(eb_texel, mapsize):
         print(MSG_NOT_IMPLEMENTED)
 
 
+def get_texture_resolution(faces):
+    """フェースに割り当てられたマテリアルに接続された file ノードのテクスチャ解像度を取得する
+
+    file ノードが複数ある場合は最も大きいものを使う。
+
+    Args:
+        faces (list[str]): フェースコンポーネント
+
+    Returns:
+        int or None: テクスチャの長辺のピクセル数。読み込めるテクスチャが無ければ None
+    """
+    target_faces = set(cmds.ls(faces, flatten=True, long=True))
+    shapes = cmds.ls(faces, objectsOnly=True)
+    shading_engines = set(cmds.listConnections(shapes, type="shadingEngine") or [])
+
+    file_nodes = set()
+
+    for shading_engine in shading_engines:
+        members = cmds.sets(shading_engine, q=True) or []
+        member_faces = set(cmds.ls(cmds.polyListComponentConversion(members, toFace=True), flatten=True, long=True))
+
+        if not target_faces & member_faces:
+            continue
+
+        materials = cmds.listConnections(shading_engine + ".surfaceShader", source=True, destination=False) or []
+
+        for material in materials:
+            file_nodes.update(cmds.ls(cmds.listHistory(material), type="file"))
+
+    resolution = None
+
+    for file_node in file_nodes:
+        path = cmds.workspace(expandName=cmds.getAttr(file_node + ".fileTextureName"))
+
+        if not os.path.isfile(path):
+            cmds.warning("テクスチャが見つかりません: {} ({})".format(path, file_node))
+            continue
+
+        image = om.MImage()
+
+        try:
+            image.readFromFile(path)
+        except RuntimeError:
+            cmds.warning("テクスチャを読み込めません: {} ({})".format(path, file_node))
+            continue
+
+        width, height = image.getSize()
+        resolution = max(resolution or 0, width, height)
+
+    return resolution
+
+
+@nd.repeatable
+def get_texel_from_texture(eb_texel, eb_mapsize):
+    """選択をフェースに変換し、割り当てられたテクスチャの解像度とその解像度でのテクセル密度を取得する
+
+    Args:
+        eb_texel (str): テクセル密度を設定するエディットボックス
+        eb_mapsize (str): テクスチャ解像度を設定するエディットボックス
+    """
+    selection = cmds.ls(selection=True)
+    faces = cmds.ls(cmds.polyListComponentConversion(selection, toFace=True), flatten=True)
+
+    if not faces:
+        cmds.warning("フェースに変換できる選択がありません")
+
+        return
+
+    mapsize = get_texture_resolution(faces)
+
+    if mapsize is None:
+        cmds.warning("選択フェースのマテリアルにテクスチャが見つかりません")
+
+        return
+
+    cmds.select(faces, replace=True)
+    texel = mel.eval("texGetTexelDensity(%d)" % mapsize)
+    cmds.select(selection, replace=True)
+
+    ui.set_value(eb_mapsize, mapsize)
+    ui.set_value(eb_texel, texel)
+
+
 @nd.repeatable
 def set_texel(texel, mapsize):
     """
@@ -530,6 +614,65 @@ def set_texel(texel, mapsize):
         mel.eval("texSetTexelDensity %f %d" % (texel, mapsize))
     else:
         set_edge_texel(target_texel=texel, mapsize=mapsize, mode="uv")
+
+
+@nd.repeatable  
+def set_texel_uniform(texel, mapsize):
+    """選択を含む UV シェル全体を、平均テクセル密度が指定値になるよう一律にスケールする
+
+    平均テクセル密度は全フェースの UV 面積と 3D 面積の合計から求める。
+    スケールの中心は現在のマニピュレーター位置。取得できなければ対象 UV のバウンディングボックス中心。
+
+    Args:
+        texel (float): 目標のテクセル密度
+        mapsize (int): テクスチャの解像度 (px)
+    """
+    pivot = get_uv_pivot()
+
+    uvs = cmds.polyListComponentConversion(cmds.ls(selection=True), toUV=True)
+
+    if not uvs:
+        cmds.warning("UV に変換できる選択がありません")
+
+        return
+
+    uvs = cmds.polyListComponentConversion(uvs, toUV=True, uvShell=True)
+    faces = cmds.polyListComponentConversion(uvs, toFace=True)
+
+    sel_list = om.MSelectionList()
+
+    for face in faces:
+        sel_list.add(face)
+
+    uv_area = 0.0
+    world_area = 0.0
+
+    for i in range(sel_list.length()):
+        dag_path, component = sel_list.getComponent(i)
+        it_face = om.MItMeshPolygon(dag_path, component)
+
+        while not it_face.isDone():
+            if it_face.hasUVs():
+                uv_area += it_face.getUVArea()
+                world_area += it_face.getArea(om.MSpace.kWorld)
+
+            it_face.next()
+
+    if uv_area <= 0.0 or world_area <= 0.0:
+        cmds.warning("UV 面積または 3D 面積が 0 のためスケールできません")
+
+        return
+
+    current_texel = math.sqrt(uv_area / world_area) * mapsize
+    scale = texel / current_texel
+
+    if not pivot:
+        uv_coords = cmds.polyEditUV(uvs, q=True)
+        us = uv_coords[0::2]
+        vs = uv_coords[1::2]
+        pivot = ((min(us) + max(us)) / 2.0, (min(vs) + max(vs)) / 2.0)
+
+    cmds.polyEditUV(uvs, pivotU=pivot[0], pivotV=pivot[1], scaleU=scale, scaleV=scale)
 
 
 @nd.repeatable
@@ -1152,14 +1295,14 @@ class NN_ToolWindow(object):
             # Optimize
             with ui.row_layout():
                 ui.header(label='Optimize')
-                ui.button(label='Get', c=self.onGetTexel)
+                ui.button(label='Get', c=self.onGetTexel, annotation="L: Get texel\nShift+L: Get texture size and texel")
                 self.texel = ui.eb_float(v=10, width=ui.button_width2)
                 self.mapSize = ui.eb_int(width=ui.button_width1_5)
                 ui.text(label='px')
 
             with ui.row_layout():
                 ui.header(label='')
-                ui.button(label='Set', c=self.onSetTexel)
+                ui.button(label='Set', c=self.onSetTexel, annotation="L: Set texel per shell\nShift+L: Scale all uniformly")
                 ui.button(label='U', c=self.onSetEdgeTexelUMin, dgc=self.onSetEdgeTexelUMax, bgc=ui.color_u, annotation="L: base on Min\nM: base on Max")
                 ui.button(label='V', c=self.onSetEdgeTexelVMin, dgc=self.onSetEdgeTexelVMax, bgc=ui.color_v, annotation="L: base on Min\nM: base on Max")
                 ui.button(label='Equalize', c=self.onTexelEqualize)
@@ -1383,7 +1526,13 @@ class NN_ToolWindow(object):
         """
         UVシェル、もしくはUVエッジのテクセルを設定
         shell選択ならMayaの機能を使用し それ以外なら独自のUVエッジに対するテクセル設定モードを使用する
+        Shift 押下時は割り当てられたテクスチャの解像度とその解像度でのテクセルを取得する
         """
+        if ui.is_shift():
+            get_texel_from_texture(eb_texel=self.texel, eb_mapsize=self.mapSize)
+
+            return
+
         mapsize = ui.get_value(self.mapSize)
         get_texel(eb_texel=self.texel, mapsize=mapsize)
 
@@ -1392,9 +1541,16 @@ class NN_ToolWindow(object):
         """
         UVシェル、もしくはUVエッジのテクセルを設定
         shell選択ならMayaの機能を使用し それ以外なら独自のUVエッジに対するテクセル設定モードを使用する
+        Shift 押下時は選択シェル全体の平均テクセルが指定値になるよう一律にスケールする
         """
         texel = ui.get_value(self.texel)
         mapsize = ui.get_value(self.mapSize)
+
+        if ui.is_shift():
+            set_texel_uniform(texel=texel, mapsize=mapsize)
+
+            return
+
         set_texel(texel=texel, mapsize=mapsize)
 
     @nd.undo_chunk
