@@ -8,6 +8,7 @@ import traceback
 
 import maya.cmds as cmds
 import maya.mel as mel
+import maya.api.OpenMaya as om
 
 import nnutil.core as nu
 import nnutil.misc as nm
@@ -45,6 +46,9 @@ class NN_ToolWindow(object):
             sizeable=False,
             resizeToFitChildren=True
             )
+
+        # Restore で頂点の選択順を使うため
+        cmds.selectPref(trackSelectionOrder=True)
 
         self.layout()
         cmds.showWindow(self.window)
@@ -95,6 +99,7 @@ class NN_ToolWindow(object):
                 ui.header(label='Pivot')
                 ui.button(label='Center', c=self.onCenterPivot, width=ui.width2)
                 ui.button(label='Bake', c=self.onBakePivot, width=ui.width2)
+                ui.button(label='Restore', c=self.onRestoreTransform, width=ui.width2)
 
             ui.separator(width=separator_width)
 
@@ -199,6 +204,59 @@ class NN_ToolWindow(object):
 
     def onBakePivot(self, *args):
         mel.eval("BakeCustomPivot")
+
+    def onRestoreTransform(self, *args):
+        """
+        選択順の 3 頂点から軸を決め、見た目を変えずに頂点が属するオブジェクトの TRS を設定する
+
+        第一選択→第二選択が X 軸、3 点がつくる平面の法線が Z 軸、3 点の重心が原点。Scale は 1 になる
+        """
+        vertices = cmds.filterExpand(cmds.ls(orderedSelection=True, flatten=True), selectionMask=31) or []
+
+        if len(vertices) != 3:
+            cmds.warning("頂点を 3 つ選択して下さい")
+            return
+
+        shapes = set(cmds.ls(vertices, objectsOnly=True, long=True))
+
+        if len(shapes) != 1:
+            cmds.warning("同じオブジェクトの頂点を選択して下さい")
+            return
+
+        obj = cmds.listRelatives(shapes.pop(), parent=True, path=True)[0]
+        p0, p1, p2 = [om.MPoint(cmds.pointPosition(v, world=True)) for v in vertices]
+        x_axis = p1 - p0
+        z_axis = x_axis ^ (p2 - p0)
+
+        if z_axis.length() == 0:
+            cmds.warning("3 頂点が一直線上にあります")
+            return
+
+        x_axis.normalize()
+        z_axis.normalize()
+        y_axis = z_axis ^ x_axis
+        center = p0 + ((p1 - p0) + (p2 - p0)) / 3
+        matrix = [x_axis.x, x_axis.y, x_axis.z, 0, y_axis.x, y_axis.y, y_axis.z, 0, z_axis.x, z_axis.y, z_axis.z, 0, center.x, center.y, center.z, 1]
+
+        # 目的の軸を持つグループの子にしてフリーズし、元の親へ戻すことでワールド位置を保ったまま TRS を移す
+        cmds.undoInfo(openChunk=True)
+        try:
+            parent = cmds.listRelatives(obj, parent=True, path=True)
+            group = cmds.group(empty=True, world=True)
+            cmds.xform(group, worldSpace=True, matrix=matrix)
+            obj = cmds.parent(obj, group)[0]
+            cmds.makeIdentity(obj, apply=True, translate=True, rotate=True, scale=True, normal=False, preserveNormals=True)
+            cmds.xform(obj, objectSpace=True, pivots=(0, 0, 0))
+
+            if parent:
+                cmds.parent(obj, parent[0])
+            else:
+                cmds.parent(obj, world=True)
+
+            cmds.delete(group)
+            cmds.select(vertices, replace=True)
+        finally:
+            cmds.undoInfo(closeChunk=True)
 
     def onCreateLOcator(self, *args):
         mel.eval("CreateLocator")
