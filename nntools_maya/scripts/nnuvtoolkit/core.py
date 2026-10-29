@@ -1262,6 +1262,7 @@ class NN_ToolWindow(object):
             with ui.row_layout():
                 ui.header(label="")
                 ui.button(label="Grid Layout", c=self.onGridLayout)
+                ui.button(label="ShellAligner", c=self.onShellAligner)
                 ui.button(label="Parent to UVEditor", c=self.onParentToUVEditor)
 
     # ハンドラ
@@ -1666,6 +1667,20 @@ class NN_ToolWindow(object):
         """グリッドレイアウトツールを起動する"""
         import nnuvtoolkit.grid_layout as gl
         gl.main()
+
+    def onShellAligner(self, *args):
+        """シェル整列ツールを起動する"""
+        import nnuvtoolkit.shell_aligner as sa
+
+        # Alt が押されていればウィンドウを閉じて windowPref を削除してから起動する
+        if ui.is_alt():
+            if cmds.window(sa.window_name, exists=True):
+                cmds.deleteUI(sa.window_name, window=True)
+
+            if cmds.windowPref(sa.window_name, exists=True):
+                cmds.windowPref(sa.window_name, remove=True)
+
+        sa.main()
 
     def onParentToUVEditor(self, *args):
         """UVエディターを親にしてウィンドウを再作成する"""
