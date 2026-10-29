@@ -276,6 +276,39 @@ def rotate_uv(angle):
     mel.eval("polyRotateUVs %f 1" % angle)
 
 
+@nd.repeatable
+def rotate_uv_each_shell(angle):
+    """選択を含む UV シェルを、それぞれのシェルのバウンディングボックス中心で回転する
+
+    Args:
+        angle (float): 回転角度 (度)。正で反時計回り
+    """
+    uvs = cmds.polyListComponentConversion(cmds.ls(selection=True), toUV=True)
+
+    if not uvs:
+        return
+
+    uvs = cmds.filterExpand(cmds.polyListComponentConversion(uvs, toUV=True, uvShell=True), selectionMask=35) or []
+
+    # (ノード名, シェル ID) ごとに UV を分ける
+    shell_uvs = collections.defaultdict(list)
+    shell_ids_by_node = dict()
+    for uv in uvs:
+        node, uv_index = re.match(r"(.+)\.map\[(\d+)\]", uv).groups()
+        if node not in shell_ids_by_node:
+            shell_ids_by_node[node] = _get_uv_shell_ids(node)
+
+        shell_uvs[(node, shell_ids_by_node[node][int(uv_index)])].append(uv)
+
+    for uvs_in_shell in shell_uvs.values():
+        coords = cmds.polyEditUV(uvs_in_shell, q=True)
+        us = coords[0::2]
+        vs = coords[1::2]
+        pivot_u = (min(us) + max(us)) / 2.0
+        pivot_v = (min(vs) + max(vs)) / 2.0
+        cmds.polyEditUV(uvs_in_shell, pivotU=pivot_u, pivotV=pivot_v, angle=angle)
+
+
 def _get_uv_shell_ids(node):
     """node のカレント UV セットの、UV インデックスごとの UV シェル ID を返す"""
     selection_list = om.MSelectionList()
@@ -1382,8 +1415,8 @@ class NN_ToolWindow(object):
                 ui.header(label='')
                 ui.header(label='Rotate')
                 self.rotationAngle = ui.eb_float(v=90, width=ui.button_width2)
-                ui.button(label=u'←', c=self.onRotateLeft)
-                ui.button(label=u'→', c=self.onRotateRight)
+                ui.button(label=u'←', c=self.onRotateLeft, annotation="L: Rotate\nShift+L: Rotate each shell")
+                ui.button(label=u'→', c=self.onRotateRight, annotation="L: Rotate\nShift+L: Rotate each shell")
 
             with ui.row_layout():
                 ui.header(label='')
@@ -1468,11 +1501,23 @@ class NN_ToolWindow(object):
     @nd.undo_chunk
     def onRotateLeft(self, *args):
         angle = ui.get_value(self.rotationAngle)
+
+        if ui.is_shift():
+            rotate_uv_each_shell(angle=angle)
+
+            return
+
         rotate_uv(angle=angle)
 
     @nd.undo_chunk
     def onRotateRight(self, *args):
         angle = ui.get_value(self.rotationAngle)
+
+        if ui.is_shift():
+            rotate_uv_each_shell(angle=-angle)
+
+            return
+
         rotate_uv(angle=-angle)
 
     @nd.undo_chunk
