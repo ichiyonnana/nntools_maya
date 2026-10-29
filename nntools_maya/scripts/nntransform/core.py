@@ -25,6 +25,10 @@ def get_window():
 
 window_width = 220
 
+color_freeze = (0.529, 0.722, 0.918)
+color_reset = (0.918, 0.529, 0.529)
+color_lock = (0.918, 0.886, 0.529)
+
 
 class NN_ToolWindow(object):
 
@@ -47,7 +51,7 @@ class NN_ToolWindow(object):
             resizeToFitChildren=True
             )
 
-        # Restore で頂点の選択順を使うため
+        # ls(orderedSelection=True) 用に有効化
         cmds.selectPref(trackSelectionOrder=True)
 
         self.layout()
@@ -58,29 +62,27 @@ class NN_ToolWindow(object):
 
         with ui.column_layout():
             with ui.row_layout():
-                ui.header(label='Freeze')
-                ui.button(label='All', c=self.onFreezeTransformAll, width=ui.width1)
-                ui.button(label='Tra', c=self.onFreezeTransformTra, width=ui.width1)
-                ui.button(label='Rot', c=self.onFreezeTransformRot, width=ui.width1)
-                ui.button(label='Sca', c=self.onFreezeTransformSca, width=ui.width1)
-                ui.button(label='Op', c=self.onFreezeTransformOp, width=ui.width1)
+                ui.button(label='Freeze', width=ui.width(2), c=self.onFreezeTransformOp)
+                ui.button(label='All', c=self.onFreezeTransformAll, width=ui.width2, bgc=color_freeze)
+                ui.button(label='Tra', c=self.onFreezeTransformTra, width=ui.width1, bgc=color_freeze)
+                ui.button(label='Rot', c=self.onFreezeTransformRot, width=ui.width1, bgc=color_freeze)
+                ui.button(label='Sca', c=self.onFreezeTransformSca, width=ui.width1, bgc=color_freeze)
 
             ui.separator(width=separator_width)
 
             with ui.row_layout():
-                ui.header(label='Reset')
-                ui.button(label='All', c=self.onResetTransformAll, width=ui.width1)
-                ui.button(label='Tra', c=self.onResetTransformTra, width=ui.width1)
-                ui.button(label='Rot', c=self.onResetTransformRot, width=ui.width1)
-                ui.button(label='Sca', c=self.onResetTransformSca, width=ui.width1)
-                ui.button(label='Op', c=self.onResetTransformOp, width=ui.width1)
+                ui.button(label='Reset', width=ui.width(2), c=self.onResetTransformOp)
+                ui.button(label='All', c=self.onResetTransformAll, width=ui.width2, bgc=color_reset)
+                ui.button(label='Tra', c=self.onResetTransformTra, width=ui.width1, bgc=color_reset)
+                ui.button(label='Rot', c=self.onResetTransformRot, width=ui.width1, bgc=color_reset)
+                ui.button(label='Sca', c=self.onResetTransformSca, width=ui.width1, bgc=color_reset)
 
             ui.separator(width=separator_width)
 
             with ui.row_layout():
                 ui.header(label='TRS Lock')
-                ui.button(label='Unlock', c=self.onUnlockTRS)
-                ui.button(label='Lock', c=self.onLockTRS)
+                ui.button(label='Unlock', c=self.onUnlockTRS, bgc=color_lock)
+                ui.button(label='Lock', c=self.onLockTRS, bgc=color_lock)
 
             ui.separator(width=separator_width)
 
@@ -91,7 +93,7 @@ class NN_ToolWindow(object):
                 ui.button(label='Rot', c=self.onMatchTransformRot, width=ui.width1)
                 ui.button(label='Sca', c=self.onMatchTransformSca, width=ui.width1)
                 ui.button(label='Piv', c=self.onMatchTransformPivot, width=ui.width1)
-                ui.button(label='Sp', c=self.onMatchTransformValue, width=ui.width1)
+                ui.button(label='Sp', c=self.onMatchTransformValue, width=ui.width1, annotation="形状を変えずにローカル空間だけ一致させる")
 
             ui.separator(width=separator_width)
 
