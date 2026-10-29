@@ -66,6 +66,9 @@ class NN_ToolWindow(object):
             with ui.row_layout():
                 ui.header(label='Reset')
                 ui.button(label='All', c=self.onResetTransformAll, width=ui.width1)
+                ui.button(label='Tra', c=self.onResetTransformTra, width=ui.width1)
+                ui.button(label='Rot', c=self.onResetTransformRot, width=ui.width1)
+                ui.button(label='Sca', c=self.onResetTransformSca, width=ui.width1)
                 ui.button(label='Op', c=self.onResetTransformOp, width=ui.width1)
 
             ui.separator(width=separator_width)
@@ -130,6 +133,15 @@ class NN_ToolWindow(object):
 
     def onResetTransformAll(self, *args):
         mel.eval("ResetTransformations;")
+
+    def onResetTransformTra(self, *args):
+        mel.eval("makeIdentity -apply false -t 1 -r 0 -s 0 -n 0 -pn 1;")
+
+    def onResetTransformRot(self, *args):
+        mel.eval("makeIdentity -apply false -t 0 -r 1 -s 0 -n 0 -pn 1;")
+
+    def onResetTransformSca(self, *args):
+        mel.eval("makeIdentity -apply false -t 0 -r 0 -s 1 -n 0 -pn 1;")
 
     def onResetTransformOp(self, *args):
         mel.eval("ResetTransformationsOptions;")
