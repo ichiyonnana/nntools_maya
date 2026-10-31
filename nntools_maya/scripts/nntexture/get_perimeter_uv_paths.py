@@ -95,7 +95,7 @@ def get_shell_uv_border(fn_mesh, shellid_to_uvs, fid_to_uvs, target_face_ids):
     """
     # 対象フェースをエッジに変換 (ボーダー以外も含む全構成エッジ)
     face_components = [f".f[{fid}]" for fid in target_face_ids]
-    mesh_name = fn_mesh.name()
+    mesh_name = fn_mesh.fullPathName()
     face_strs = [f"{mesh_name}{fc}" for fc in face_components]
     edge_components = cmds.polyListComponentConversion(face_strs, toEdge=True)
     edge_components = cmds.ls(edge_components, flatten=True) if edge_components else []

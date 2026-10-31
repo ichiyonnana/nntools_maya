@@ -246,7 +246,7 @@ class NN_ToolWindow(object):
         for i, joint in enumerate(self.joints):
             self.neutral_trs[i] = TRS(joint)
 
-        self.meshes = [nu.get_parent(x) for x in cmds.listRelatives(self.root_joint, allDescendents=True, type="mesh")]
+        self.meshes = [nu.get_parent(x) for x in cmds.listRelatives(self.root_joint, allDescendents=True, type="mesh", fullPath=True)]
 
         ui.set_value(self.text_root, self.root_joint)
 

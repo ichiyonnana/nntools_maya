@@ -128,7 +128,7 @@ def add_lattice_menber(lattice=None, targets=None):
         selections = cmds.ls(selection=True, flatten=True)
 
         for sel in selections:
-            shape = (cmds.listRelatives(sel, shapes=True) or [None])[0]
+            shape = (cmds.listRelatives(sel, shapes=True, fullPath=True) or [None])[0]
 
             if shape and cmds.objectType(shape, isType="lattice"):
                 lattice = shape
@@ -141,7 +141,7 @@ def add_lattice_menber(lattice=None, targets=None):
         ffd = cmds.listConnections(lattice, type="ffd")[0]
 
     elif cmds.objectType(lattice, isType="transform"):
-        shape = (cmds.listRelatives(lattice, shapes=True) or [None])[0]
+        shape = (cmds.listRelatives(lattice, shapes=True, fullPath=True) or [None])[0]
 
         if not shape:
             return
@@ -224,7 +224,7 @@ def get_selected_lattice_and_points(selected_lattice_points=[]):
 
     if selected_lattice_points:
         # ラティスポイントが選択されていた場合
-        lattice = cmds.listRelatives(cmds.polyListComponentConversion(selected_lattice_points[0])[0], parent=True)[0]
+        lattice = cmds.listRelatives(cmds.polyListComponentConversion(selected_lattice_points[0])[0], parent=True, fullPath=True)[0]
 
     else:
         selected_lattice = [x for x in cmds.ls(selection=True, flatten=True) if nu.get_shape(x) and cmds.objectType(nu.get_shape(x), isType="lattice")]
@@ -271,7 +271,7 @@ def rebuild_lattice(lattice=None, s=None, t=None, u=None):
 
         # シェープとしてラティスを持つトランスフォームが選択されている場合
         if selected_trs:
-            shapes = cmds.listRelatives(selected_trs[0], shapes=True)
+            shapes = cmds.listRelatives(selected_trs[0], shapes=True, fullPath=True)
 
             if shapes and cmds.objectType(shapes[0], isType="lattice"):
                 lattice = selected_trs[0]
@@ -284,7 +284,7 @@ def rebuild_lattice(lattice=None, s=None, t=None, u=None):
             if selected_lattice_point:
                 # ラティスポイントが選択されていた場合
                 lattice_shape = cmds.polyListComponentConversion(selected_lattice_point[0])[0]
-                lattice = cmds.listRelatives(lattice_shape, parent=True)[0]
+                lattice = cmds.listRelatives(lattice_shape, parent=True, fullPath=True)[0]
                 object_mode = False
 
         if not lattice:
@@ -294,7 +294,7 @@ def rebuild_lattice(lattice=None, s=None, t=None, u=None):
 
     # 再分割対象ラティスのノード名取得
     lattice_trs = lattice
-    lattice_name = cmds.listRelatives(lattice_trs, shapes=True)[0]
+    lattice_name = cmds.listRelatives(lattice_trs, shapes=True, fullPath=True)[0]
 
     # 再分割対象ラティスの分割数を保存
     orig_s = cmds.getAttr(lattice_name + ".sDivisions")
@@ -393,7 +393,7 @@ def smooth_lattice_point(ratio=0.1, prevent_dent=True):
         return
 
     # ラティスオブジェクト
-    lattice = cmds.listRelatives(cmds.polyListComponentConversion(selected_lattice_points[0])[0], parent=True)[0]
+    lattice = cmds.listRelatives(cmds.polyListComponentConversion(selected_lattice_points[0])[0], parent=True, fullPath=True)[0]
 
     # インデックス範囲
     div_s = cmds.getAttr(lattice + ".sDivisions")
@@ -600,7 +600,7 @@ def apply_lattice(lattices=[]):
     if not lattices:
         lattices = []
         for sel in cmds.ls(selection=True, flatten=True):
-            for lattice in cmds.listRelatives(sel, ad=True, type="lattice"):
+            for lattice in cmds.listRelatives(sel, ad=True, type="lattice", fullPath=True):
                 lattices.append(lattice)
 
         if not lattices:
@@ -649,7 +649,7 @@ def apply_lattice(lattices=[]):
 def reset_lattice(lattices=[]):
     # 引数が無効なら選択オブジェクトからラティスを取得する
     if not lattices:
-        lattices = [x for sel in cmds.ls(selection=True, flatten=True) for x in cmds.listRelatives(sel, ad=True) if cmds.objectType(x, isType="lattice")]
+        lattices = [x for sel in cmds.ls(selection=True, flatten=True) for x in cmds.listRelatives(sel, ad=True, fullPath=True) if cmds.objectType(x, isType="lattice")]
 
         if not lattices:
             raise Exception
@@ -760,7 +760,7 @@ class NN_ToolWindow(object):
         selected_trs = cmds.ls(selection=True, type="transform")
 
         if selected_trs:
-            shapes = cmds.listRelatives(selected_trs[0], shapes=True)
+            shapes = cmds.listRelatives(selected_trs[0], shapes=True, fullPath=True)
 
             if shapes and cmds.objectType(shapes[0], isType="lattice"):
                 target_lattice = selected_trs[0]
@@ -771,7 +771,7 @@ class NN_ToolWindow(object):
             return
 
         lattice_trs = target_lattice
-        lattice_name = cmds.listRelatives(lattice_trs, shapes=True)[0]
+        lattice_name = cmds.listRelatives(lattice_trs, shapes=True, fullPath=True)[0]
 
         s, t, u = get_divisions(lattice_name)
 

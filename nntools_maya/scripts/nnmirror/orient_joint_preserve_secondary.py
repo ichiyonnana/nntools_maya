@@ -27,7 +27,7 @@ def orient_joint_preserve_secondary(primary="x", secondary="y", zero_leaf_orient
     # 全てのジョイントに対して反復
     for joint in joints:
         # 子の取得｡無ければスキップ
-        child = (cmds.listRelatives(joint) or [None])[0]
+        child = (cmds.listRelatives(joint, fullPath=True) or [None])[0]
 
         if not child:
             if zero_leaf_orient:

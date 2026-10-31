@@ -126,7 +126,7 @@ class NN_ToolWindow(object):
         """
         start_joint = cmds.ls(selection=True)[0]
         end_joint = cmds.ls(selection=True)[-1]
-        start_joint_child = cmds.listRelatives(start_joint, children=True)[0]
+        start_joint_child = cmds.listRelatives(start_joint, children=True, fullPath=True)[0]
         handle, effector = cmds.ikHandle(startJoint=start_joint, endEffector=end_joint, name=self.handle_name)
         p1 = om.MVector(cmds.xform(start_joint, q=True, worldSpace=True, translation=True)[3][0:3])
         p2 = om.MVector(cmds.xform(end_joint, q=True, worldSpace=True, translation=True)[3][0:3])
@@ -238,7 +238,7 @@ class NN_ToolWindow(object):
         start_joint, end_joint = cmds.ls(selection=True)[0:2]
 
         # IK 開始ジョイントの親から複製してリネーム
-        parent_joint = (cmds.listRelatives(start_joint, parent=True) or [None])[0]
+        parent_joint = (cmds.listRelatives(start_joint, parent=True, fullPath=True) or [None])[0]
         if parent_joint:
             # start_joint に親がある場合
             dup_parent_joint = cmds.duplicate(parent_joint)[0]
@@ -275,19 +275,19 @@ class NN_ToolWindow(object):
         cmds.select([base_curve, self.hair_system], self.hair_system, replace=True)
         mel.eval('makeCurvesDynamic 2 { "0", "0", "1", "1", "0"};')
         cmds.setAttr(base_curve + ".visibility", False)
-        hair_curve = cmds.listRelatives(self.hair_curves_grp_name, children=True)[-1]
+        hair_curve = cmds.listRelatives(self.hair_curves_grp_name, children=True, fullPath=True)[-1]
 
         hair_curve = cmds.rename(hair_curve, self.hair_curve_name)
 
         # follicle の固定を根元だけに変更
-        follicle = cmds.listRelatives(base_curve, parent=True)[0]
-        follicle_shape = cmds.listRelatives(follicle, shapes=True)[0]
+        follicle = cmds.listRelatives(base_curve, parent=True, fullPath=True)[0]
+        follicle_shape = cmds.listRelatives(follicle, shapes=True, fullPath=True)[0]
         cmds.setAttr(follicle_shape + ".pointLock", 1)
         follicle = cmds.rename(follicle, self.follicle_name)
         follicle_shape = cmds.listRelatives(follicle, shapes=True)[0]
 
         # シミュレーションされるカーブを IKHandle に接続
-        hair_curve_shape = cmds.listRelatives(hair_curve, shapes=True)[0]
+        hair_curve_shape = cmds.listRelatives(hair_curve, shapes=True, fullPath=True)[0]
         cmds.connectAttr(hair_curve_shape + ".worldSpace", handle + ".inCurve", force=True)
         cmds.setAttr(handle + ".visibility", False)
 
@@ -317,7 +317,7 @@ class NN_ToolWindow(object):
 
         # follicle 関連のアトリビュート接続
         cmds.connectAttr(dup_start_joint + ".worldMatrix", follicle_shape + ".inputWorldMatrix")
-        base_curve_shape = cmds.listRelatives(base_curve, shapes=True)[0]
+        base_curve_shape = cmds.listRelatives(base_curve, shapes=True, fullPath=True)[0]
         cmds.connectAttr(base_curve_shape + ".local", follicle_shape + ".startPosition", force=True)
         cmds.connectAttr(base_curve + ".worldMatrix", follicle_shape + ".startPositionMatrix", force=True)
         cmds.connectAttr(follicle_shape + ".outRotate", follicle + ".rotate")
@@ -327,7 +327,7 @@ class NN_ToolWindow(object):
         self.ik_handle = handle
         self.polevector_locator = None
         self.spline_curve = hair_curve
-        spline_curve_shape = cmds.listRelatives(self.spline_curve, shapes=True)[0]
+        spline_curve_shape = cmds.listRelatives(self.spline_curve, shapes=True, fullPath=True)[0]
 
         n = get_num_cv(self.spline_curve) - 1
         cmds.intSlider(self.sl_cv_index, e=True, max=n)
@@ -381,7 +381,7 @@ class NN_ToolWindow(object):
 
         if selection:
             for obj in selection:
-                shape = cmds.listRelatives(obj, shapes=True)[0]
+                shape = cmds.listRelatives(obj, shapes=True, fullPath=True)[0]
                 target = shape if shape else obj
 
                 if target:
@@ -391,7 +391,7 @@ class NN_ToolWindow(object):
                     rigid = None
                     shape_outputs = cmds.listConnections(shape, destination=True)
                     for output in shape_outputs:
-                        output_shape = (cmds.listRelatives(output, shapes=True) or [None])[0]
+                        output_shape = (cmds.listRelatives(output, shapes=True, fullPath=True) or [None])[0]
 
                         if output_shape and cmds.objectType(isAType="nRigid"):
                             rigid = output_shape
