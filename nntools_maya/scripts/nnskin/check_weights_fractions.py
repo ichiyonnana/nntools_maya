@@ -16,7 +16,7 @@ def main(model_root_grp=None, min_unit=0.01, fast_mode=True):
         objects = selections
     else:
         if model_root_grp:
-            objects = cmds.listRelatives(model_root_grp)
+            objects = cmds.listRelatives(model_root_grp, fullPath=True)
         else:
             print("no target")
 

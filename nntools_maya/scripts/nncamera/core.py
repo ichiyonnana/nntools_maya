@@ -247,7 +247,7 @@ class NN_ToolWindow(object):
         """カメラリストアイテムのクリックのハンドラ｡子供のリストを更新する"""
         camera = self.get_selected_camera_item().content
         camera_trs = cmds.listRelatives(camera, parent=True, fullPath=True)[0]
-        all_imageplanes = cmds.listRelatives(camera_trs, ad=True, type="imagePlane") or []
+        all_imageplanes = cmds.listRelatives(camera_trs, ad=True, type="imagePlane", fullPath=True) or []
 
         visible_indices = [i+1 for i, x in enumerate(all_imageplanes) if cmds.getAttr(x + ".visibility")]
 
@@ -289,7 +289,7 @@ class NN_ToolWindow(object):
             cmds.setAttr(imageplane + ".visibility", True)
 
             # 親トランスフォームノードのビジビリティ変更
-            imageplane_trs = cmds.listRelatives(imageplane, parent=True)[0]
+            imageplane_trs = cmds.listRelatives(imageplane, parent=True, fullPath=True)[0]
             if index in selected_indices:
                 cmds.setAttr(imageplane_trs + ".visibility", True)
             else:
@@ -315,7 +315,7 @@ class NN_ToolWindow(object):
 
         for imageplane_item in imageplane_items:
             imageplane = imageplane_item.content
-            imageplane_trs = cmds.listRelatives(imageplane, parent=True)[0]
+            imageplane_trs = cmds.listRelatives(imageplane, parent=True, fullPath=True)[0]
             cmds.select(imageplane_trs, add=True)
 
     def onDuplicateImageplane(self, *args):
@@ -345,7 +345,7 @@ class NN_ToolWindow(object):
         camera = self.get_selected_camera_item()
 
         if camera:
-            camera_trs = cmds.listRelatives(camera.content, parent=True)[0]
+            camera_trs = cmds.listRelatives(camera.content, parent=True, fullPath=True)[0]
             cmds.setAttr(camera_trs + ".translateX", lock=True)
             cmds.setAttr(camera_trs + ".translateY", lock=True)
             cmds.setAttr(camera_trs + ".translateZ", lock=True)
@@ -361,7 +361,7 @@ class NN_ToolWindow(object):
         camera = self.get_selected_camera_item()
 
         if camera:
-            camera_trs = cmds.listRelatives(camera.content, parent=True)[0]
+            camera_trs = cmds.listRelatives(camera.content, parent=True, fullPath=True)[0]
             cmds.setAttr(camera_trs + ".translateX", lock=False)
             cmds.setAttr(camera_trs + ".translateY", lock=False)
             cmds.setAttr(camera_trs + ".translateZ", lock=False)
@@ -377,7 +377,7 @@ class NN_ToolWindow(object):
         imageplanes = self.get_selected_imageplane_items()
 
         for imageplane in imageplanes:
-            imageplane_trs = cmds.listRelatives(imageplane.content, parent=True)[0]
+            imageplane_trs = cmds.listRelatives(imageplane.content, parent=True, fullPath=True)[0]
             cmds.setAttr(imageplane_trs + ".translateX", lock=True)
             cmds.setAttr(imageplane_trs + ".translateY", lock=True)
             cmds.setAttr(imageplane_trs + ".translateZ", lock=True)
@@ -392,7 +392,7 @@ class NN_ToolWindow(object):
         imageplanes = self.get_selected_imageplane_items()
 
         for imageplane in imageplanes:
-            imageplane_trs = cmds.listRelatives(imageplane.content, parent=True)[0]
+            imageplane_trs = cmds.listRelatives(imageplane.content, parent=True, fullPath=True)[0]
             cmds.setAttr(imageplane_trs + ".translateX", lock=False)
             cmds.setAttr(imageplane_trs + ".translateY", lock=False)
             cmds.setAttr(imageplane_trs + ".translateZ", lock=False)

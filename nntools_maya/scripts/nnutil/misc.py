@@ -833,7 +833,7 @@ def set_radius_auto(joints=[]):
             raise(Exception)
 
     for j in joints:
-        children = cmds.listRelatives(j, children=True, type="joint") or []
+        children = cmds.listRelatives(j, children=True, type="joint", fullPath=True) or []
 
         if children:
             t1 = cmds.xform(j, q=True, t=True, ws=True)
@@ -843,7 +843,7 @@ def set_radius_auto(joints=[]):
             cmds.setAttr(f"{j}.radius", max(radius, min_radius))
 
         else:
-            parent_list = cmds.listRelatives(j, parent=True, type="joint") or []
+            parent_list = cmds.listRelatives(j, parent=True, type="joint", fullPath=True) or []
             if parent_list:
                 parent_radius = cmds.getAttr(f"{parent_list[0]}.radius")
                 cmds.setAttr(f"{j}.radius", parent_radius)

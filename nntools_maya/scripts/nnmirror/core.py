@@ -486,7 +486,7 @@ def duplicate_object():
             obj_type = cmds.objectType(sel)
 
             if obj_type == 'transform':
-                shapes = cmds.listRelatives(sel, shapes=True, type='mesh') or []
+                shapes = cmds.listRelatives(sel, shapes=True, type='mesh', fullPath=True) or []
                 if not shapes:
                     continue
                 object = shapes[0]
@@ -958,7 +958,7 @@ class NN_ToolWindow(object):
         root_joint = cmds.joint(p=[0, 0, 0])
 
         for joint in joints:
-            current_parent = cmds.listRelatives(joint, parent=True)
+            current_parent = cmds.listRelatives(joint, parent=True, fullPath=True)
             cmds.parent(joint, root_joint)
             prefix_from = ui.get_value(self.eb_prefix_from)
             prefix_to = ui.get_value(self.eb_prefix_to)
@@ -1063,8 +1063,8 @@ class NN_ToolWindow(object):
     def onOrientRadial(self, *args):
         """ジョイントを親に対して放射状にやるように方向付けする"""
         for joint in cmds.ls(selection=True, type="joint", long=True):
-            parent = (cmds.listRelatives(joint, parent=True) or [None])[0]
-            child = (cmds.listRelatives(joint, children=True) or [None])[0]
+            parent = (cmds.listRelatives(joint, parent=True, fullPath=True) or [None])[0]
+            child = (cmds.listRelatives(joint, children=True, fullPath=True) or [None])[0]
 
             if not parent:
                 continue
@@ -1269,7 +1269,7 @@ class NN_ToolWindow(object):
         selected_joints = cmds.ls(selection=True, type="joint") or []
 
         if selected_joints:
-            child_joints = [(cmds.listRelatives(x, children=True, type="joint") or [None])[0] for x in selected_joints]
+            child_joints = [(cmds.listRelatives(x, children=True, type="joint", fullPath=True) or [None])[0] for x in selected_joints]
 
         selected_joints = list(filter(None, selected_joints))
         child_joints = list(filter(None, child_joints))
