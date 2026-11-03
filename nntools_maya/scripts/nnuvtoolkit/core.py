@@ -543,15 +543,41 @@ def get_texel(eb_texel, mapsize):
         uvComponents = cmds.ls(os=True)
         uvComponents = cmds.filterExpand(cmds.ls(os=True), sm=35)
 
-        uv1 = cmds.polyEditUV(uvComponents[0], q=True)
-        uv2 = cmds.polyEditUV(uvComponents[1], q=True)
-        vtxComponent1 = cmds.polyListComponentConversion(uvComponents[0], fuv=True, tv=True)
-        vtxComponent2 = cmds.polyListComponentConversion(uvComponents[1], fuv=True, tv=True)
-        p1 = cmds.xform(vtxComponent1, q=True, ws=True, t=True)
-        p2 = cmds.xform(vtxComponent2, q=True, ws=True, t=True)
-        geoLength = nu.distance(p1, p2)
-        uvLength = nu.distance2d(uv1, uv2)
-        currentTexel = uvLength / geoLength * mapsize
+        # (ノード名, シェル ID) ごとに選択順を保って UV を分ける
+        shell_uvs = dict()
+        shell_ids_by_node = dict()
+
+        for uv in uvComponents:
+            node, uv_index = re.match(r"(.+)\.map\[(\d+)\]", uv).groups()
+
+            if node not in shell_ids_by_node:
+                shell_ids_by_node[node] = _get_uv_shell_ids(node)
+
+            shell_uvs.setdefault((node, shell_ids_by_node[node][int(uv_index)]), []).append(uv)
+
+        # シェルごとに先頭 2 点からテクセルを求める。UV が 1 点しかないシェルは使わない
+        texels = []
+
+        for uvs_in_shell in shell_uvs.values():
+            if len(uvs_in_shell) < 2:
+                continue
+
+            uv1 = cmds.polyEditUV(uvs_in_shell[0], q=True)
+            uv2 = cmds.polyEditUV(uvs_in_shell[1], q=True)
+            vtxComponent1 = cmds.polyListComponentConversion(uvs_in_shell[0], fromUV=True, toVertex=True)
+            vtxComponent2 = cmds.polyListComponentConversion(uvs_in_shell[1], fromUV=True, toVertex=True)
+            p1 = cmds.xform(vtxComponent1, q=True, worldSpace=True, translation=True)
+            p2 = cmds.xform(vtxComponent2, q=True, worldSpace=True, translation=True)
+            geoLength = nu.distance(p1, p2)
+            uvLength = nu.distance2d(uv1, uv2)
+            texels.append(uvLength / geoLength * mapsize)
+
+        if not texels:
+            cmds.warning("同じ UV シェル内で 2 点以上の UV を選択してください")
+
+            return
+
+        currentTexel = sum(texels) / len(texels)
 
         # ダイアログの値を更新
         ui.set_value(eb_texel, currentTexel)
