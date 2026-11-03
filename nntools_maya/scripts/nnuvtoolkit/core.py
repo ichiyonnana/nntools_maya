@@ -643,13 +643,57 @@ def set_texel(texel, mapsize):
     shell選択ならMayaの機能を使用し それ以外なら独自のUVエッジに対するテクセル設定モードを使用する
     """
     isUVShellSelection = cmds.selectType(q=True, msh=True)
+    isFaceSelection = cmds.selectType(q=True, pf=True)
+
     if isUVShellSelection:
         mel.eval("texSetTexelDensity %f %d" % (texel, mapsize))
+    elif isFaceSelection:
+        set_face_texel(texel=texel, mapsize=mapsize)
     else:
         set_edge_texel(target_texel=texel, mapsize=mapsize, mode="uv")
 
 
-@nd.repeatable  
+@nd.repeatable
+def set_face_texel(texel, mapsize):
+    """選択フェースの UV を UV シェルごとに、テクセル密度が指定値になるよう一律にスケールする
+
+    シェルごとの現在のテクセル密度は、そのシェルに属する選択フェースに対する texGetTexelDensity で求める。
+    texGetTexelDensity は選択にしか作用しないため、シェルごとに一時的に選択を変更し、最後に元に戻す。
+    スケールの中心はシェルごとの対象 UV のバウンディングボックス中心。
+
+    Args:
+        texel (float): 目標のテクセル密度
+        mapsize (int): テクスチャの解像度 (px)
+    """
+    selection = cmds.ls(selection=True)
+    faces = cmds.filterExpand(selection, sm=34)
+
+    if not faces:
+        cmds.warning("フェースが選択されていません")
+
+        return
+
+    for faces_in_shell in _group_faces_by_uv_shell(faces):
+        cmds.select(faces_in_shell, replace=True)
+        current_texel = mel.eval("texGetTexelDensity(%d)" % mapsize)
+
+        if current_texel <= 0.0:
+            cmds.warning("テクセル密度が 0 のためスケールできません: {}".format(faces_in_shell[0]))
+            continue
+
+        scale = texel / current_texel
+        uvs = cmds.polyListComponentConversion(faces_in_shell, toUV=True)
+        uv_coords = cmds.polyEditUV(uvs, q=True)
+        us = uv_coords[0::2]
+        vs = uv_coords[1::2]
+        pivot_u = (min(us) + max(us)) / 2.0
+        pivot_v = (min(vs) + max(vs)) / 2.0
+        cmds.polyEditUV(uvs, pivotU=pivot_u, pivotV=pivot_v, scaleU=scale, scaleV=scale)
+
+    cmds.select(selection, replace=True)
+
+
+@nd.repeatable
 def set_texel_uniform(texel, mapsize):
     """選択を含む UV シェル全体を、平均テクセル密度が指定値になるよう一律にスケールする
 
@@ -1586,12 +1630,12 @@ class NN_ToolWindow(object):
         """
         UVシェル、もしくはUVエッジのテクセルを設定
         shell選択ならMayaの機能を使用し それ以外なら独自のUVエッジに対するテクセル設定モードを使用する
-        Shift 押下時は選択シェル全体の平均テクセルが指定値になるよう一律にスケールする
+        Shift 押下時は選択シェル全体の平均テクセルが指定値になるよう一律にスケールする (フェース選択時は通常クリックと同じ)
         """
         texel = ui.get_value(self.texel)
         mapsize = ui.get_value(self.mapSize)
 
-        if ui.is_shift():
+        if ui.is_shift() and not cmds.selectType(q=True, pf=True):
             set_texel_uniform(texel=texel, mapsize=mapsize)
 
             return
