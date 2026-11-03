@@ -233,6 +233,12 @@ def get_uv_pivot():
         return None
 
 
+def create_shell_if_ctrl():
+    """Ctrl キーが押されていれば、選択部分を独立した UV シェルに切り離す"""
+    if ui.is_ctrl():
+        mel.eval("CreateUVShellAlongBorder")
+
+
 @nd.repeatable
 def translate_uv(pivot, translate):
     """ 選択中 UV の移動
@@ -537,15 +543,41 @@ def get_texel(eb_texel, mapsize):
         uvComponents = cmds.ls(os=True)
         uvComponents = cmds.filterExpand(cmds.ls(os=True), sm=35)
 
-        uv1 = cmds.polyEditUV(uvComponents[0], q=True)
-        uv2 = cmds.polyEditUV(uvComponents[1], q=True)
-        vtxComponent1 = cmds.polyListComponentConversion(uvComponents[0], fuv=True, tv=True)
-        vtxComponent2 = cmds.polyListComponentConversion(uvComponents[1], fuv=True, tv=True)
-        p1 = cmds.xform(vtxComponent1, q=True, ws=True, t=True)
-        p2 = cmds.xform(vtxComponent2, q=True, ws=True, t=True)
-        geoLength = nu.distance(p1, p2)
-        uvLength = nu.distance2d(uv1, uv2)
-        currentTexel = uvLength / geoLength * mapsize
+        # (ノード名, シェル ID) ごとに選択順を保って UV を分ける
+        shell_uvs = dict()
+        shell_ids_by_node = dict()
+
+        for uv in uvComponents:
+            node, uv_index = re.match(r"(.+)\.map\[(\d+)\]", uv).groups()
+
+            if node not in shell_ids_by_node:
+                shell_ids_by_node[node] = _get_uv_shell_ids(node)
+
+            shell_uvs.setdefault((node, shell_ids_by_node[node][int(uv_index)]), []).append(uv)
+
+        # シェルごとに先頭 2 点からテクセルを求める。UV が 1 点しかないシェルは使わない
+        texels = []
+
+        for uvs_in_shell in shell_uvs.values():
+            if len(uvs_in_shell) < 2:
+                continue
+
+            uv1 = cmds.polyEditUV(uvs_in_shell[0], q=True)
+            uv2 = cmds.polyEditUV(uvs_in_shell[1], q=True)
+            vtxComponent1 = cmds.polyListComponentConversion(uvs_in_shell[0], fromUV=True, toVertex=True)
+            vtxComponent2 = cmds.polyListComponentConversion(uvs_in_shell[1], fromUV=True, toVertex=True)
+            p1 = cmds.xform(vtxComponent1, q=True, worldSpace=True, translation=True)
+            p2 = cmds.xform(vtxComponent2, q=True, worldSpace=True, translation=True)
+            geoLength = nu.distance(p1, p2)
+            uvLength = nu.distance2d(uv1, uv2)
+            texels.append(uvLength / geoLength * mapsize)
+
+        if not texels:
+            cmds.warning("同じ UV シェル内で 2 点以上の UV を選択してください")
+
+            return
+
+        currentTexel = sum(texels) / len(texels)
 
         # ダイアログの値を更新
         ui.set_value(eb_texel, currentTexel)
@@ -643,13 +675,57 @@ def set_texel(texel, mapsize):
     shell選択ならMayaの機能を使用し それ以外なら独自のUVエッジに対するテクセル設定モードを使用する
     """
     isUVShellSelection = cmds.selectType(q=True, msh=True)
+    isFaceSelection = cmds.selectType(q=True, polymeshFace=True)
+
     if isUVShellSelection:
         mel.eval("texSetTexelDensity %f %d" % (texel, mapsize))
+    elif isFaceSelection:
+        set_face_texel(texel=texel, mapsize=mapsize)
     else:
         set_edge_texel(target_texel=texel, mapsize=mapsize, mode="uv")
 
 
-@nd.repeatable  
+@nd.repeatable
+def set_face_texel(texel, mapsize):
+    """選択フェースの UV を UV シェルごとに、テクセル密度が指定値になるよう一律にスケールする
+
+    シェルごとの現在のテクセル密度は、そのシェルに属する選択フェースに対する texGetTexelDensity で求める。
+    texGetTexelDensity は選択にしか作用しないため、シェルごとに一時的に選択を変更し、最後に元に戻す。
+    スケールの中心はシェルごとの対象 UV のバウンディングボックス中心。
+
+    Args:
+        texel (float): 目標のテクセル密度
+        mapsize (int): テクスチャの解像度 (px)
+    """
+    selection = cmds.ls(selection=True)
+    faces = cmds.filterExpand(selection, selectionMask=34)
+
+    if not faces:
+        cmds.warning("フェースが選択されていません")
+
+        return
+
+    for faces_in_shell in _group_faces_by_uv_shell(faces):
+        cmds.select(faces_in_shell, replace=True)
+        current_texel = mel.eval("texGetTexelDensity(%d)" % mapsize)
+
+        if current_texel <= 0.0:
+            cmds.warning("テクセル密度が 0 のためスケールできません: {}".format(faces_in_shell[0]))
+            continue
+
+        scale = texel / current_texel
+        uvs = cmds.polyListComponentConversion(faces_in_shell, toUV=True)
+        uv_coords = cmds.polyEditUV(uvs, q=True)
+        us = uv_coords[0::2]
+        vs = uv_coords[1::2]
+        pivot_u = (min(us) + max(us)) / 2.0
+        pivot_v = (min(vs) + max(vs)) / 2.0
+        cmds.polyEditUV(uvs, pivotU=pivot_u, pivotV=pivot_v, scaleU=scale, scaleV=scale)
+
+    cmds.select(selection, replace=True)
+
+
+@nd.repeatable
 def set_texel_uniform(texel, mapsize):
     """選択を含む UV シェル全体を、平均テクセル密度が指定値になるよう一律にスケールする
 
@@ -1173,19 +1249,125 @@ def select_all_uv_borders():
     mel.eval("SelectUVBorderComponents")
 
 
+def _get_uv_signed_area(it_face):
+    """it_face の現在のフェースの UV 空間での符号付き面積を返す。表向き (反時計回り) なら正
+
+    Args:
+        it_face (om.MItMeshPolygon): 対象フェースを指すイテレーター
+
+    Returns:
+        float: 符号付き UV 面積
+    """
+    us, vs = it_face.getUVs()
+    n = len(us)
+
+    return sum(us[i] * vs[(i + 1) % n] - us[(i + 1) % n] * vs[i] for i in range(n)) / 2.0
+
+
+def _filter_faces_by_uv_facing(front):
+    """選択フェースのうち、UV 空間で指定の向きのフェースだけを選択する
+
+    Args:
+        front (bool): True なら表向き、False なら裏向きのフェースを残す
+    """
+    sel_list = om.MGlobal.getActiveSelectionList()
+    faces = []
+
+    for i in range(sel_list.length()):
+        dag_path, component = sel_list.getComponent(i)
+
+        if component.apiType() != om.MFn.kMeshPolygonComponent:
+            continue
+
+        it_face = om.MItMeshPolygon(dag_path, component)
+
+        while not it_face.isDone():
+            if it_face.hasUVs():
+                area = _get_uv_signed_area(it_face)
+
+                if (front and area > 0.0) or (not front and area < 0.0):
+                    faces.append("%s.f[%d]" % (dag_path.fullPathName(), it_face.index()))
+
+            it_face.next()
+
+    cmds.select(faces, replace=True)
+
+
+def _filter_shells_by_uv_facing(front):
+    """選択 UV シェルのうち、UV 空間で指定の向きのシェルだけを選択する
+
+    シェルの向きは、シェル内の表向きフェースと裏向きフェースの UV 面積の合計を比べて大きい方。
+
+    Args:
+        front (bool): True なら表向き、False なら裏向きのシェルを残す
+    """
+    uvs = cmds.filterExpand(cmds.polyListComponentConversion(cmds.ls(selection=True), toUV=True), selectionMask=35) or []
+
+    # ノードごとの選択シェル ID
+    shell_ids_by_node = dict()
+    selected_shells_by_node = collections.defaultdict(set)
+
+    for uv in uvs:
+        node, uv_index = re.match(r"(.+)\.map\[(\d+)\]", uv).groups()
+
+        if node not in shell_ids_by_node:
+            shell_ids_by_node[node] = _get_uv_shell_ids(node)
+
+        selected_shells_by_node[node].add(shell_ids_by_node[node][int(uv_index)])
+
+    target_uvs = []
+
+    for node, selected_shells in selected_shells_by_node.items():
+        shell_ids = shell_ids_by_node[node]
+
+        # シェルごとの符号付き UV 面積の合計 (表向きの面積 - 裏向きの面積)
+        signed_areas = collections.defaultdict(float)
+        sel_list = om.MSelectionList()
+        sel_list.add(node)
+        it_face = om.MItMeshPolygon(sel_list.getDagPath(0).extendToShape())
+
+        while not it_face.isDone():
+            if it_face.hasUVs():
+                shell_id = shell_ids[it_face.getUVIndex(0)]
+
+                if shell_id in selected_shells:
+                    signed_areas[shell_id] += _get_uv_signed_area(it_face)
+
+            it_face.next()
+
+        target_shells = set(shell_id for shell_id, area in signed_areas.items() if (front and area > 0.0) or (not front and area < 0.0))
+        target_uvs.extend("%s.map[%d]" % (node, uv_index) for uv_index, shell_id in enumerate(shell_ids) if shell_id in target_shells)
+
+    cmds.select(target_uvs, replace=True)
+
+
+def _filter_by_uv_facing(front):
+    """フェース選択なら選択フェースを、シェル選択なら選択シェルを UV 空間での向きで絞り込んで選択する
+
+    Args:
+        front (bool): True なら表向き、False なら裏向きのものを残す
+    """
+    if cmds.selectType(q=True, meshUVShell=True):
+        _filter_shells_by_uv_facing(front=front)
+    elif cmds.selectType(q=True, polymeshFace=True):
+        _filter_faces_by_uv_facing(front=front)
+    else:
+        cmds.warning("フェースまたは UV シェルを選択してください")
+
+
+@nd.repeatable
+def filter_frontface():
+    _filter_by_uv_facing(front=True)
+
+
+@nd.repeatable
+def filter_backface():
+    _filter_by_uv_facing(front=False)
+
+
 @nd.repeatable
 def shortest_edge_tool():
     mel.eval("SelectShortestEdgePathTool")
-
-
-@nd.repeatable
-def select_front_face():
-    pass
-
-
-@nd.repeatable
-def select_backface(self, *args):
-    pass
 
 
 @nd.repeatable
@@ -1395,10 +1577,9 @@ class NN_ToolWindow(object):
 
             # Select
             with ui.row_layout():
-                ui.header(label='Select')
-                ui.button(label='Frontface', c=self.onSelectFrontface)
-                ui.button(label='Backface', c=self.onSelectBackface)
-                ui.button(label='All Borders', c=self.onSelectAllUVBorders)
+                ui.header(label='Filter')
+                ui.button(label='Frontface', c=self.onFilterFrontface)
+                ui.button(label='Backface', c=self.onFilterBackface)
 
             # Transform
             with ui.row_layout():
@@ -1449,6 +1630,7 @@ class NN_ToolWindow(object):
         if ui.get_value(self.cb_transform_in_pixel):
             v *= 1.0 / ui.get_value(self.mapSize)
 
+        create_shell_if_ctrl()
         translate_uv(pivot=(0, 0), translate=(v, 0))
 
     @nd.undo_chunk
@@ -1458,6 +1640,7 @@ class NN_ToolWindow(object):
         if ui.get_value(self.cb_transform_in_pixel):
             v *= 1.0 / ui.get_value(self.mapSize)
 
+        create_shell_if_ctrl()
         translate_uv(pivot=(0, 0), translate=(-v, 0))
 
     @nd.undo_chunk
@@ -1467,6 +1650,7 @@ class NN_ToolWindow(object):
         if ui.get_value(self.cb_transform_in_pixel):
             v *= 1.0 / ui.get_value(self.mapSize)
 
+        create_shell_if_ctrl()
         translate_uv(pivot=(0, 0), translate=(0, v))
 
     @nd.undo_chunk
@@ -1476,31 +1660,37 @@ class NN_ToolWindow(object):
         if ui.get_value(self.cb_transform_in_pixel):
             v *= 1.0 / ui.get_value(self.mapSize)
 
+        create_shell_if_ctrl()
         translate_uv(pivot=(0, 0), translate=(0, -v))
 
     @nd.undo_chunk
     def onOrigScaleUMul(self, *args):
         v = ui.get_value(self.scaleValue)
+        create_shell_if_ctrl()
         scale_uv(scale=(v, 1))
 
     @nd.undo_chunk
     def onOrigScaleVMul(self, *args):
         v = ui.get_value(self.scaleValue)
+        create_shell_if_ctrl()
         scale_uv(scale=(1, v))
 
     @nd.undo_chunk
     def onOrigScaleUDiv(self, *args):
         v = ui.get_value(self.scaleValue)
+        create_shell_if_ctrl()
         scale_uv(scale=(1.0/v, 1))
 
     @nd.undo_chunk
     def onOrigScaleVDiv(self, *args):
         v = ui.get_value(self.scaleValue)
+        create_shell_if_ctrl()
         scale_uv(scale=(1, 1.0/v))
 
     @nd.undo_chunk
     def onRotateLeft(self, *args):
         angle = ui.get_value(self.rotationAngle)
+        create_shell_if_ctrl()
 
         if ui.is_shift():
             rotate_uv_each_shell(angle=angle)
@@ -1512,6 +1702,7 @@ class NN_ToolWindow(object):
     @nd.undo_chunk
     def onRotateRight(self, *args):
         angle = ui.get_value(self.rotationAngle)
+        create_shell_if_ctrl()
 
         if ui.is_shift():
             rotate_uv_each_shell(angle=-angle)
@@ -1586,12 +1777,12 @@ class NN_ToolWindow(object):
         """
         UVシェル、もしくはUVエッジのテクセルを設定
         shell選択ならMayaの機能を使用し それ以外なら独自のUVエッジに対するテクセル設定モードを使用する
-        Shift 押下時は選択シェル全体の平均テクセルが指定値になるよう一律にスケールする
+        Shift 押下時は選択シェル全体の平均テクセルが指定値になるよう一律にスケールする (フェース選択時は通常クリックと同じ)
         """
         texel = ui.get_value(self.texel)
         mapsize = ui.get_value(self.mapSize)
 
-        if ui.is_shift():
+        if ui.is_shift() and not cmds.selectType(q=True, polymeshFace=True):
             set_texel_uniform(texel=texel, mapsize=mapsize)
 
             return
@@ -1814,12 +2005,12 @@ class NN_ToolWindow(object):
         shortest_edge_tool()
 
     @nd.undo_chunk
-    def onSelectFrontface(self, *args):
-        select_front_face()
+    def onFilterFrontface(self, *args):
+        filter_frontface()
 
     @nd.undo_chunk
-    def onSelectBackface(self, *args):
-        select_backface()
+    def onFilterBackface(self, *args):
+        filter_backface()
 
     # etc
     @nd.undo_chunk
