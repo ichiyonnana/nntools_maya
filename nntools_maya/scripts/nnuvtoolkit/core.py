@@ -233,6 +233,12 @@ def get_uv_pivot():
         return None
 
 
+def create_shell_if_ctrl():
+    """Ctrl キーが押されていれば、選択部分を独立した UV シェルに切り離す"""
+    if ui.is_ctrl():
+        mel.eval("CreateUVShellAlongBorder")
+
+
 @nd.repeatable
 def translate_uv(pivot, translate):
     """ 選択中 UV の移動
@@ -1493,6 +1499,7 @@ class NN_ToolWindow(object):
         if ui.get_value(self.cb_transform_in_pixel):
             v *= 1.0 / ui.get_value(self.mapSize)
 
+        create_shell_if_ctrl()
         translate_uv(pivot=(0, 0), translate=(v, 0))
 
     @nd.undo_chunk
@@ -1502,6 +1509,7 @@ class NN_ToolWindow(object):
         if ui.get_value(self.cb_transform_in_pixel):
             v *= 1.0 / ui.get_value(self.mapSize)
 
+        create_shell_if_ctrl()
         translate_uv(pivot=(0, 0), translate=(-v, 0))
 
     @nd.undo_chunk
@@ -1511,6 +1519,7 @@ class NN_ToolWindow(object):
         if ui.get_value(self.cb_transform_in_pixel):
             v *= 1.0 / ui.get_value(self.mapSize)
 
+        create_shell_if_ctrl()
         translate_uv(pivot=(0, 0), translate=(0, v))
 
     @nd.undo_chunk
@@ -1520,31 +1529,37 @@ class NN_ToolWindow(object):
         if ui.get_value(self.cb_transform_in_pixel):
             v *= 1.0 / ui.get_value(self.mapSize)
 
+        create_shell_if_ctrl()
         translate_uv(pivot=(0, 0), translate=(0, -v))
 
     @nd.undo_chunk
     def onOrigScaleUMul(self, *args):
         v = ui.get_value(self.scaleValue)
+        create_shell_if_ctrl()
         scale_uv(scale=(v, 1))
 
     @nd.undo_chunk
     def onOrigScaleVMul(self, *args):
         v = ui.get_value(self.scaleValue)
+        create_shell_if_ctrl()
         scale_uv(scale=(1, v))
 
     @nd.undo_chunk
     def onOrigScaleUDiv(self, *args):
         v = ui.get_value(self.scaleValue)
+        create_shell_if_ctrl()
         scale_uv(scale=(1.0/v, 1))
 
     @nd.undo_chunk
     def onOrigScaleVDiv(self, *args):
         v = ui.get_value(self.scaleValue)
+        create_shell_if_ctrl()
         scale_uv(scale=(1, 1.0/v))
 
     @nd.undo_chunk
     def onRotateLeft(self, *args):
         angle = ui.get_value(self.rotationAngle)
+        create_shell_if_ctrl()
 
         if ui.is_shift():
             rotate_uv_each_shell(angle=angle)
@@ -1556,6 +1571,7 @@ class NN_ToolWindow(object):
     @nd.undo_chunk
     def onRotateRight(self, *args):
         angle = ui.get_value(self.rotationAngle)
+        create_shell_if_ctrl()
 
         if ui.is_shift():
             rotate_uv_each_shell(angle=-angle)
