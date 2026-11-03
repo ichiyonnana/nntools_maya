@@ -649,7 +649,7 @@ def set_texel(texel, mapsize):
     shell選択ならMayaの機能を使用し それ以外なら独自のUVエッジに対するテクセル設定モードを使用する
     """
     isUVShellSelection = cmds.selectType(q=True, msh=True)
-    isFaceSelection = cmds.selectType(q=True, pf=True)
+    isFaceSelection = cmds.selectType(q=True, polymeshFace=True)
 
     if isUVShellSelection:
         mel.eval("texSetTexelDensity %f %d" % (texel, mapsize))
@@ -672,7 +672,7 @@ def set_face_texel(texel, mapsize):
         mapsize (int): テクスチャの解像度 (px)
     """
     selection = cmds.ls(selection=True)
-    faces = cmds.filterExpand(selection, sm=34)
+    faces = cmds.filterExpand(selection, selectionMask=34)
 
     if not faces:
         cmds.warning("フェースが選択されていません")
@@ -1223,19 +1223,125 @@ def select_all_uv_borders():
     mel.eval("SelectUVBorderComponents")
 
 
+def _get_uv_signed_area(it_face):
+    """it_face の現在のフェースの UV 空間での符号付き面積を返す。表向き (反時計回り) なら正
+
+    Args:
+        it_face (om.MItMeshPolygon): 対象フェースを指すイテレーター
+
+    Returns:
+        float: 符号付き UV 面積
+    """
+    us, vs = it_face.getUVs()
+    n = len(us)
+
+    return sum(us[i] * vs[(i + 1) % n] - us[(i + 1) % n] * vs[i] for i in range(n)) / 2.0
+
+
+def _filter_faces_by_uv_facing(front):
+    """選択フェースのうち、UV 空間で指定の向きのフェースだけを選択する
+
+    Args:
+        front (bool): True なら表向き、False なら裏向きのフェースを残す
+    """
+    sel_list = om.MGlobal.getActiveSelectionList()
+    faces = []
+
+    for i in range(sel_list.length()):
+        dag_path, component = sel_list.getComponent(i)
+
+        if component.apiType() != om.MFn.kMeshPolygonComponent:
+            continue
+
+        it_face = om.MItMeshPolygon(dag_path, component)
+
+        while not it_face.isDone():
+            if it_face.hasUVs():
+                area = _get_uv_signed_area(it_face)
+
+                if (front and area > 0.0) or (not front and area < 0.0):
+                    faces.append("%s.f[%d]" % (dag_path.fullPathName(), it_face.index()))
+
+            it_face.next()
+
+    cmds.select(faces, replace=True)
+
+
+def _filter_shells_by_uv_facing(front):
+    """選択 UV シェルのうち、UV 空間で指定の向きのシェルだけを選択する
+
+    シェルの向きは、シェル内の表向きフェースと裏向きフェースの UV 面積の合計を比べて大きい方。
+
+    Args:
+        front (bool): True なら表向き、False なら裏向きのシェルを残す
+    """
+    uvs = cmds.filterExpand(cmds.polyListComponentConversion(cmds.ls(selection=True), toUV=True), selectionMask=35) or []
+
+    # ノードごとの選択シェル ID
+    shell_ids_by_node = dict()
+    selected_shells_by_node = collections.defaultdict(set)
+
+    for uv in uvs:
+        node, uv_index = re.match(r"(.+)\.map\[(\d+)\]", uv).groups()
+
+        if node not in shell_ids_by_node:
+            shell_ids_by_node[node] = _get_uv_shell_ids(node)
+
+        selected_shells_by_node[node].add(shell_ids_by_node[node][int(uv_index)])
+
+    target_uvs = []
+
+    for node, selected_shells in selected_shells_by_node.items():
+        shell_ids = shell_ids_by_node[node]
+
+        # シェルごとの符号付き UV 面積の合計 (表向きの面積 - 裏向きの面積)
+        signed_areas = collections.defaultdict(float)
+        sel_list = om.MSelectionList()
+        sel_list.add(node)
+        it_face = om.MItMeshPolygon(sel_list.getDagPath(0).extendToShape())
+
+        while not it_face.isDone():
+            if it_face.hasUVs():
+                shell_id = shell_ids[it_face.getUVIndex(0)]
+
+                if shell_id in selected_shells:
+                    signed_areas[shell_id] += _get_uv_signed_area(it_face)
+
+            it_face.next()
+
+        target_shells = set(shell_id for shell_id, area in signed_areas.items() if (front and area > 0.0) or (not front and area < 0.0))
+        target_uvs.extend("%s.map[%d]" % (node, uv_index) for uv_index, shell_id in enumerate(shell_ids) if shell_id in target_shells)
+
+    cmds.select(target_uvs, replace=True)
+
+
+def _filter_by_uv_facing(front):
+    """フェース選択なら選択フェースを、シェル選択なら選択シェルを UV 空間での向きで絞り込んで選択する
+
+    Args:
+        front (bool): True なら表向き、False なら裏向きのものを残す
+    """
+    if cmds.selectType(q=True, meshUVShell=True):
+        _filter_shells_by_uv_facing(front=front)
+    elif cmds.selectType(q=True, polymeshFace=True):
+        _filter_faces_by_uv_facing(front=front)
+    else:
+        cmds.warning("フェースまたは UV シェルを選択してください")
+
+
+@nd.repeatable
+def filter_frontface():
+    _filter_by_uv_facing(front=True)
+
+
+@nd.repeatable
+def filter_backface():
+    _filter_by_uv_facing(front=False)
+
+
 @nd.repeatable
 def shortest_edge_tool():
     mel.eval("SelectShortestEdgePathTool")
-
-
-@nd.repeatable
-def select_front_face():
-    pass
-
-
-@nd.repeatable
-def select_backface(self, *args):
-    pass
 
 
 @nd.repeatable
@@ -1445,10 +1551,9 @@ class NN_ToolWindow(object):
 
             # Select
             with ui.row_layout():
-                ui.header(label='Select')
-                ui.button(label='Frontface', c=self.onSelectFrontface)
-                ui.button(label='Backface', c=self.onSelectBackface)
-                ui.button(label='All Borders', c=self.onSelectAllUVBorders)
+                ui.header(label='Filter')
+                ui.button(label='Frontface', c=self.onFilterFrontface)
+                ui.button(label='Backface', c=self.onFilterBackface)
 
             # Transform
             with ui.row_layout():
@@ -1651,7 +1756,7 @@ class NN_ToolWindow(object):
         texel = ui.get_value(self.texel)
         mapsize = ui.get_value(self.mapSize)
 
-        if ui.is_shift() and not cmds.selectType(q=True, pf=True):
+        if ui.is_shift() and not cmds.selectType(q=True, polymeshFace=True):
             set_texel_uniform(texel=texel, mapsize=mapsize)
 
             return
@@ -1874,12 +1979,12 @@ class NN_ToolWindow(object):
         shortest_edge_tool()
 
     @nd.undo_chunk
-    def onSelectFrontface(self, *args):
-        select_front_face()
+    def onFilterFrontface(self, *args):
+        filter_frontface()
 
     @nd.undo_chunk
-    def onSelectBackface(self, *args):
-        select_backface()
+    def onFilterBackface(self, *args):
+        filter_backface()
 
     # etc
     @nd.undo_chunk
